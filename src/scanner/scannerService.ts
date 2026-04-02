@@ -1,0 +1,123 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+import { IndexedRule } from './scannerTypes';
+import { discoverFiles } from './fileDiscovery';
+import { parseFrontmatter, extractFirstHeading } from './frontmatterParser';
+import { normalizeTrigger } from './triggerNormalizer';
+import { computeMinHash } from '../hashing/minHasher';
+import { RuleIndex, generateRuleId } from '../index/ruleIndex';
+
+/**
+ * Orchestrates workspace scanning: discovers files, parses frontmatter,
+ * normalizes triggers, computes MinHash signatures, and populates the index.
+ */
+export class ScannerService {
+  private _onScanStarted = new vscode.EventEmitter<void>();
+  private _onScanCompleted = new vscode.EventEmitter<{ count: number; durationMs: number }>();
+  readonly onScanStarted = this._onScanStarted.event;
+  readonly onScanCompleted = this._onScanCompleted.event;
+
+  private scanning = false;
+
+  constructor(private readonly ruleIndex: RuleIndex) {}
+
+  get isScanning(): boolean {
+    return this.scanning;
+  }
+
+  /**
+   * Run a full workspace scan. Discovers all rule files, parses them,
+   * and replaces the current index.
+   */
+  async scan(): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      vscode.window.showWarningMessage('AI Rules Scanner: No workspace folder open.');
+      return;
+    }
+
+    if (this.scanning) {
+      vscode.window.showInformationMessage('AI Rules Scanner: Scan already in progress.');
+      return;
+    }
+
+    this.scanning = true;
+    this._onScanStarted.fire();
+    const startTime = Date.now();
+
+    try {
+      const workspaceRoot = workspaceFolder.uri.fsPath;
+      const discovered = await discoverFiles(workspaceRoot);
+
+      const rules: IndexedRule[] = [];
+      for (const file of discovered) {
+        try {
+          const rule = await this.processFile(file.filePath, file.format, file.sourceType, workspaceRoot);
+          if (rule) {
+            rules.push(rule);
+          }
+        } catch (err) {
+          console.warn(`AI Rules Scanner: Failed to process ${file.filePath}:`, err);
+        }
+      }
+
+      await this.ruleIndex.replaceAll(rules);
+
+      const durationMs = Date.now() - startTime;
+      this._onScanCompleted.fire({ count: rules.length, durationMs });
+
+      vscode.window.showInformationMessage(
+        `AI Rules Scanner: Found ${rules.length} rule(s) in ${durationMs}ms.`
+      );
+    } catch (err) {
+      console.error('AI Rules Scanner: Scan failed:', err);
+      vscode.window.showErrorMessage(`AI Rules Scanner: Scan failed — ${err}`);
+    } finally {
+      this.scanning = false;
+    }
+  }
+
+  private async processFile(
+    filePath: string,
+    format: IndexedRule['format'],
+    sourceType: IndexedRule['sourceType'],
+    workspaceRoot: string
+  ): Promise<IndexedRule | undefined> {
+    const uri = vscode.Uri.file(filePath);
+    const stat = await vscode.workspace.fs.stat(uri);
+    const contentBytes = await vscode.workspace.fs.readFile(uri);
+    const content = Buffer.from(contentBytes).toString('utf-8');
+
+    const { fields, body } = parseFrontmatter(content);
+    const { trigger, globs, description: fmDescription } = normalizeTrigger(
+      format, fields, filePath, sourceType, workspaceRoot
+    );
+
+    // Fall back to first markdown heading if no frontmatter description
+    const description = fmDescription ?? extractFirstHeading(body);
+
+    const contentHash = computeMinHash(body);
+
+    return {
+      id: generateRuleId(filePath),
+      filePath,
+      fileName: path.basename(filePath),
+      fileExtension: path.extname(filePath).toLowerCase(),
+      format,
+      sourceType,
+      trigger,
+      description,
+      globs,
+      contentHash,
+      fileSize: stat.size,
+      lastModified: new Date(stat.mtime).toISOString(),
+      rawFrontmatter: Object.keys(fields).length > 0 ? fields : undefined,
+    };
+  }
+
+  dispose(): void {
+    this._onScanStarted.dispose();
+    this._onScanCompleted.dispose();
+  }
+}
+

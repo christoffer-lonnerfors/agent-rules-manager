@@ -1,0 +1,130 @@
+import { IndexedRule, LogicalRule, RuleFormat } from '../scanner/scannerTypes';
+import { computeSimilarity } from '../hashing/minHasher';
+import { DUPLICATE_THRESHOLD } from './similarityDetector';
+
+/**
+ * Groups IndexedRules into LogicalRules by merging near-duplicates
+ * across different formats using MinHash similarity.
+ *
+ * Rules within the same format are never merged — only cross-format
+ * duplicates are combined into a single LogicalRule.
+ */
+export function buildLogicalRules(rules: IndexedRule[]): LogicalRule[] {
+  // Union-Find for grouping
+  const parent = new Map<string, string>();
+
+  function find(x: string): string {
+    if (!parent.has(x)) { parent.set(x, x); }
+    let root = x;
+    while (parent.get(root) !== root) {
+      root = parent.get(root)!;
+    }
+    let current = x;
+    while (current !== root) {
+      const next = parent.get(current)!;
+      parent.set(current, root);
+      current = next;
+    }
+    return root;
+  }
+
+  function union(a: string, b: string): void {
+    const rootA = find(a);
+    const rootB = find(b);
+    if (rootA !== rootB) {
+      parent.set(rootB, rootA);
+    }
+  }
+
+  // Compare all cross-format pairs
+  for (let i = 0; i < rules.length; i++) {
+    for (let j = i + 1; j < rules.length; j++) {
+      // Only merge across different formats
+      if (rules[i].format === rules[j].format) { continue; }
+
+      const similarity = computeSimilarity(
+        rules[i].contentHash,
+        rules[j].contentHash
+      );
+
+      if (similarity >= DUPLICATE_THRESHOLD) {
+        union(rules[i].id, rules[j].id);
+      }
+    }
+  }
+
+  // Collect groups
+  const groups = new Map<string, IndexedRule[]>();
+  for (const rule of rules) {
+    const root = find(rule.id);
+    if (!groups.has(root)) {
+      groups.set(root, []);
+    }
+    groups.get(root)!.push(rule);
+  }
+
+  // Convert groups to LogicalRules
+  const logicalRules: LogicalRule[] = [];
+  for (const groupRules of groups.values()) {
+    logicalRules.push(createLogicalRule(groupRules));
+  }
+
+  return logicalRules;
+}
+
+/**
+ * Create a LogicalRule from a group of IndexedRules.
+ * Picks the best description and merges format lists.
+ */
+function createLogicalRule(rules: IndexedRule[]): LogicalRule {
+  // Pick the "primary" rule — prefer one with a description, then by format priority
+  const primary = pickPrimaryRule(rules);
+
+  // Collect unique formats, sorted
+  const formats = [...new Set(rules.map(r => r.format))].sort() as RuleFormat[];
+
+  // Best description: prefer frontmatter description, then heading-derived
+  const description = primary.description
+    ?? primary.fileName.replace(/\.[^.]+$/, ''); // fallback to filename without extension
+
+  // Compute minimum pairwise similarity among all rules in the group
+  let minSimilarity = 1.0;
+  if (rules.length > 1) {
+    for (let i = 0; i < rules.length; i++) {
+      for (let j = i + 1; j < rules.length; j++) {
+        const sim = computeSimilarity(rules[i].contentHash, rules[j].contentHash);
+        if (sim < minSimilarity) {
+          minSimilarity = sim;
+        }
+      }
+    }
+  }
+
+  return {
+    id: primary.id,
+    description,
+    trigger: primary.trigger,
+    globs: primary.globs,
+    formats,
+    rules: rules.sort((a, b) => a.format.localeCompare(b.format)),
+    minSimilarity,
+  };
+}
+
+/** Pick the most informative rule as the primary representative */
+function pickPrimaryRule(rules: IndexedRule[]): IndexedRule {
+  // Prefer rules with a description
+  const withDescription = rules.filter(r => r.description);
+  if (withDescription.length > 0) {
+    return withDescription[0];
+  }
+
+  // Prefer directory rules over standalone/hierarchical
+  const directoryRules = rules.filter(r => r.sourceType === 'directory_rule');
+  if (directoryRules.length > 0) {
+    return directoryRules[0];
+  }
+
+  return rules[0];
+}
+

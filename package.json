@@ -1,0 +1,92 @@
+{
+  "name": "ai-rules-scanner",
+  "displayName": "AI Rules Scanner",
+  "description": "Scan, index, and manage AI agent rule files across Cursor, Windsurf, Kiro, Antigravity, Augment, and Claude Code formats.",
+  "version": "0.0.1",
+  "publisher": "ai-rules",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "rules",
+    "cursor",
+    "windsurf",
+    "claude"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiRulesScanner.scan",
+        "title": "AI Rules: Scan Workspace",
+        "icon": "$(search)"
+      },
+      {
+        "command": "aiRulesScanner.rescan",
+        "title": "AI Rules: Re-scan Workspace",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aiRulesScanner.openRule",
+        "title": "AI Rules: Open Rule File",
+        "icon": "$(go-to-file)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiRulesScanner",
+          "title": "AI Rules",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "views": {
+      "aiRulesScanner": [
+        {
+          "id": "aiRulesScanner.rulesView",
+          "name": "Rules",
+          "icon": "$(list-unordered)",
+          "contextualTitle": "AI Rules"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "aiRulesScanner.scan",
+          "when": "view == aiRulesScanner.rulesView",
+          "group": "navigation"
+        },
+        {
+          "command": "aiRulesScanner.rescan",
+          "when": "view == aiRulesScanner.rulesView",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.100.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.0",
+    "mocha": "^11.7.5",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "yaml": "^2.7.0"
+  }
+}
