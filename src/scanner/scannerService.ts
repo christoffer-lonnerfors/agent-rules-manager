@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { IndexedRule } from './scannerTypes';
 import { discoverFiles } from './fileDiscovery';
 import { parseFrontmatter, extractFirstHeading } from './frontmatterParser';
@@ -97,6 +98,7 @@ export class ScannerService {
     const description = fmDescription ?? extractFirstHeading(body);
 
     const contentHash = computeMinHash(body);
+    const bodyHash = crypto.createHash('sha256').update(body).digest('hex');
 
     return {
       id: generateRuleId(filePath),
@@ -109,6 +111,7 @@ export class ScannerService {
       description,
       globs,
       contentHash,
+      bodyHash,
       fileSize: stat.size,
       lastModified: new Date(stat.mtime).toISOString(),
       rawFrontmatter: Object.keys(fields).length > 0 ? fields : undefined,

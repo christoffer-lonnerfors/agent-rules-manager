@@ -35,6 +35,16 @@
         "command": "aiRulesScanner.openRule",
         "title": "AI Rules: Open Rule File",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "aiRulesScanner.compareFormats",
+        "title": "Compare Formats…",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "aiRulesScanner.alignFormats",
+        "title": "Align Formats…",
+        "icon": "$(sync)"
       }
     ],
     "viewsContainers": {
@@ -68,7 +78,62 @@
           "when": "view == aiRulesScanner.rulesView",
           "group": "navigation"
         }
+      ],
+      "view/item/context": [
+        {
+          "command": "aiRulesScanner.compareFormats",
+          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
+          "group": "inline"
+        },
+        {
+          "command": "aiRulesScanner.alignFormats",
+          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
+          "group": "inline"
+        },
+        {
+          "command": "aiRulesScanner.compareFormats",
+          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
+          "group": "1_compare"
+        },
+        {
+          "command": "aiRulesScanner.alignFormats",
+          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
+          "group": "2_align"
+        }
       ]
+    },
+    "configuration": {
+      "title": "AI Rules",
+      "properties": {
+        "aiRules.primaryFormat": {
+          "type": "string",
+          "enum": [
+            "",
+            "cursor",
+            "windsurf",
+            "kiro",
+            "antigravity",
+            "augment",
+            "claude-code"
+          ],
+          "enumItemLabels": [
+            "(none)",
+            "Cursor",
+            "Windsurf",
+            "Kiro",
+            "Antigravity",
+            "Augment",
+            "Claude Code"
+          ],
+          "default": "",
+          "description": "Primary AI agent format. When set, this format is suggested as the source of truth when aligning diverged rules."
+        },
+        "aiRules.detectDivergence": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning badge on rules that have diverged content across formats. Disable to suppress divergence warnings."
+        }
+      }
     }
   },
   "scripts": {

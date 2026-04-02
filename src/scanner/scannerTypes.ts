@@ -48,6 +48,9 @@ export interface IndexedRule {
   /** MinHash signature of the rule body content (128 × uint32) */
   contentHash: number[];
 
+  /** SHA-256 hex digest of the trimmed rule body (for exact divergence detection) */
+  bodyHash: string;
+
   /** File size in bytes */
   fileSize: number;
 

@@ -87,15 +87,27 @@ function createLogicalRule(rules: IndexedRule[]): LogicalRule {
   const description = primary.description
     ?? primary.fileName.replace(/\.[^.]+$/, ''); // fallback to filename without extension
 
-  // Compute minimum pairwise similarity among all rules in the group
+  // Detect divergence using exact body hash (SHA-256).
+  // If any two rules have different body hashes, the group has diverged.
+  // MinHash similarity is still reported for the tooltip (approximate %).
   let minSimilarity = 1.0;
   if (rules.length > 1) {
-    for (let i = 0; i < rules.length; i++) {
-      for (let j = i + 1; j < rules.length; j++) {
-        const sim = computeSimilarity(rules[i].contentHash, rules[j].contentHash);
-        if (sim < minSimilarity) {
-          minSimilarity = sim;
+    // Check exact divergence first
+    const firstHash = rules[0].bodyHash;
+    const allIdentical = rules.every(r => r.bodyHash === firstHash);
+    if (!allIdentical) {
+      // Compute approximate similarity for display purposes
+      for (let i = 0; i < rules.length; i++) {
+        for (let j = i + 1; j < rules.length; j++) {
+          const sim = computeSimilarity(rules[i].contentHash, rules[j].contentHash);
+          if (sim < minSimilarity) {
+            minSimilarity = sim;
+          }
         }
+      }
+      // Ensure we always flag divergence even if MinHash says 1.0
+      if (minSimilarity >= 1.0) {
+        minSimilarity = 0.99;
       }
     }
   }

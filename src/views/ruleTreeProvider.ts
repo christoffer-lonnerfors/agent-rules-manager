@@ -194,11 +194,13 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     }
 
     // Attach custom URI so FileDecorationProvider can badge diverged rules
-    if (hasMultipleFiles && logicalRule.minSimilarity < 1.0) {
+    const detectDivergence = vscode.workspace.getConfiguration('aiRules').get<boolean>('detectDivergence', true);
+    const isDiverged = detectDivergence && hasMultipleFiles && logicalRule.minSimilarity < 1.0;
+    if (isDiverged) {
       item.resourceUri = vscode.Uri.parse(`${DIVERGED_SCHEME}:/${logicalRule.id}`);
     }
 
-    item.contextValue = 'logicalRule';
+    item.contextValue = isDiverged ? 'logicalRule.diverged' : 'logicalRule';
     return item;
   }
 
@@ -231,6 +233,11 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
     item.contextValue = 'ruleFile';
     return item;
+  }
+
+  /** Look up a logical rule by its ID (used by compare command) */
+  getLogicalRuleById(id: string): LogicalRule | undefined {
+    return this.logicalRules.find(lr => lr.id === id);
   }
 
   dispose(): void {
