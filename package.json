@@ -176,6 +176,16 @@
           "type": "boolean",
           "default": true,
           "description": "Show a warning badge on rules that have diverged content across formats. Disable to suppress divergence warnings."
+        },
+        "agentRules.lint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable rule quality checks (empty body, missing description, oversized rules)."
+        },
+        "agentRules.lint.maxRuleTokens": {
+          "type": "number",
+          "default": 2000,
+          "description": "Warn when a single rule body exceeds this estimated token count."
         }
       }
     }

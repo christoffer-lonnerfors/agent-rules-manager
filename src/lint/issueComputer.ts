@@ -1,5 +1,6 @@
 import { LogicalRule, RuleFormat } from '../scanner/scannerTypes';
 import { RuleIssue } from './ruleIssues';
+import { estimateTokens, formatTokenCount } from './tokenEstimator';
 import { FORMAT_LABELS } from '../views/ruleTreeProvider';
 
 /**
@@ -11,6 +12,10 @@ export interface IssueComputerConfig {
   primaryFormat: RuleFormat | '';
   /** Whether divergence detection is enabled */
   detectDivergence: boolean;
+  /** Whether lint checks are enabled */
+  lintEnabled: boolean;
+  /** Token threshold for the rule-too-large check */
+  maxRuleTokens: number;
 }
 
 /**
@@ -25,9 +30,17 @@ export function computeIssues(
 ): RuleIssue[] {
   const issues: RuleIssue[] = [];
 
+  // Structural checks (always run)
   checkDivergedContent(logicalRule, config, issues);
   checkMissingPrimary(logicalRule, config, issues);
   checkExtensionMismatch(logicalRule, issues);
+
+  // Lint checks (gated by config)
+  if (config.lintEnabled) {
+    checkEmptyBody(logicalRule, issues);
+    checkMissingDescription(logicalRule, issues);
+    checkRuleTooLarge(logicalRule, config, issues);
+  }
 
   return issues;
 }
@@ -84,6 +97,68 @@ function checkExtensionMismatch(
   }
 }
 
+// ── Lint checks ──────────────────────────────────────────────────────
+
+function checkEmptyBody(
+  lr: LogicalRule,
+  issues: RuleIssue[],
+): void {
+  for (const rule of lr.rules) {
+    if (rule.bodyLength < 10) {
+      issues.push({
+        id: 'empty-body',
+        severity: 'warning',
+        message: `Rule body is empty or near-empty (${rule.bodyLength} chars)`,
+        ruleId: rule.id,
+      });
+    }
+  }
+}
+
+const MIN_DESCRIPTION_LENGTH = 10;
+
+function checkMissingDescription(
+  lr: LogicalRule,
+  issues: RuleIssue[],
+): void {
+  // Only relevant for agent_requested rules — the description is the
+  // only signal agents use to decide whether to attach the rule.
+  if (lr.trigger !== 'agent_requested') { return; }
+
+  const desc = lr.description?.trim() ?? '';
+  if (desc.length === 0) {
+    issues.push({
+      id: 'missing-description',
+      severity: 'warning',
+      message: 'Agent-requested rule has no description — agents cannot discover it',
+    });
+  } else if (desc.length < MIN_DESCRIPTION_LENGTH) {
+    issues.push({
+      id: 'missing-description',
+      severity: 'warning',
+      message: `Description is too short (${desc.length} chars) — agents need a clear description to decide when to use this rule`,
+    });
+  }
+}
+
+function checkRuleTooLarge(
+  lr: LogicalRule,
+  config: IssueComputerConfig,
+  issues: RuleIssue[],
+): void {
+  for (const rule of lr.rules) {
+    const tokens = estimateTokens(rule.bodyLength);
+    if (tokens > config.maxRuleTokens) {
+      issues.push({
+        id: 'rule-too-large',
+        severity: 'warning',
+        message: `Rule body is large (${formatTokenCount(tokens)}) — consider splitting`,
+        ruleId: rule.id,
+      });
+    }
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────
 
 /** Check whether a list of issues contains a specific issue ID */
@@ -97,5 +172,32 @@ export function maxSeverity(issues: RuleIssue[]): RuleIssue['severity'] | undefi
   if (issues.some(i => i.severity === 'error')) { return 'error'; }
   if (issues.some(i => i.severity === 'warning')) { return 'warning'; }
   return 'info';
+}
+
+/** Issues that apply to the logical rule as a whole (no ruleId) */
+export function getLogicalIssues(issues: RuleIssue[]): RuleIssue[] {
+  return issues.filter(i => !i.ruleId);
+}
+
+/** Issues that apply to a specific file (has ruleId) */
+export function getFileIssues(issues: RuleIssue[], ruleId: string): RuleIssue[] {
+  return issues.filter(i => i.ruleId === ruleId);
+}
+
+/**
+ * De-duplicate file-level issues for display on the logical rule node.
+ * When multiple files produce the same issue id, show it once with a
+ * generic message (without file-specific details).
+ */
+export function dedupeFileIssues(issues: RuleIssue[]): RuleIssue[] {
+  const fileIssues = issues.filter(i => i.ruleId);
+  const seen = new Map<string, RuleIssue>();
+  for (const issue of fileIssues) {
+    if (!seen.has(issue.id)) {
+      // Use the first occurrence's message as representative
+      seen.set(issue.id, { ...issue, ruleId: undefined });
+    }
+  }
+  return Array.from(seen.values());
 }
 

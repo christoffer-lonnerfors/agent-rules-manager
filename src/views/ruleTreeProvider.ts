@@ -3,7 +3,9 @@ import * as path from 'path';
 import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger } from '../scanner/scannerTypes';
 import { RuleIndex } from '../index/ruleIndex';
 import { buildLogicalRules } from '../index/logicalRuleBuilder';
-import { computeIssues, hasIssue, IssueComputerConfig } from '../lint/issueComputer';
+import { RuleIssue } from '../lint/ruleIssues';
+import { computeIssues, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues, IssueComputerConfig } from '../lint/issueComputer';
+import { estimateTokens, formatTokenCount } from '../lint/tokenEstimator';
 
 /** Custom URI scheme used to attach FileDecorations to tree items with issues */
 const ISSUE_SCHEME = 'ai-rules-issue';
@@ -24,6 +26,8 @@ interface LogicalRuleNode {
 interface RuleFileNode {
   type: 'file';
   rule: IndexedRule;
+  /** Issues specific to this file (pre-filtered from the logical rule's issues) */
+  issues: RuleIssue[];
 }
 
 export const FORMAT_LABELS: Record<RuleFormat, string> = {
@@ -146,7 +150,13 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   private getFilesForLogicalRule(logicalRule: LogicalRule): RuleFileNode[] {
-    return logicalRule.rules.map(rule => ({ type: 'file' as const, rule }));
+    const config = this.getIssueConfig();
+    const issues = computeIssues(logicalRule, config);
+    return logicalRule.rules.map(rule => ({
+      type: 'file' as const,
+      rule,
+      issues: getFileIssues(issues, rule.id),
+    }));
   }
 
   private createTriggerItem(node: TriggerGroupNode): vscode.TreeItem {
@@ -154,6 +164,18 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       `${TRIGGER_LABELS[node.trigger]} (${node.count})`,
       vscode.TreeItemCollapsibleState.Expanded
     );
+
+    // Show aggregate token estimate for this trigger group
+    const groupRules = this.logicalRules.filter(lr => lr.trigger === node.trigger);
+    const totalTokens = groupRules.reduce((sum, lr) => {
+      // Use the max bodyLength across format versions (they're near-duplicates)
+      const maxBody = Math.max(...lr.rules.map(r => r.bodyLength));
+      return sum + estimateTokens(maxBody);
+    }, 0);
+    if (totalTokens > 0) {
+      item.description = formatTokenCount(totalTokens);
+    }
+
     item.iconPath = new vscode.ThemeIcon(TRIGGER_ICONS[node.trigger]);
     item.contextValue = 'trigger';
     return item;
@@ -165,6 +187,8 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     return {
       primaryFormat: cfg.get<string>('primaryFormat', '') as RuleFormat | '',
       detectDivergence: cfg.get<boolean>('detectDivergence', true),
+      lintEnabled: cfg.get<boolean>('lint.enabled', true),
+      maxRuleTokens: cfg.get<number>('lint.maxRuleTokens', 2000),
     };
   }
 
@@ -190,15 +214,22 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     // Description shows format list, plus ❌ if missing from primary
     item.description = isMissing ? `${formatList}  ❌` : formatList;
 
-    // Tooltip: base info + all issue messages
+    // Token estimate for the logical rule (use max across format versions)
+    const maxBody = Math.max(...logicalRule.rules.map(r => r.bodyLength));
+    const ruleTokens = estimateTokens(maxBody);
+
+    // Tooltip: base info + token estimate + de-duped issue messages
     const tooltipLines = [
       `**${logicalRule.description}**`,
       `Trigger: ${TRIGGER_LABELS[logicalRule.trigger]}`,
       logicalRule.globs?.length ? `Globs: ${logicalRule.globs.join(', ')}` : '',
       `Formats: ${formatList}`,
       `Files: ${logicalRule.rules.length}`,
+      `Size: ${formatTokenCount(ruleTokens)}`,
     ];
-    for (const issue of issues) {
+    // Logical-level issues first, then de-duped file-level issues
+    const displayIssues = [...getLogicalIssues(issues), ...dedupeFileIssues(issues)];
+    for (const issue of displayIssues) {
       const icon = issue.severity === 'error' ? '🔴' : issue.severity === 'warning' ? '⚠️' : 'ℹ️';
       tooltipLines.push(`${icon} ${issue.message}`);
     }
@@ -234,30 +265,30 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   private createFileItem(node: RuleFileNode): vscode.TreeItem {
-    const { rule } = node;
-    const isMismatch = rule.extensionMismatch === true;
+    const { rule, issues } = node;
+    const hasFileIssues = issues.length > 0;
 
-    const label = isMismatch
-      ? `${FORMAT_LABELS[rule.format]} (wrong extension)`
-      : FORMAT_LABELS[rule.format];
+    const label = FORMAT_LABELS[rule.format];
     const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 
-    // Show workspace-relative path instead of absolute
-    item.description = vscode.workspace.asRelativePath(rule.filePath, false);
-    item.iconPath = isMismatch
+    const relativePath = vscode.workspace.asRelativePath(rule.filePath, false);
+    const fileTokens = estimateTokens(rule.bodyLength);
+
+    item.description = `${relativePath}  ${formatTokenCount(fileTokens)}`;
+    item.iconPath = hasFileIssues
       ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'))
       : this.getFormatIconPath(rule.format);
 
-    const relativePath = vscode.workspace.asRelativePath(rule.filePath, false);
     const tooltipLines = [
       `**${rule.fileName}**`,
       `Format: ${FORMAT_LABELS[rule.format]}`,
       `Path: ${relativePath}`,
-      `Size: ${rule.fileSize} bytes`,
+      `Size: ${rule.fileSize} bytes | ${formatTokenCount(fileTokens)}`,
       `Modified: ${rule.lastModified}`,
     ];
-    if (isMismatch) {
-      tooltipLines.push(`⚠️ Wrong extension — this format expects ${rule.format === 'cursor' ? '.mdc / .md' : '.md'} files`);
+    for (const issue of issues) {
+      const icon = issue.severity === 'error' ? '🔴' : issue.severity === 'warning' ? '⚠️' : 'ℹ️';
+      tooltipLines.push(`${icon} ${issue.message}`);
     }
     item.tooltip = new vscode.MarkdownString(tooltipLines.join('\n\n'));
 
@@ -267,7 +298,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       arguments: [rule.filePath],
     };
 
-    item.contextValue = isMismatch ? 'ruleFile.mismatch' : 'ruleFile';
+    item.contextValue = hasFileIssues ? 'ruleFile.issues' : 'ruleFile';
     return item;
   }
 
