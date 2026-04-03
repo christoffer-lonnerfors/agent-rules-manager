@@ -112,11 +112,17 @@ function createLogicalRule(rules: IndexedRule[]): LogicalRule {
     }
   }
 
+  // Merge globs: prefer the most specific/explicit globs from any member.
+  // Directory rules with explicit frontmatter globs are more informative than
+  // implicit globs derived from hierarchical file placement.
+  const bestGlobs = pickBestGlobs(rules);
+  const trigger = bestGlobs ? 'glob' : primary.trigger;
+
   return {
     id: primary.id,
     description,
-    trigger: primary.trigger,
-    globs: primary.globs,
+    trigger,
+    globs: bestGlobs ?? primary.globs,
     formats,
     rules: rules.sort((a, b) => a.format.localeCompare(b.format)),
     minSimilarity,
@@ -138,5 +144,27 @@ function pickPrimaryRule(rules: IndexedRule[]): IndexedRule {
   }
 
   return rules[0];
+}
+
+/**
+ * Pick the best (most explicit) globs from a group of rules.
+ * Prefers explicit frontmatter globs from directory rules over implicit
+ * globs derived from hierarchical file paths.
+ * Returns undefined if no rule has globs.
+ */
+function pickBestGlobs(rules: IndexedRule[]): string[] | undefined {
+  // First: prefer directory rules with explicit globs
+  const dirWithGlobs = rules.filter(r => r.sourceType === 'directory_rule' && r.globs?.length);
+  if (dirWithGlobs.length > 0) {
+    return dirWithGlobs[0].globs;
+  }
+
+  // Then: any rule with globs (including implicit from hierarchical)
+  const anyWithGlobs = rules.filter(r => r.globs?.length);
+  if (anyWithGlobs.length > 0) {
+    return anyWithGlobs[0].globs;
+  }
+
+  return undefined;
 }
 

@@ -8,6 +8,7 @@ import { ActionsTreeProvider } from './views/actionsTreeProvider';
 import { LogicalRule, RuleFormat } from './scanner/scannerTypes';
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from './scanner/formatDetector';
+import { extractCommonDirectory } from './scanner/scopeTranslator';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
 const RULE_BODY_SCHEME = 'ai-rules-body';
@@ -392,7 +393,28 @@ function scaffoldRuleFile(logicalRule: LogicalRule, targetFormat: RuleFormat): s
 
   // Determine target directory and extension
   const config = FORMAT_CONFIGS.find(c => c.format === targetFormat);
-  if (!config || config.directories.length === 0) { return undefined; }
+  if (!config || config.directories.length === 0 && config.hierarchicalFiles.length === 0) { return undefined; }
+
+  // Augment with glob-scoped rules: place AGENTS.md in the LCA directory
+  // instead of creating a file in .augment/rules/
+  if (targetFormat === 'augment' && logicalRule.trigger === 'glob' && logicalRule.globs?.length) {
+    const lcaDir = extractCommonDirectory(logicalRule.globs);
+    const targetDir = lcaDir ? path.join(root, lcaDir) : root;
+    const targetPath = path.join(targetDir, 'AGENTS.md');
+
+    // Don't overwrite existing AGENTS.md
+    if (fs.existsSync(targetPath)) {
+      // Append to existing file
+      const existing = fs.readFileSync(targetPath, 'utf-8');
+      const content = existing.trimEnd() + '\n\n---\n\n' + sourceBody + '\n';
+      fs.writeFileSync(targetPath, content, 'utf-8');
+    } else {
+      fs.mkdirSync(targetDir, { recursive: true });
+      // AGENTS.md has no frontmatter — plain markdown
+      fs.writeFileSync(targetPath, sourceBody + '\n', 'utf-8');
+    }
+    return targetPath;
+  }
 
   const targetDir = path.join(root, config.directories[0]);
   const targetExt = targetFormat === 'cursor' ? '.mdc' : '.md';

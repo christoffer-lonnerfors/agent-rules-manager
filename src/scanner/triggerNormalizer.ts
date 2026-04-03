@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { RuleFormat, RuleTrigger, RuleSourceType } from './scannerTypes';
+import { deriveGlobFromHierarchicalPath } from './scopeTranslator';
 
 /**
  * Normalizes format-specific trigger/activation fields into the common RuleTrigger enum.
@@ -17,13 +18,23 @@ export function normalizeTrigger(
   sourceType: RuleSourceType,
   workspaceRoot: string
 ): { trigger: RuleTrigger; globs: string[] | undefined; description: string | undefined } {
-  // Standalone files and hierarchical MDs are always-on by nature
-  if (sourceType === 'standalone_file' || sourceType === 'hierarchical_md') {
+  // Standalone files are always-on by nature
+  if (sourceType === 'standalone_file') {
     return {
       trigger: 'always',
       globs: undefined,
       description: typeof fields.description === 'string' ? fields.description : undefined,
     };
+  }
+
+  // Hierarchical MDs: root-level = always-on, subdirectory = implicitly scoped
+  if (sourceType === 'hierarchical_md') {
+    const description = typeof fields.description === 'string' ? fields.description : undefined;
+    const implicitGlob = deriveGlobFromHierarchicalPath(filePath, workspaceRoot);
+    if (implicitGlob) {
+      return { trigger: 'glob', globs: [implicitGlob], description };
+    }
+    return { trigger: 'always', globs: undefined, description };
   }
 
   switch (format) {
