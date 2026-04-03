@@ -109,32 +109,32 @@
       "view/item/context": [
         {
           "command": "agentRules.compareFormats",
-          "when": "view == agentRules.rulesView && viewItem == logicalRule.diverged",
+          "when": "view == agentRules.rulesView && viewItem =~ /logicalRule.*diverged/",
           "group": "inline"
         },
         {
           "command": "agentRules.alignFormats",
-          "when": "view == agentRules.rulesView && viewItem == logicalRule.diverged",
+          "when": "view == agentRules.rulesView && viewItem =~ /logicalRule.*diverged/",
           "group": "inline"
         },
         {
           "command": "agentRules.compareFormats",
-          "when": "view == agentRules.rulesView && viewItem == logicalRule.diverged",
+          "when": "view == agentRules.rulesView && viewItem =~ /logicalRule.*diverged/",
           "group": "1_compare"
         },
         {
           "command": "agentRules.alignFormats",
-          "when": "view == agentRules.rulesView && viewItem == logicalRule.diverged",
+          "when": "view == agentRules.rulesView && viewItem =~ /logicalRule.*diverged/",
           "group": "2_align"
         },
         {
           "command": "agentRules.addMissingRule",
-          "when": "view == agentRules.rulesView && viewItem == logicalRule.missing",
+          "when": "view == agentRules.rulesView && viewItem =~ /logicalRule.*missing/",
           "group": "inline"
         },
         {
           "command": "agentRules.addMissingRule",
-          "when": "view == agentRules.rulesView && viewItem == logicalRule.missing",
+          "when": "view == agentRules.rulesView && viewItem =~ /logicalRule.*missing/",
           "group": "1_add"
         },
         {

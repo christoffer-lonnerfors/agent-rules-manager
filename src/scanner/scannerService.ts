@@ -110,6 +110,7 @@ export class ScannerService {
 
     const contentHash = computeMinHash(body);
     const bodyHash = crypto.createHash('sha256').update(body).digest('hex');
+    const bodyLength = body.trim().length;
 
     return {
       id: generateRuleId(filePath),
@@ -123,6 +124,7 @@ export class ScannerService {
       globs,
       contentHash,
       bodyHash,
+      bodyLength,
       fileSize: stat.size,
       lastModified: new Date(stat.mtime).toISOString(),
       rawFrontmatter: Object.keys(fields).length > 0 ? fields : undefined,

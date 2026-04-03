@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { RuleIndex } from './index/ruleIndex';
 import { ScannerService } from './scanner/scannerService';
-import { RuleTreeProvider, DivergedRuleDecorationProvider, FORMAT_LABELS } from './views/ruleTreeProvider';
+import { RuleTreeProvider, RuleIssueDecorationProvider, FORMAT_LABELS } from './views/ruleTreeProvider';
 import { ActionsTreeProvider } from './views/actionsTreeProvider';
 import { LogicalRule, RuleFormat } from './scanner/scannerTypes';
 import { parseFrontmatter } from './scanner/frontmatterParser';
@@ -37,9 +37,9 @@ export function activate(context: vscode.ExtensionContext) {
     },
   });
 
-  // Register divergence decoration provider
-  const divergedDecoProvider = new DivergedRuleDecorationProvider();
-  const decoRegistration = vscode.window.registerFileDecorationProvider(divergedDecoProvider);
+  // Register issue decoration provider (badges rules that have any issues)
+  const issueDecoProvider = new RuleIssueDecorationProvider();
+  const decoRegistration = vscode.window.registerFileDecorationProvider(issueDecoProvider);
 
   // Register TreeViews
   const treeView = vscode.window.createTreeView('agentRules.rulesView', {
@@ -398,7 +398,7 @@ export function activate(context: vscode.ExtensionContext) {
     scannerService,
     treeProvider,
     actionsProvider,
-    divergedDecoProvider,
+    issueDecoProvider,
     decoRegistration,
     ...watchers,
   );

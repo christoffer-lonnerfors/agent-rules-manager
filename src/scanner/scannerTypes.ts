@@ -52,6 +52,9 @@ export interface IndexedRule {
   /** SHA-256 hex digest of the trimmed rule body (for exact divergence detection) */
   bodyHash: string;
 
+  /** Character length of the rule body (content after frontmatter) */
+  bodyLength: number;
+
   /** File size in bytes */
   fileSize: number;
 

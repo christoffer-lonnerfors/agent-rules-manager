@@ -3,9 +3,10 @@ import * as path from 'path';
 import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger } from '../scanner/scannerTypes';
 import { RuleIndex } from '../index/ruleIndex';
 import { buildLogicalRules } from '../index/logicalRuleBuilder';
+import { computeIssues, hasIssue, IssueComputerConfig } from '../lint/issueComputer';
 
-/** Custom URI scheme used to attach FileDecorations to logical-rule tree items */
-const DIVERGED_SCHEME = 'ai-rules-diverged';
+/** Custom URI scheme used to attach FileDecorations to tree items with issues */
+const ISSUE_SCHEME = 'ai-rules-issue';
 
 type TreeElement = TriggerGroupNode | LogicalRuleNode | RuleFileNode;
 
@@ -158,13 +159,25 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     return item;
   }
 
+  /** Build the IssueComputerConfig from current workspace settings */
+  private getIssueConfig(): IssueComputerConfig {
+    const cfg = vscode.workspace.getConfiguration('agentRules');
+    return {
+      primaryFormat: cfg.get<string>('primaryFormat', '') as RuleFormat | '',
+      detectDivergence: cfg.get<boolean>('detectDivergence', true),
+    };
+  }
+
   private createLogicalRuleItem(node: LogicalRuleNode): vscode.TreeItem {
     const { logicalRule } = node;
     const formatList = logicalRule.formats.map(f => FORMAT_LABELS[f]).join(', ');
 
-    // Check primary format coverage
-    const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat | '';
-    const isMissingFromPrimary = primaryFormat && !logicalRule.formats.includes(primaryFormat as RuleFormat);
+    // Compute all issues for this logical rule
+    const config = this.getIssueConfig();
+    const issues = computeIssues(logicalRule, config);
+    const hasIssues = issues.length > 0;
+    const isDiverged = hasIssue(issues, 'diverged-content');
+    const isMissing = hasIssue(issues, 'missing-primary');
 
     // If only one file, make it non-collapsible and directly openable
     const hasMultipleFiles = logicalRule.rules.length > 1;
@@ -175,9 +188,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     const item = new vscode.TreeItem(logicalRule.description, collapsibleState);
 
     // Description shows format list, plus ❌ if missing from primary
-    item.description = isMissingFromPrimary ? `${formatList}  ❌` : formatList;
+    item.description = isMissing ? `${formatList}  ❌` : formatList;
 
-    // Tooltip
+    // Tooltip: base info + all issue messages
     const tooltipLines = [
       `**${logicalRule.description}**`,
       `Trigger: ${TRIGGER_LABELS[logicalRule.trigger]}`,
@@ -185,11 +198,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       `Formats: ${formatList}`,
       `Files: ${logicalRule.rules.length}`,
     ];
-    if (hasMultipleFiles && logicalRule.minSimilarity < 1.0) {
-      tooltipLines.push(`⚠️ Content diverged — similarity: ${(logicalRule.minSimilarity * 100).toFixed(0)}%`);
-    }
-    if (isMissingFromPrimary) {
-      tooltipLines.push(`❌ Missing from ${FORMAT_LABELS[primaryFormat as RuleFormat]} — click [+] to add`);
+    for (const issue of issues) {
+      const icon = issue.severity === 'error' ? '🔴' : issue.severity === 'warning' ? '⚠️' : 'ℹ️';
+      tooltipLines.push(`${icon} ${issue.message}`);
     }
     item.tooltip = new vscode.MarkdownString(tooltipLines.filter(Boolean).join('\n\n'));
 
@@ -205,21 +216,20 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       };
     }
 
-    // Attach custom URI so FileDecorationProvider can badge diverged rules
-    const detectDivergence = vscode.workspace.getConfiguration('agentRules').get<boolean>('detectDivergence', true);
-    const isDiverged = detectDivergence && hasMultipleFiles && logicalRule.minSimilarity < 1.0;
-    if (isDiverged) {
-      item.resourceUri = vscode.Uri.parse(`${DIVERGED_SCHEME}:/${logicalRule.id}`);
+    // Attach custom URI so FileDecorationProvider can badge rules with issues
+    if (hasIssues) {
+      item.resourceUri = vscode.Uri.parse(`${ISSUE_SCHEME}:/${logicalRule.id}`);
     }
 
-    // Context value determines which menu items appear
-    if (isMissingFromPrimary) {
-      item.contextValue = 'logicalRule.missing';
-    } else if (isDiverged) {
-      item.contextValue = 'logicalRule.diverged';
-    } else {
-      item.contextValue = 'logicalRule';
-    }
+    // Build compound contextValue so multiple when-clause flags can coexist
+    // e.g. 'logicalRule.diverged.missing' matches both /diverged/ and /missing/
+    const flags: string[] = [];
+    if (isDiverged) { flags.push('diverged'); }
+    if (isMissing) { flags.push('missing'); }
+    item.contextValue = flags.length > 0
+      ? `logicalRule.${flags.join('.')}`
+      : 'logicalRule';
+
     return item;
   }
 
@@ -272,21 +282,21 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 }
 
 /**
- * Adds a warning badge to logical-rule tree items whose merged
- * rules have diverged (similarity < 1.0).
+ * Adds a warning badge to logical-rule tree items that have any issues
+ * (divergence, missing format, linter warnings, etc.).
  */
-export class DivergedRuleDecorationProvider implements vscode.FileDecorationProvider {
+export class RuleIssueDecorationProvider implements vscode.FileDecorationProvider {
   private _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
   readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
 
   provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-    if (uri.scheme !== DIVERGED_SCHEME) {
+    if (uri.scheme !== ISSUE_SCHEME) {
       return undefined;
     }
     return {
       badge: '⚠',
       color: new vscode.ThemeColor('list.warningForeground'),
-      tooltip: 'Rule content has diverged across formats — review & align',
+      tooltip: 'This rule has issues — expand tooltip for details',
     };
   }
 
