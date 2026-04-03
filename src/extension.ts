@@ -181,14 +181,25 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (!selected) { return; }
 
-      // Confirm before overwriting
-      const targets = rules.filter(r => r.id !== selected.rule.id);
+      // Only overwrite directory rules — standalone/hierarchical files are read-only sources
+      const allOthers = rules.filter(r => r.id !== selected.rule.id);
+      const targets = allOthers.filter(r => r.sourceType === 'directory_rule');
+      const skipped = allOthers.filter(r => r.sourceType !== 'directory_rule');
+
+      if (targets.length === 0) {
+        vscode.window.showWarningMessage(
+          'No writable rule files to align — standalone and hierarchical files are read-only.'
+        );
+        return;
+      }
+
       const targetNames = targets.map(t => FORMAT_LABELS[t.format]).join(', ');
-      const confirm = await vscode.window.showWarningMessage(
-        `This will overwrite the body content of ${targets.length} file${targets.length > 1 ? 's' : ''} (${targetNames}) with the content from ${FORMAT_LABELS[selected.rule.format]}. Frontmatter will be preserved. This cannot be undone except through version control.`,
-        { modal: true },
-        'Align'
-      );
+      let confirmMsg = `This will overwrite the body content of ${targets.length} file${targets.length > 1 ? 's' : ''} (${targetNames}) with the content from ${FORMAT_LABELS[selected.rule.format]}. Frontmatter will be preserved. This cannot be undone except through version control.`;
+      if (skipped.length > 0) {
+        const skippedNames = skipped.map(s => vscode.workspace.asRelativePath(s.filePath, false)).join(', ');
+        confirmMsg += ` (Skipping ${skipped.length} read-only file${skipped.length > 1 ? 's' : ''}: ${skippedNames})`;
+      }
+      const confirm = await vscode.window.showWarningMessage(confirmMsg, { modal: true }, 'Align');
       if (confirm !== 'Align') { return; }
 
       // Read the source file's body
@@ -263,30 +274,40 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const totalTargets = syncable.reduce((sum, lr) => sum + lr.rules.filter(r => r.format !== primaryFormat).length, 0);
+      // Only count directory rules as writable targets
+      const totalTargets = syncable.reduce((sum, lr) =>
+        sum + lr.rules.filter(r => r.format !== primaryFormat && r.sourceType === 'directory_rule').length, 0
+      );
+      if (totalTargets === 0) {
+        vscode.window.showWarningMessage('No writable rule files to align — standalone and hierarchical files are read-only.');
+        return;
+      }
+
       const confirm = await vscode.window.showWarningMessage(
-        `Align ${syncable.length} diverged rule${syncable.length > 1 ? 's' : ''} — overwrite ${totalTargets} file${totalTargets > 1 ? 's' : ''} to match their ${FORMAT_LABELS[primaryFormat]} versions? Frontmatter will be preserved.`,
+        `Align ${syncable.length} diverged rule${syncable.length > 1 ? 's' : ''} — overwrite ${totalTargets} file${totalTargets > 1 ? 's' : ''} to match their ${FORMAT_LABELS[primaryFormat]} versions? Frontmatter will be preserved. Standalone and hierarchical files will be skipped.`,
         { modal: true },
         'Align'
       );
       if (confirm !== 'Align') { return; }
 
+      let aligned = 0;
       for (const lr of syncable) {
         const source = lr.rules.find(r => r.format === primaryFormat)!;
         const sourceContent = fs.readFileSync(source.filePath, 'utf-8');
         const { body: sourceBody } = parseFrontmatter(sourceContent);
 
-        for (const target of lr.rules.filter(r => r.format !== primaryFormat)) {
+        for (const target of lr.rules.filter(r => r.format !== primaryFormat && r.sourceType === 'directory_rule')) {
           const targetContent = fs.readFileSync(target.filePath, 'utf-8');
           const frontmatterMatch = targetContent.match(/^---[\r\n]+([\s\S]*?)[\r\n]+---[\r\n]*/);
           const newContent = frontmatterMatch
             ? frontmatterMatch[0] + sourceBody + '\n'
             : sourceBody + '\n';
           fs.writeFileSync(target.filePath, newContent, 'utf-8');
+          aligned++;
         }
       }
 
-      vscode.window.showInformationMessage(`Aligned ${syncable.length} rule${syncable.length > 1 ? 's' : ''} to ${FORMAT_LABELS[primaryFormat]}.`);
+      vscode.window.showInformationMessage(`Aligned ${aligned} file${aligned > 1 ? 's' : ''} to ${FORMAT_LABELS[primaryFormat]}.`);
       await scannerService.scan();
     }
   );
