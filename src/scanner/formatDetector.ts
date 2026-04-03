@@ -87,13 +87,12 @@ export function detectFormat(
     }
   }
 
-  // Check hierarchical MD files — last config to declare a file "wins" (main format)
-  // We iterate in reverse so Claude Code claims CLAUDE.md over Augment when both declare it
-  // Actually: we want the LAST match since both Augment and Claude Code list CLAUDE.md
+  // Check hierarchical MD files (case-insensitive) — last config to declare a file "wins"
   // Claude Code is listed after Augment, so it wins for CLAUDE.md (correct: it's the main format)
+  const fileNameLower = fileName.toLowerCase();
   let hierarchicalMatch: { format: RuleFormat; sourceType: 'hierarchical_md' } | undefined;
   for (const config of FORMAT_CONFIGS) {
-    if (config.hierarchicalFiles.includes(fileName)) {
+    if (config.hierarchicalFiles.some(hf => hf.toLowerCase() === fileNameLower)) {
       hierarchicalMatch = { format: config.format, sourceType: 'hierarchical_md' };
     }
   }

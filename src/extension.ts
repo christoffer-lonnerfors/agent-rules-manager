@@ -9,6 +9,7 @@ import { LogicalRule, RuleFormat } from './scanner/scannerTypes';
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from './scanner/formatDetector';
 import { extractCommonDirectory } from './scanner/scopeTranslator';
+import { toCaseInsensitiveGlob } from './scanner/fileDiscovery';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
 const RULE_BODY_SCHEME = 'ai-rules-body';
@@ -351,6 +352,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Set up file system watchers derived from FORMAT_CONFIGS
+  const watchers = createFileWatchers(scannerService);
+
   // Push all disposables
   context.subscriptions.push(
     treeView,
@@ -371,7 +375,11 @@ export function activate(context: vscode.ExtensionContext) {
     actionsProvider,
     divergedDecoProvider,
     decoRegistration,
+    ...watchers,
   );
+
+  // Auto-scan on activation (silent — no notification)
+  scannerService.scan({ silent: true });
 }
 
 /**
@@ -508,6 +516,55 @@ function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
   }
 
   return lines.length > 0 ? lines.join('\n') + '\n' : '';
+}
+
+/**
+ * Creates file system watchers for all rule file patterns derived from FORMAT_CONFIGS.
+ * Triggers a debounced silent rescan on any create/change/delete.
+ */
+function createFileWatchers(scannerService: ScannerService): vscode.Disposable[] {
+  const disposables: vscode.Disposable[] = [];
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const debouncedRescan = () => {
+    if (debounceTimer) { clearTimeout(debounceTimer); }
+    debounceTimer = setTimeout(() => {
+      scannerService.scan({ silent: true });
+    }, 1000);
+  };
+
+  // Build unique watcher patterns from FORMAT_CONFIGS
+  const patterns = new Set<string>();
+
+  for (const config of FORMAT_CONFIGS) {
+    // Directory-based rules: e.g. **/.cursor/rules/**/*.mdc
+    for (const dir of config.directories) {
+      for (const ext of config.extensions) {
+        patterns.add(`**/${dir}/**/*${ext}`);
+      }
+    }
+    // Hierarchical files (case-insensitive): e.g. **/[aA][gG][eE][nN][tT][sS].[mM][dD]
+    for (const hf of config.hierarchicalFiles) {
+      patterns.add(`**/${toCaseInsensitiveGlob(hf)}`);
+    }
+    // Standalone files: e.g. .windsurfrules
+    for (const sf of config.standaloneFiles) {
+      patterns.add(sf);
+    }
+  }
+
+  for (const pattern of patterns) {
+    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+    watcher.onDidCreate(debouncedRescan);
+    watcher.onDidChange(debouncedRescan);
+    watcher.onDidDelete(debouncedRescan);
+    disposables.push(watcher);
+  }
+
+  // Clean up the timer on dispose
+  disposables.push({ dispose: () => { if (debounceTimer) { clearTimeout(debounceTimer); } } });
+
+  return disposables;
 }
 
 export function deactivate() {

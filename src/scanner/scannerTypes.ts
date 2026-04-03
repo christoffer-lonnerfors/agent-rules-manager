@@ -59,6 +59,13 @@ export interface IndexedRule {
 
   /** Raw frontmatter fields (preserved for format-specific display) */
   rawFrontmatter: Record<string, unknown> | undefined;
+
+  /**
+   * True when the file sits in a format directory but has the wrong extension
+   * (e.g., .mdc in .augment/rules/). The rule is still indexed and grouped,
+   * but the tree view will show a warning indicator.
+   */
+  extensionMismatch?: boolean;
 }
 
 /** Format-specific scanning configuration */
@@ -119,6 +126,8 @@ export interface DiscoveredFile {
   format: RuleFormat;
   /** How it was found */
   sourceType: RuleSourceType;
+  /** True when the file extension doesn't match the format's expected extensions */
+  extensionMismatch?: boolean;
 }
 
 /** Similarity match between two rules */
@@ -127,4 +136,6 @@ export interface SimilarityMatch {
   ruleB: string; // ID
   similarity: number; // Jaccard similarity 0..1
 }
+
+
 

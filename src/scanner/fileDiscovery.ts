@@ -30,6 +30,9 @@ export async function discoverFiles(workspaceRoot: string): Promise<DiscoveredFi
   return Array.from(byPath.values());
 }
 
+/** Text-like extensions we consider as potential rule files when checking for mismatches */
+const TEXT_LIKE_EXTENSIONS = ['.md', '.mdc', '.mdx', '.txt', '.yaml', '.yml'];
+
 async function discoverDirectoryRules(
   rootUri: vscode.Uri,
   config: FormatScanConfig
@@ -38,6 +41,8 @@ async function discoverDirectoryRules(
 
   for (const dir of config.directories) {
     const dirUri = vscode.Uri.joinPath(rootUri, dir);
+
+    // Discover files with correct extensions
     const files = await findFilesRecursive(dirUri, config.extensions);
     for (const filePath of files) {
       results.push({
@@ -45,6 +50,20 @@ async function discoverDirectoryRules(
         format: config.format,
         sourceType: 'directory_rule',
       });
+    }
+
+    // Also discover text-like files with WRONG extensions (extension mismatch)
+    const mismatchExts = TEXT_LIKE_EXTENSIONS.filter(ext => !config.extensions.includes(ext));
+    if (mismatchExts.length > 0) {
+      const mismatchFiles = await findFilesRecursive(dirUri, mismatchExts);
+      for (const filePath of mismatchFiles) {
+        results.push({
+          filePath,
+          format: config.format,
+          sourceType: 'directory_rule',
+          extensionMismatch: true,
+        });
+      }
     }
   }
 
@@ -82,8 +101,10 @@ async function discoverHierarchicalFiles(
   const results: DiscoveredFile[] = [];
 
   for (const fileName of config.hierarchicalFiles) {
-    // Use vscode.workspace.findFiles to discover in root + all subdirs
-    const pattern = new vscode.RelativePattern(rootUri, `**/${fileName}`);
+    // Use a case-insensitive glob to catch variations like agents.md, Agents.md
+    // on case-sensitive file systems (Linux)
+    const ciGlob = toCaseInsensitiveGlob(fileName);
+    const pattern = new vscode.RelativePattern(rootUri, `**/${ciGlob}`);
     const uris = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
 
     for (const uri of uris) {
@@ -96,6 +117,24 @@ async function discoverHierarchicalFiles(
   }
 
   return results;
+}
+
+/**
+ * Converts a filename to a case-insensitive glob pattern.
+ * e.g. "AGENTS.md" -> "[aA][gG][eE][nN][tT][sS].[mM][dD]"
+ */
+export function toCaseInsensitiveGlob(fileName: string): string {
+  return fileName
+    .split('')
+    .map(ch => {
+      const lower = ch.toLowerCase();
+      const upper = ch.toUpperCase();
+      if (lower !== upper) {
+        return `[${lower}${upper}]`;
+      }
+      return ch; // non-alpha characters (e.g. '.')
+    })
+    .join('');
 }
 
 /** Recursively find files with given extensions under a directory */
@@ -118,6 +157,7 @@ async function findFilesRecursive(
 
   return results;
 }
+
 
 async function fileExists(uri: vscode.Uri): Promise<boolean> {
   try {

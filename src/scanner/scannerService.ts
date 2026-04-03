@@ -20,7 +20,7 @@ export class ScannerService {
 
   private scanning = false;
 
-  constructor(private readonly ruleIndex: RuleIndex) {}
+  constructor(private readonly ruleIndex: RuleIndex) { }
 
   get isScanning(): boolean {
     return this.scanning;
@@ -29,16 +29,22 @@ export class ScannerService {
   /**
    * Run a full workspace scan. Discovers all rule files, parses them,
    * and replaces the current index.
+   * @param options.silent If true, suppress info notifications (used for auto-scans)
    */
-  async scan(): Promise<void> {
+  async scan(options?: { silent?: boolean }): Promise<void> {
+    const silent = options?.silent ?? false;
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
-      vscode.window.showWarningMessage('AI Rules Scanner: No workspace folder open.');
+      if (!silent) {
+        vscode.window.showWarningMessage('AI Rules Scanner: No workspace folder open.');
+      }
       return;
     }
 
     if (this.scanning) {
-      vscode.window.showInformationMessage('AI Rules Scanner: Scan already in progress.');
+      if (!silent) {
+        vscode.window.showInformationMessage('AI Rules Scanner: Scan already in progress.');
+      }
       return;
     }
 
@@ -53,7 +59,7 @@ export class ScannerService {
       const rules: IndexedRule[] = [];
       for (const file of discovered) {
         try {
-          const rule = await this.processFile(file.filePath, file.format, file.sourceType, workspaceRoot);
+          const rule = await this.processFile(file.filePath, file.format, file.sourceType, workspaceRoot, file.extensionMismatch);
           if (rule) {
             rules.push(rule);
           }
@@ -67,12 +73,16 @@ export class ScannerService {
       const durationMs = Date.now() - startTime;
       this._onScanCompleted.fire({ count: rules.length, durationMs });
 
-      vscode.window.showInformationMessage(
-        `AI Rules Scanner: Found ${rules.length} rule(s) in ${durationMs}ms.`
-      );
+      if (!silent) {
+        vscode.window.showInformationMessage(
+          `AI Rules Scanner: Found ${rules.length} rule(s) in ${durationMs}ms.`
+        );
+      }
     } catch (err) {
       console.error('AI Rules Scanner: Scan failed:', err);
-      vscode.window.showErrorMessage(`AI Rules Scanner: Scan failed — ${err}`);
+      if (!silent) {
+        vscode.window.showErrorMessage(`AI Rules Scanner: Scan failed — ${err}`);
+      }
     } finally {
       this.scanning = false;
     }
@@ -82,7 +92,8 @@ export class ScannerService {
     filePath: string,
     format: IndexedRule['format'],
     sourceType: IndexedRule['sourceType'],
-    workspaceRoot: string
+    workspaceRoot: string,
+    extensionMismatch?: boolean
   ): Promise<IndexedRule | undefined> {
     const uri = vscode.Uri.file(filePath);
     const stat = await vscode.workspace.fs.stat(uri);
@@ -115,6 +126,7 @@ export class ScannerService {
       fileSize: stat.size,
       lastModified: new Date(stat.mtime).toISOString(),
       rawFrontmatter: Object.keys(fields).length > 0 ? fields : undefined,
+      ...(extensionMismatch ? { extensionMismatch: true } : {}),
     };
   }
 

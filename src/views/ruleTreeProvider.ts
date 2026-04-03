@@ -223,14 +223,18 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   private createFileItem(node: RuleFileNode): vscode.TreeItem {
     const { rule } = node;
-    const item = new vscode.TreeItem(
-      FORMAT_LABELS[rule.format],
-      vscode.TreeItemCollapsibleState.None
-    );
+    const isMismatch = rule.extensionMismatch === true;
+
+    const label = isMismatch
+      ? `${FORMAT_LABELS[rule.format]} (wrong extension)`
+      : FORMAT_LABELS[rule.format];
+    const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 
     // Show workspace-relative path instead of absolute
     item.description = vscode.workspace.asRelativePath(rule.filePath, false);
-    item.iconPath = this.getFormatIconPath(rule.format);
+    item.iconPath = isMismatch
+      ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'))
+      : this.getFormatIconPath(rule.format);
 
     const relativePath = vscode.workspace.asRelativePath(rule.filePath, false);
     const tooltipLines = [
@@ -240,6 +244,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       `Size: ${rule.fileSize} bytes`,
       `Modified: ${rule.lastModified}`,
     ];
+    if (isMismatch) {
+      tooltipLines.push(`⚠️ Wrong extension — this format expects ${rule.format === 'cursor' ? '.mdc / .md' : '.md'} files`);
+    }
     item.tooltip = new vscode.MarkdownString(tooltipLines.join('\n\n'));
 
     item.command = {
@@ -248,7 +255,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       arguments: [rule.filePath],
     };
 
-    item.contextValue = 'ruleFile';
+    item.contextValue = isMismatch ? 'ruleFile.mismatch' : 'ruleFile';
     return item;
   }
 
