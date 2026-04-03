@@ -6,6 +6,8 @@ Reference specification for parsing, writing, and converting between agent rule 
 
 ## 1. Cursor
 
+> **Source:** [Rules | Cursor Docs](https://cursor.com/docs/rules)
+
 ### Storage
 | Property | Value |
 |---|---|
@@ -55,6 +57,8 @@ Cursor also discovers `AGENTS.md` files as a rule source (plain Markdown, no fro
 
 ## 2. Windsurf
 
+> **Source:** [Cascade Memories — Rules | Windsurf Docs](https://docs.windsurf.com/windsurf/cascade/memories)
+
 ### Storage
 | Property | Value |
 |---|---|
@@ -94,6 +98,8 @@ trigger: always_on
 ---
 
 ## 3. Kiro
+
+> **Source:** [Steering | Kiro Docs](https://kiro.dev/docs/steering/)
 
 ### Storage
 | Property | Value |
@@ -147,6 +153,8 @@ inclusion: manual
 
 ## 4. Antigravity
 
+> **Source:** [Rules / Workflows | Google Antigravity Docs](https://antigravity.google/docs/rules-workflows)
+
 ### Storage
 | Property | Value |
 |---|---|
@@ -176,6 +184,8 @@ trigger: always_on
 ---
 
 ## 5. Augment
+
+> **Source:** [Rules & Guidelines | Augment Code Docs](https://docs.augmentcode.com/setup-augment/guidelines)
 
 ### Storage
 | Property | Value |
@@ -231,6 +241,8 @@ Augment discovers `AGENTS.md` and `CLAUDE.md` files placed in subdirectories as 
 ---
 
 ## 6. Claude Code
+
+> **Source:** [Memory — CLAUDE.md | Anthropic Docs](https://docs.anthropic.com/en/docs/claude-code/memory)
 
 ### Storage
 | Property | Value |
