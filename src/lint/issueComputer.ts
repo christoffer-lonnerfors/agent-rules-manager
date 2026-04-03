@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { LogicalRule, RuleFormat, FORMAT_LABELS } from '../scanner/scannerTypes';
 import { RuleIssue } from './ruleIssues';
 import { estimateTokens, formatTokenCount } from './tokenEstimator';
@@ -39,6 +41,7 @@ export function computeIssues(
     checkEmptyBody(logicalRule, issues);
     checkMissingDescription(logicalRule, issues);
     checkRuleTooLarge(logicalRule, config, issues);
+    checkBrokenReferences(logicalRule, issues);
   }
 
   return issues;
@@ -158,6 +161,27 @@ function checkRuleTooLarge(
   }
 }
 
+function checkBrokenReferences(
+  lr: LogicalRule,
+  issues: RuleIssue[],
+): void {
+  for (const rule of lr.rules) {
+    if (rule.references.length === 0) { continue; }
+    const ruleDir = path.dirname(rule.filePath);
+    for (const ref of rule.references) {
+      const resolved = path.resolve(ruleDir, ref);
+      if (!fs.existsSync(resolved)) {
+        issues.push({
+          id: 'broken-reference',
+          severity: 'warning',
+          message: `Referenced file not found: ${ref}`,
+          ruleId: rule.id,
+        });
+      }
+    }
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────
 
 /** Check whether a list of issues contains a specific issue ID */
@@ -185,16 +209,17 @@ export function getFileIssues(issues: RuleIssue[], ruleId: string): RuleIssue[] 
 
 /**
  * De-duplicate file-level issues for display on the logical rule node.
- * When multiple files produce the same issue id, show it once with a
- * generic message (without file-specific details).
+ * When multiple files produce the same issue (same id + message), show
+ * it once. Different messages under the same id are preserved (e.g.
+ * broken references to different files).
  */
 export function dedupeFileIssues(issues: RuleIssue[]): RuleIssue[] {
   const fileIssues = issues.filter(i => i.ruleId);
   const seen = new Map<string, RuleIssue>();
   for (const issue of fileIssues) {
-    if (!seen.has(issue.id)) {
-      // Use the first occurrence's message as representative
-      seen.set(issue.id, { ...issue, ruleId: undefined });
+    const key = `${issue.id}::${issue.message}`;
+    if (!seen.has(key)) {
+      seen.set(key, { ...issue, ruleId: undefined });
     }
   }
   return Array.from(seen.values());

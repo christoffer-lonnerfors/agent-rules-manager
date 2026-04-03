@@ -8,12 +8,11 @@ export type IssueId =
   | 'diverged-content'      // rule body differs across format versions
   | 'missing-primary'       // no version in the user's primary format
   | 'extension-mismatch'    // file extension doesn't match the format's expected extensions
-  // Content quality issues (reserved for upcoming linter checks)
+  // Content quality issues
   | 'empty-body'
   | 'missing-description'
   | 'rule-too-large'
-  | 'broad-glob'
-  | 'dead-glob';
+  | 'broken-reference';     // rule body references a file that doesn't exist
 
 export type IssueSeverity = 'error' | 'warning' | 'info';
 

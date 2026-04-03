@@ -76,6 +76,13 @@ export interface IndexedRule {
   rawFrontmatter: Record<string, unknown> | undefined;
 
   /**
+   * Relative file paths referenced from the rule body (markdown links, etc.).
+   * Resolved relative to the rule file's directory during scanning.
+   * Used by the broken-reference lint check.
+   */
+  references: string[];
+
+  /**
    * True when the file sits in a format directory but has the wrong extension
    * (e.g., .mdc in .augment/rules/). The rule is still indexed and grouped,
    * but the tree view will show a warning indicator.
