@@ -45,6 +45,26 @@
         "command": "aiRulesScanner.alignFormats",
         "title": "Align Formats…",
         "icon": "$(sync)"
+      },
+      {
+        "command": "aiRulesScanner.setPrimaryFormat",
+        "title": "AI Rules: Set Primary Format",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "aiRulesScanner.syncAll",
+        "title": "AI Rules: Sync All Diverged",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "aiRulesScanner.addAllMissing",
+        "title": "AI Rules: Add All Missing",
+        "icon": "$(add)"
+      },
+      {
+        "command": "aiRulesScanner.addMissingRule",
+        "title": "Add to Primary Format",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -62,6 +82,12 @@
           "id": "aiRulesScanner.rulesView",
           "name": "Rules",
           "icon": "$(list-unordered)",
+          "contextualTitle": "AI Rules"
+        },
+        {
+          "id": "aiRulesScanner.actionsView",
+          "name": "Actions",
+          "icon": "$(tools)",
           "contextualTitle": "AI Rules"
         }
       ]
@@ -99,6 +125,21 @@
           "command": "aiRulesScanner.alignFormats",
           "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
           "group": "2_align"
+        },
+        {
+          "command": "aiRulesScanner.addMissingRule",
+          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.missing",
+          "group": "inline"
+        },
+        {
+          "command": "aiRulesScanner.addMissingRule",
+          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.missing",
+          "group": "1_add"
+        },
+        {
+          "command": "aiRulesScanner.setPrimaryFormat",
+          "when": "view == aiRulesScanner.actionsView && viewItem == primaryFormat",
+          "group": "inline"
         }
       ]
     },

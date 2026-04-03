@@ -160,6 +160,10 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     const { logicalRule } = node;
     const formatList = logicalRule.formats.map(f => FORMAT_LABELS[f]).join(', ');
 
+    // Check primary format coverage
+    const primaryFormat = vscode.workspace.getConfiguration('aiRules').get<string>('primaryFormat', '') as RuleFormat | '';
+    const isMissingFromPrimary = primaryFormat && !logicalRule.formats.includes(primaryFormat as RuleFormat);
+
     // If only one file, make it non-collapsible and directly openable
     const hasMultipleFiles = logicalRule.rules.length > 1;
     const collapsibleState = hasMultipleFiles
@@ -167,6 +171,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       : vscode.TreeItemCollapsibleState.None;
 
     const item = new vscode.TreeItem(logicalRule.description, collapsibleState);
+
+    // Description shows format list, plus ❌ if missing from primary
+    item.description = isMissingFromPrimary ? `${formatList}  ❌` : formatList;
 
     // Tooltip
     const tooltipLines = [
@@ -178,6 +185,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     ];
     if (hasMultipleFiles && logicalRule.minSimilarity < 1.0) {
       tooltipLines.push(`⚠️ Content diverged — similarity: ${(logicalRule.minSimilarity * 100).toFixed(0)}%`);
+    }
+    if (isMissingFromPrimary) {
+      tooltipLines.push(`❌ Missing from ${FORMAT_LABELS[primaryFormat as RuleFormat]} — click [+] to add`);
     }
     item.tooltip = new vscode.MarkdownString(tooltipLines.filter(Boolean).join('\n\n'));
 
@@ -200,7 +210,14 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       item.resourceUri = vscode.Uri.parse(`${DIVERGED_SCHEME}:/${logicalRule.id}`);
     }
 
-    item.contextValue = isDiverged ? 'logicalRule.diverged' : 'logicalRule';
+    // Context value determines which menu items appear
+    if (isMissingFromPrimary) {
+      item.contextValue = 'logicalRule.missing';
+    } else if (isDiverged) {
+      item.contextValue = 'logicalRule.diverged';
+    } else {
+      item.contextValue = 'logicalRule';
+    }
     return item;
   }
 
