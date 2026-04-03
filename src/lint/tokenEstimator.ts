@@ -28,6 +28,17 @@ export function estimateTokens(charCount: number): number {
 }
 
 /**
+ * Estimate tokens for a logical rule.
+ * Uses the max bodyLength across format versions since they are
+ * near-duplicates and we want the representative (worst-case) size.
+ */
+export function estimateLogicalRuleTokens(rules: { bodyLength: number }[]): number {
+  if (rules.length === 0) { return 0; }
+  const maxBody = Math.max(...rules.map(r => r.bodyLength));
+  return estimateTokens(maxBody);
+}
+
+/**
  * Format a token count for display.
  * - Under 1000: "≈ 450 tokens"
  * - 1000+: "≈ 1.2k tokens"

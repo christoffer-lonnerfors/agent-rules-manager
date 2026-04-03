@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger } from '../scanner/scannerTypes';
+import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../scanner/scannerTypes';
 import { RuleIndex } from '../index/ruleIndex';
 import { buildLogicalRules } from '../index/logicalRuleBuilder';
 import { RuleIssue } from '../lint/ruleIssues';
 import { computeIssues, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues, IssueComputerConfig } from '../lint/issueComputer';
-import { estimateTokens, formatTokenCount } from '../lint/tokenEstimator';
+import { estimateTokens, estimateLogicalRuleTokens, formatTokenCount } from '../lint/tokenEstimator';
 
 /** Custom URI scheme used to attach FileDecorations to tree items with issues */
 const ISSUE_SCHEME = 'ai-rules-issue';
@@ -21,6 +21,8 @@ interface TriggerGroupNode {
 interface LogicalRuleNode {
   type: 'logical';
   logicalRule: LogicalRule;
+  /** Pre-computed issues for this logical rule (computed once per tree rebuild) */
+  issues: RuleIssue[];
 }
 
 interface RuleFileNode {
@@ -30,15 +32,8 @@ interface RuleFileNode {
   issues: RuleIssue[];
 }
 
-export const FORMAT_LABELS: Record<RuleFormat, string> = {
-  'cursor': 'Cursor',
-  'windsurf': 'Windsurf',
-  'kiro': 'Kiro',
-  'antigravity': 'Antigravity',
-  'augment': 'Augment',
-  'claude-code': 'Claude Code',
-  'agents-md': 'AGENTS.md',
-};
+// Re-export for backward compatibility
+export { FORMAT_LABELS } from '../scanner/scannerTypes';
 
 const TRIGGER_LABELS: Record<RuleTrigger, string> = {
   'always': 'Always Active',
@@ -71,6 +66,8 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   private logicalRules: LogicalRule[] = [];
   private extensionPath: string = '';
+  /** Cached config — recomputed once per tree rebuild */
+  private issueConfig: IssueComputerConfig = { primaryFormat: '', detectDivergence: true, lintEnabled: true, maxRuleTokens: 2000 };
 
   constructor(private readonly ruleIndex: RuleIndex) {
     ruleIndex.onDidChange(() => {
@@ -98,6 +95,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   private rebuildLogicalRules(): void {
     this.logicalRules = buildLogicalRules(this.ruleIndex.getAll());
+    this.issueConfig = this.readIssueConfig();
   }
 
   getTreeItem(element: TreeElement): vscode.TreeItem {
@@ -119,7 +117,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       return this.getLogicalRulesForTrigger(element.trigger);
     }
     if (element.type === 'logical') {
-      return this.getFilesForLogicalRule(element.logicalRule);
+      return this.getFilesForLogicalRule(element);
     }
     return [];
   }
@@ -146,12 +144,15 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     return this.logicalRules
       .filter(lr => lr.trigger === trigger)
       .sort((a, b) => a.description.localeCompare(b.description))
-      .map(logicalRule => ({ type: 'logical' as const, logicalRule }));
+      .map(logicalRule => ({
+        type: 'logical' as const,
+        logicalRule,
+        issues: computeIssues(logicalRule, this.issueConfig),
+      }));
   }
 
-  private getFilesForLogicalRule(logicalRule: LogicalRule): RuleFileNode[] {
-    const config = this.getIssueConfig();
-    const issues = computeIssues(logicalRule, config);
+  private getFilesForLogicalRule(node: LogicalRuleNode): RuleFileNode[] {
+    const { logicalRule, issues } = node;
     return logicalRule.rules.map(rule => ({
       type: 'file' as const,
       rule,
@@ -167,11 +168,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
     // Show aggregate token estimate for this trigger group
     const groupRules = this.logicalRules.filter(lr => lr.trigger === node.trigger);
-    const totalTokens = groupRules.reduce((sum, lr) => {
-      // Use the max bodyLength across format versions (they're near-duplicates)
-      const maxBody = Math.max(...lr.rules.map(r => r.bodyLength));
-      return sum + estimateTokens(maxBody);
-    }, 0);
+    const totalTokens = groupRules.reduce((sum, lr) => sum + estimateLogicalRuleTokens(lr.rules), 0);
     if (totalTokens > 0) {
       item.description = formatTokenCount(totalTokens);
     }
@@ -182,7 +179,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   /** Build the IssueComputerConfig from current workspace settings */
-  private getIssueConfig(): IssueComputerConfig {
+  private readIssueConfig(): IssueComputerConfig {
     const cfg = vscode.workspace.getConfiguration('agentRules');
     return {
       primaryFormat: cfg.get<string>('primaryFormat', '') as RuleFormat | '',
@@ -193,12 +190,10 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   private createLogicalRuleItem(node: LogicalRuleNode): vscode.TreeItem {
-    const { logicalRule } = node;
+    const { logicalRule, issues } = node;
     const formatList = logicalRule.formats.map(f => FORMAT_LABELS[f]).join(', ');
 
-    // Compute all issues for this logical rule
-    const config = this.getIssueConfig();
-    const issues = computeIssues(logicalRule, config);
+    // Use pre-computed issues from the node
     const hasIssues = issues.length > 0;
     const isDiverged = hasIssue(issues, 'diverged-content');
     const isMissing = hasIssue(issues, 'missing-primary');
@@ -214,9 +209,8 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     // Description shows format list, plus ❌ if missing from primary
     item.description = isMissing ? `${formatList}  ❌` : formatList;
 
-    // Token estimate for the logical rule (use max across format versions)
-    const maxBody = Math.max(...logicalRule.rules.map(r => r.bodyLength));
-    const ruleTokens = estimateTokens(maxBody);
+    // Token estimate for the logical rule
+    const ruleTokens = estimateLogicalRuleTokens(logicalRule.rules);
 
     // Tooltip: base info + token estimate + de-duped issue messages
     const tooltipLines = [

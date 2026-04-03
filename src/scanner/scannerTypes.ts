@@ -8,6 +8,17 @@ export type RuleFormat =
   | 'claude-code'
   | 'agents-md';
 
+/** Human-readable labels for each format (used in UI and lint messages) */
+export const FORMAT_LABELS: Record<RuleFormat, string> = {
+  'cursor': 'Cursor',
+  'windsurf': 'Windsurf',
+  'kiro': 'Kiro',
+  'antigravity': 'Antigravity',
+  'augment': 'Augment',
+  'claude-code': 'Claude Code',
+  'agents-md': 'AGENTS.md',
+};
+
 /** Normalized activation trigger */
 export type RuleTrigger = 'always' | 'glob' | 'agent_requested' | 'manual';
 

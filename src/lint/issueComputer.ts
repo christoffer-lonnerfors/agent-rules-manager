@@ -1,7 +1,6 @@
-import { LogicalRule, RuleFormat } from '../scanner/scannerTypes';
+import { LogicalRule, RuleFormat, FORMAT_LABELS } from '../scanner/scannerTypes';
 import { RuleIssue } from './ruleIssues';
 import { estimateTokens, formatTokenCount } from './tokenEstimator';
-import { FORMAT_LABELS } from '../views/ruleTreeProvider';
 
 /**
  * Configuration that controls which checks run and their thresholds.
