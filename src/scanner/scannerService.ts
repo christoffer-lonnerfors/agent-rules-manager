@@ -36,14 +36,14 @@ export class ScannerService {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       if (!silent) {
-        vscode.window.showWarningMessage('AI Rules Scanner: No workspace folder open.');
+        vscode.window.showWarningMessage('Agent Rules Manager: No workspace folder open.');
       }
       return;
     }
 
     if (this.scanning) {
       if (!silent) {
-        vscode.window.showInformationMessage('AI Rules Scanner: Scan already in progress.');
+        vscode.window.showInformationMessage('Agent Rules Manager: Scan already in progress.');
       }
       return;
     }
@@ -64,7 +64,7 @@ export class ScannerService {
             rules.push(rule);
           }
         } catch (err) {
-          console.warn(`AI Rules Scanner: Failed to process ${file.filePath}:`, err);
+          console.warn(`Agent Rules Manager: Failed to process ${file.filePath}:`, err);
         }
       }
 
@@ -75,13 +75,13 @@ export class ScannerService {
 
       if (!silent) {
         vscode.window.showInformationMessage(
-          `AI Rules Scanner: Found ${rules.length} rule(s) in ${durationMs}ms.`
+          `Agent Rules Manager: Found ${rules.length} rule(s) in ${durationMs}ms.`
         );
       }
     } catch (err) {
-      console.error('AI Rules Scanner: Scan failed:', err);
+      console.error('Agent Rules Manager: Scan failed:', err);
       if (!silent) {
-        vscode.window.showErrorMessage(`AI Rules Scanner: Scan failed — ${err}`);
+        vscode.window.showErrorMessage(`Agent Rules Manager: Scan failed — ${err}`);
       }
     } finally {
       this.scanning = false;

@@ -1,8 +1,9 @@
 {
-  "name": "ai-rules-scanner",
-  "displayName": "AI Rules Scanner",
-  "description": "Scan, index, and manage AI agent rule files across Cursor, Windsurf, Kiro, Antigravity, Augment, and Claude Code formats.",
+  "name": "agent-rules-manager",
+  "displayName": "Agent Rules Manager",
+  "description": "Manage, compare, and sync AI agent rule files across Cursor, Windsurf, Kiro, Antigravity, Augment, and Claude Code formats.",
   "version": "0.0.1",
+  "license": "MIT",
   "publisher": "ai-rules",
   "engines": {
     "vscode": "^1.100.0"
@@ -22,47 +23,47 @@
   "contributes": {
     "commands": [
       {
-        "command": "aiRulesScanner.scan",
-        "title": "AI Rules: Scan Workspace",
+        "command": "agentRules.scan",
+        "title": "Agent Rules: Scan Workspace",
         "icon": "$(search)"
       },
       {
-        "command": "aiRulesScanner.rescan",
-        "title": "AI Rules: Re-scan Workspace",
+        "command": "agentRules.rescan",
+        "title": "Agent Rules: Re-scan Workspace",
         "icon": "$(refresh)"
       },
       {
-        "command": "aiRulesScanner.openRule",
-        "title": "AI Rules: Open Rule File",
+        "command": "agentRules.openRule",
+        "title": "Agent Rules: Open Rule File",
         "icon": "$(go-to-file)"
       },
       {
-        "command": "aiRulesScanner.compareFormats",
+        "command": "agentRules.compareFormats",
         "title": "Compare Formats…",
         "icon": "$(diff)"
       },
       {
-        "command": "aiRulesScanner.alignFormats",
+        "command": "agentRules.alignFormats",
         "title": "Align Formats…",
         "icon": "$(sync)"
       },
       {
-        "command": "aiRulesScanner.setPrimaryFormat",
-        "title": "AI Rules: Set Primary Format",
+        "command": "agentRules.setPrimaryFormat",
+        "title": "Agent Rules: Set Primary Format",
         "icon": "$(edit)"
       },
       {
-        "command": "aiRulesScanner.syncAll",
-        "title": "AI Rules: Sync All Diverged",
+        "command": "agentRules.syncAll",
+        "title": "Agent Rules: Sync All Diverged",
         "icon": "$(sync)"
       },
       {
-        "command": "aiRulesScanner.addAllMissing",
-        "title": "AI Rules: Add All Missing",
+        "command": "agentRules.addAllMissing",
+        "title": "Agent Rules: Add All Missing",
         "icon": "$(add)"
       },
       {
-        "command": "aiRulesScanner.addMissingRule",
+        "command": "agentRules.addMissingRule",
         "title": "Add to Primary Format",
         "icon": "$(add)"
       }
@@ -70,83 +71,83 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "aiRulesScanner",
-          "title": "AI Rules",
+          "id": "agentRules",
+          "title": "Agent Rules",
           "icon": "$(book)"
         }
       ]
     },
     "views": {
-      "aiRulesScanner": [
+      "agentRules": [
         {
-          "id": "aiRulesScanner.rulesView",
+          "id": "agentRules.rulesView",
           "name": "Rules",
           "icon": "$(list-unordered)",
-          "contextualTitle": "AI Rules"
+          "contextualTitle": "Agent Rules"
         },
         {
-          "id": "aiRulesScanner.actionsView",
+          "id": "agentRules.actionsView",
           "name": "Actions",
           "icon": "$(tools)",
-          "contextualTitle": "AI Rules"
+          "contextualTitle": "Agent Rules"
         }
       ]
     },
     "menus": {
       "view/title": [
         {
-          "command": "aiRulesScanner.scan",
-          "when": "view == aiRulesScanner.rulesView",
+          "command": "agentRules.scan",
+          "when": "view == agentRules.rulesView",
           "group": "navigation"
         },
         {
-          "command": "aiRulesScanner.rescan",
-          "when": "view == aiRulesScanner.rulesView",
+          "command": "agentRules.rescan",
+          "when": "view == agentRules.rulesView",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "aiRulesScanner.compareFormats",
-          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
+          "command": "agentRules.compareFormats",
+          "when": "view == agentRules.rulesView && viewItem == logicalRule.diverged",
           "group": "inline"
         },
         {
-          "command": "aiRulesScanner.alignFormats",
-          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
+          "command": "agentRules.alignFormats",
+          "when": "view == agentRules.rulesView && viewItem == logicalRule.diverged",
           "group": "inline"
         },
         {
-          "command": "aiRulesScanner.compareFormats",
-          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
+          "command": "agentRules.compareFormats",
+          "when": "view == agentRules.rulesView && viewItem == logicalRule.diverged",
           "group": "1_compare"
         },
         {
-          "command": "aiRulesScanner.alignFormats",
-          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.diverged",
+          "command": "agentRules.alignFormats",
+          "when": "view == agentRules.rulesView && viewItem == logicalRule.diverged",
           "group": "2_align"
         },
         {
-          "command": "aiRulesScanner.addMissingRule",
-          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.missing",
+          "command": "agentRules.addMissingRule",
+          "when": "view == agentRules.rulesView && viewItem == logicalRule.missing",
           "group": "inline"
         },
         {
-          "command": "aiRulesScanner.addMissingRule",
-          "when": "view == aiRulesScanner.rulesView && viewItem == logicalRule.missing",
+          "command": "agentRules.addMissingRule",
+          "when": "view == agentRules.rulesView && viewItem == logicalRule.missing",
           "group": "1_add"
         },
         {
-          "command": "aiRulesScanner.setPrimaryFormat",
-          "when": "view == aiRulesScanner.actionsView && viewItem == primaryFormat",
+          "command": "agentRules.setPrimaryFormat",
+          "when": "view == agentRules.actionsView && viewItem == primaryFormat",
           "group": "inline"
         }
       ]
     },
     "configuration": {
-      "title": "AI Rules",
+      "title": "Agent Rules",
       "properties": {
-        "aiRules.primaryFormat": {
+        "agentRules.primaryFormat": {
           "type": "string",
           "enum": [
             "",
@@ -171,7 +172,7 @@
           "default": "",
           "description": "Primary AI agent format. When set, this format is suggested as the source of truth when aligning diverged rules."
         },
-        "aiRules.detectDivergence": {
+        "agentRules.detectDivergence": {
           "type": "boolean",
           "default": true,
           "description": "Show a warning badge on rules that have diverged content across formats. Disable to suppress divergence warnings."

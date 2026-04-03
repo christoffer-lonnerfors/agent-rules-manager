@@ -163,7 +163,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     const formatList = logicalRule.formats.map(f => FORMAT_LABELS[f]).join(', ');
 
     // Check primary format coverage
-    const primaryFormat = vscode.workspace.getConfiguration('aiRules').get<string>('primaryFormat', '') as RuleFormat | '';
+    const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat | '';
     const isMissingFromPrimary = primaryFormat && !logicalRule.formats.includes(primaryFormat as RuleFormat);
 
     // If only one file, make it non-collapsible and directly openable
@@ -199,14 +199,14 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     // If single file, click opens it directly
     if (!hasMultipleFiles) {
       item.command = {
-        command: 'aiRulesScanner.openRule',
+        command: 'agentRules.openRule',
         title: 'Open Rule',
         arguments: [logicalRule.rules[0].filePath],
       };
     }
 
     // Attach custom URI so FileDecorationProvider can badge diverged rules
-    const detectDivergence = vscode.workspace.getConfiguration('aiRules').get<boolean>('detectDivergence', true);
+    const detectDivergence = vscode.workspace.getConfiguration('agentRules').get<boolean>('detectDivergence', true);
     const isDiverged = detectDivergence && hasMultipleFiles && logicalRule.minSimilarity < 1.0;
     if (isDiverged) {
       item.resourceUri = vscode.Uri.parse(`${DIVERGED_SCHEME}:/${logicalRule.id}`);
@@ -252,7 +252,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     item.tooltip = new vscode.MarkdownString(tooltipLines.join('\n\n'));
 
     item.command = {
-      command: 'aiRulesScanner.openRule',
+      command: 'agentRules.openRule',
       title: 'Open Rule',
       arguments: [rule.filePath],
     };

@@ -42,27 +42,27 @@ export function activate(context: vscode.ExtensionContext) {
   const decoRegistration = vscode.window.registerFileDecorationProvider(divergedDecoProvider);
 
   // Register TreeViews
-  const treeView = vscode.window.createTreeView('aiRulesScanner.rulesView', {
+  const treeView = vscode.window.createTreeView('agentRules.rulesView', {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
   });
 
   const actionsProvider = new ActionsTreeProvider(ruleIndex);
-  const actionsView = vscode.window.createTreeView('aiRulesScanner.actionsView', {
+  const actionsView = vscode.window.createTreeView('agentRules.actionsView', {
     treeDataProvider: actionsProvider,
   });
 
   // Register commands
-  const scanCmd = vscode.commands.registerCommand('aiRulesScanner.scan', async () => {
+  const scanCmd = vscode.commands.registerCommand('agentRules.scan', async () => {
     await scannerService.scan();
   });
 
-  const rescanCmd = vscode.commands.registerCommand('aiRulesScanner.rescan', async () => {
+  const rescanCmd = vscode.commands.registerCommand('agentRules.rescan', async () => {
     await scannerService.scan();
   });
 
   const openRuleCmd = vscode.commands.registerCommand(
-    'aiRulesScanner.openRule',
+    'agentRules.openRule',
     async (filePath: string) => {
       if (filePath) {
         const uri = vscode.Uri.file(filePath);
@@ -73,7 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register compare-formats command for diverged rules
   const compareCmd = vscode.commands.registerCommand(
-    'aiRulesScanner.compareFormats',
+    'agentRules.compareFormats',
     async (node?: { type: string; logicalRule?: LogicalRule }) => {
       // Resolve the logical rule — from context menu node or fallback
       const logicalRule = node?.logicalRule;
@@ -131,7 +131,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register align-formats command for diverged rules
   const alignCmd = vscode.commands.registerCommand(
-    'aiRulesScanner.alignFormats',
+    'agentRules.alignFormats',
     async (node?: { type: string; logicalRule?: LogicalRule }) => {
       const logicalRule = node?.logicalRule;
       if (!logicalRule || logicalRule.rules.length < 2) {
@@ -158,7 +158,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       // Build Quick Pick items sorted by lastModified descending
-      const primaryFormat = vscode.workspace.getConfiguration('aiRules').get<string>('primaryFormat') || '';
+      const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat') || '';
       const sorted = [...rules].sort((a, b) =>
         new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
       );
@@ -235,7 +235,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register set-primary-format command
   const setPrimaryFormatCmd = vscode.commands.registerCommand(
-    'aiRulesScanner.setPrimaryFormat',
+    'agentRules.setPrimaryFormat',
     async () => {
       const items = [
         { label: '(none)', description: 'No primary format', value: '' },
@@ -248,16 +248,16 @@ export function activate(context: vscode.ExtensionContext) {
         placeHolder: 'Select the primary AI agent format for this project',
       });
       if (selected) {
-        await vscode.workspace.getConfiguration('aiRules').update('primaryFormat', selected.value, vscode.ConfigurationTarget.Workspace);
+        await vscode.workspace.getConfiguration('agentRules').update('primaryFormat', selected.value, vscode.ConfigurationTarget.Workspace);
       }
     }
   );
 
   // Register sync-all command
   const syncAllCmd = vscode.commands.registerCommand(
-    'aiRulesScanner.syncAll',
+    'agentRules.syncAll',
     async () => {
-      const primaryFormat = vscode.workspace.getConfiguration('aiRules').get<string>('primaryFormat', '') as RuleFormat;
+      const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat;
       if (!primaryFormat) {
         vscode.window.showWarningMessage('Set a primary format first.');
         return;
@@ -318,9 +318,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register add-all-missing command
   const addAllMissingCmd = vscode.commands.registerCommand(
-    'aiRulesScanner.addAllMissing',
+    'agentRules.addAllMissing',
     async () => {
-      const primaryFormat = vscode.workspace.getConfiguration('aiRules').get<string>('primaryFormat', '') as RuleFormat;
+      const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat;
       if (!primaryFormat) {
         vscode.window.showWarningMessage('Set a primary format first.');
         return;
@@ -357,12 +357,12 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register add-missing-rule command (single rule from top view)
   const addMissingRuleCmd = vscode.commands.registerCommand(
-    'aiRulesScanner.addMissingRule',
+    'agentRules.addMissingRule',
     async (node?: { type: string; logicalRule?: LogicalRule }) => {
       const logicalRule = node?.logicalRule;
       if (!logicalRule) { return; }
 
-      const primaryFormat = vscode.workspace.getConfiguration('aiRules').get<string>('primaryFormat', '') as RuleFormat;
+      const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat;
       if (!primaryFormat) {
         vscode.window.showWarningMessage('Set a primary format first.');
         return;

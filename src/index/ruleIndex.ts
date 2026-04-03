@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { IndexedRule } from '../scanner/scannerTypes';
 
-const STORAGE_KEY = 'aiRulesScanner.ruleIndex';
+const STORAGE_KEY = 'agentRules.ruleIndex';
 
 /**
  * In-memory rule index with persistence to workspaceState.
@@ -12,7 +12,7 @@ export class RuleIndex {
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: vscode.ExtensionContext) { }
 
   /** Load persisted index from workspaceState */
   load(): void {

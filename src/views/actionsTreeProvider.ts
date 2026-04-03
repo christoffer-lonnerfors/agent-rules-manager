@@ -32,18 +32,18 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
 
     // Listen for config changes to rebuild
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('aiRules.primaryFormat') || e.affectsConfiguration('aiRules.detectDivergence')) {
+      if (e.affectsConfiguration('agentRules.primaryFormat') || e.affectsConfiguration('agentRules.detectDivergence')) {
         this._onDidChangeTreeData.fire(undefined);
       }
     });
   }
 
   private getPrimaryFormat(): RuleFormat | '' {
-    return vscode.workspace.getConfiguration('aiRules').get<string>('primaryFormat', '') as RuleFormat | '';
+    return vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat | '';
   }
 
   private getDivergedCount(): number {
-    const detectDivergence = vscode.workspace.getConfiguration('aiRules').get<boolean>('detectDivergence', true);
+    const detectDivergence = vscode.workspace.getConfiguration('agentRules').get<boolean>('detectDivergence', true);
     if (!detectDivergence) { return 0; }
     return this.logicalRules.filter(lr => lr.rules.length > 1 && lr.minSimilarity < 1.0).length;
   }
@@ -98,7 +98,7 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
     item.iconPath = new vscode.ThemeIcon('target');
     item.contextValue = 'primaryFormat';
     item.command = {
-      command: 'aiRulesScanner.setPrimaryFormat',
+      command: 'agentRules.setPrimaryFormat',
       title: 'Set Primary Format',
     };
     return item;
@@ -142,7 +142,7 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
 
     if (hasWork && hasFormat) {
       item.command = {
-        command: isSyncAll ? 'aiRulesScanner.syncAll' : 'aiRulesScanner.addAllMissing',
+        command: isSyncAll ? 'agentRules.syncAll' : 'agentRules.addAllMissing',
         title: label,
       };
     }
@@ -158,7 +158,7 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
 
   /** Get diverged logical rules */
   getDivergedRules(): LogicalRule[] {
-    const detectDivergence = vscode.workspace.getConfiguration('aiRules').get<boolean>('detectDivergence', true);
+    const detectDivergence = vscode.workspace.getConfiguration('agentRules').get<boolean>('detectDivergence', true);
     if (!detectDivergence) { return []; }
     return this.logicalRules.filter(lr => lr.rules.length > 1 && lr.minSimilarity < 1.0);
   }
