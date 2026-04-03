@@ -181,10 +181,12 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (!selected) { return; }
 
-      // Only overwrite directory rules — standalone/hierarchical files are read-only sources
+      // Only overwrite directory rules and agents-md hierarchical files — other standalone/hierarchical files are read-only sources
       const allOthers = rules.filter(r => r.id !== selected.rule.id);
-      const targets = allOthers.filter(r => r.sourceType === 'directory_rule');
-      const skipped = allOthers.filter(r => r.sourceType !== 'directory_rule');
+      const isWritable = (r: { sourceType: string; format: RuleFormat }) =>
+        r.sourceType === 'directory_rule' || r.format === 'agents-md';
+      const targets = allOthers.filter(isWritable);
+      const skipped = allOthers.filter(r => !isWritable(r));
 
       if (targets.length === 0) {
         vscode.window.showWarningMessage(
@@ -237,7 +239,7 @@ export function activate(context: vscode.ExtensionContext) {
     async () => {
       const items = [
         { label: '(none)', description: 'No primary format', value: '' },
-        ...(['cursor', 'windsurf', 'kiro', 'antigravity', 'augment', 'claude-code'] as RuleFormat[]).map(f => ({
+        ...(['cursor', 'windsurf', 'kiro', 'antigravity', 'augment', 'claude-code', 'agents-md'] as RuleFormat[]).map(f => ({
           label: FORMAT_LABELS[f],
           value: f,
         })),
@@ -274,9 +276,11 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // Only count directory rules as writable targets
+      // Only count writable targets (directory rules + agents-md hierarchical files)
+      const isSyncWritable = (r: { sourceType: string; format: RuleFormat }) =>
+        r.sourceType === 'directory_rule' || r.format === 'agents-md';
       const totalTargets = syncable.reduce((sum, lr) =>
-        sum + lr.rules.filter(r => r.format !== primaryFormat && r.sourceType === 'directory_rule').length, 0
+        sum + lr.rules.filter(r => r.format !== primaryFormat && isSyncWritable(r)).length, 0
       );
       if (totalTargets === 0) {
         vscode.window.showWarningMessage('No writable rule files to align — standalone and hierarchical files are read-only.');
@@ -296,7 +300,7 @@ export function activate(context: vscode.ExtensionContext) {
         const sourceContent = fs.readFileSync(source.filePath, 'utf-8');
         const { body: sourceBody } = parseFrontmatter(sourceContent);
 
-        for (const target of lr.rules.filter(r => r.format !== primaryFormat && r.sourceType === 'directory_rule')) {
+        for (const target of lr.rules.filter(r => r.format !== primaryFormat && isSyncWritable(r))) {
           const targetContent = fs.readFileSync(target.filePath, 'utf-8');
           const frontmatterMatch = targetContent.match(/^---[\r\n]+([\s\S]*?)[\r\n]+---[\r\n]*/);
           const newContent = frontmatterMatch
@@ -424,6 +428,23 @@ function scaffoldRuleFile(logicalRule: LogicalRule, targetFormat: RuleFormat): s
   const config = FORMAT_CONFIGS.find(c => c.format === targetFormat);
   if (!config || config.directories.length === 0 && config.hierarchicalFiles.length === 0) { return undefined; }
 
+  // agents-md format: place AGENTS.md in the LCA directory for glob-scoped rules, or workspace root
+  if (targetFormat === 'agents-md') {
+    const targetDir = (logicalRule.trigger === 'glob' && logicalRule.globs?.length)
+      ? (() => { const lcaDir = extractCommonDirectory(logicalRule.globs!); return lcaDir ? path.join(root, lcaDir) : root; })()
+      : root;
+    const targetPath = path.join(targetDir, 'AGENTS.md');
+
+    if (fs.existsSync(targetPath)) {
+      vscode.window.showWarningMessage(`AGENTS.md already exists at ${vscode.workspace.asRelativePath(targetPath, false)}`);
+      return undefined;
+    }
+
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.writeFileSync(targetPath, sourceBody + '\n', 'utf-8');
+    return targetPath;
+  }
+
   // Augment with glob-scoped rules: place AGENTS.md in the LCA directory
   // instead of creating a file in .augment/rules/
   if (targetFormat === 'augment' && logicalRule.trigger === 'glob' && logicalRule.globs?.length) {
@@ -533,6 +554,10 @@ function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
         for (const g of lr.globs) { lines.push(`  - "${g}"`); }
       }
       // No frontmatter needed for always-on rules in claude-code
+      break;
+
+    case 'agents-md':
+      // AGENTS.md uses plain markdown — no frontmatter
       break;
   }
 

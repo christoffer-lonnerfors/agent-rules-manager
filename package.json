@@ -155,7 +155,8 @@
             "kiro",
             "antigravity",
             "augment",
-            "claude-code"
+            "claude-code",
+            "agents-md"
           ],
           "enumItemLabels": [
             "(none)",
@@ -164,7 +165,8 @@
             "Kiro",
             "Antigravity",
             "Augment",
-            "Claude Code"
+            "Claude Code",
+            "AGENTS.md"
           ],
           "default": "",
           "description": "Primary AI agent format. When set, this format is suggested as the source of truth when aligning diverged rules."

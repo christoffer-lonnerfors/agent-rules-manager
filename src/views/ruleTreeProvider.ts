@@ -32,6 +32,7 @@ export const FORMAT_LABELS: Record<RuleFormat, string> = {
   'antigravity': 'Antigravity',
   'augment': 'Augment',
   'claude-code': 'Claude Code',
+  'agents-md': 'AGENTS.md',
 };
 
 const TRIGGER_LABELS: Record<RuleTrigger, string> = {
@@ -56,6 +57,7 @@ const FORMAT_ICON_FILES: Record<RuleFormat, string> = {
   'antigravity': 'antigravity',
   'augment': 'augment',
   'claude-code': 'claude-code',
+  'agents-md': 'agents-md',
 };
 
 export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {

@@ -217,17 +217,17 @@ description: "React component development patterns and best practices"
 ---
 ```
 
-### `AGENTS.md` / `CLAUDE.md` Hierarchical Support
-Augment discovers `AGENTS.md` and `CLAUDE.md` files placed in subdirectories as hierarchical rules.
+### `CLAUDE.md` Hierarchical Support
+Augment discovers `CLAUDE.md` files placed in subdirectories as hierarchical rules.
 
 | Property | Value |
 |---|---|
-| **Filenames** | `AGENTS.md`, `CLAUDE.md` |
+| **Filenames** | `CLAUDE.md` |
 | **Locations** | Workspace root and any subdirectory (nested) |
 | **Frontmatter** | None — plain Markdown content only |
 | **Behaviour** | Walks up directory tree from the file being edited; all discovered files are included in context |
 
-> **Note:** Only `AGENTS.md` and `CLAUDE.md` are discovered hierarchically. Files in `.augment/rules/` are only loaded from the workspace root.
+> **Note:** `AGENTS.md` is treated as a separate cross-agent format (see section 7). Augment reads it at runtime but it is indexed under the `agents-md` format.
 
 ### Behaviour Notes
 - **`always_apply`** (default): Rule contents are automatically included in every prompt.
@@ -299,6 +299,30 @@ Path-scoped rules trigger when Claude reads files matching the pattern.
 
 ---
 
+## 7. AGENTS.md (Cross-Agent)
+
+> **Source:** [AGENTS.md](https://agents.md) — shared convention supported by [Cursor](https://cursor.com/docs/rules), [Augment](https://docs.augmentcode.com/setup-augment/guidelines), and others.
+
+### Storage
+| Property | Value |
+|---|---|
+| **Filenames** | `AGENTS.md` |
+| **Locations** | Workspace root and any subdirectory (nested/hierarchical) |
+| **File extensions** | `.md` |
+| **Directories** | None — files are placed directly in directories to scope them |
+
+### Frontmatter
+None — plain Markdown content only. No YAML frontmatter is expected or supported.
+
+### Behaviour Notes
+- `AGENTS.md` is a cross-agent convention for providing instructions to AI agents.
+- Files are scoped by their directory placement: an `AGENTS.md` in `src/` applies to files in `src/` and its subdirectories.
+- Multiple agents read `AGENTS.md` at runtime (Cursor, Augment, and potentially others).
+- This is the most portable rule format — write once, works across multiple agents.
+- No structured trigger types — rules are always included based on directory hierarchy.
+
+---
+
 ## Cross-Format Mapping
 
 The converter normalises all formats through a shared intermediate representation before writing to a target format.
@@ -313,12 +337,12 @@ The converter normalises all formats through a shared intermediate representatio
 
 ### Trigger equivalence table
 
-| Concept | Cursor | Windsurf / Antigravity | Kiro | Augment | Claude Code |
-|---|---|---|---|---|---|
-| Always active | `alwaysApply: true` | `trigger: always_on` | `inclusion: always` (in `steering/`) | `type: always_apply` | No `paths` field (unconditional) |
-| File-scoped | `globs: [...]` | `trigger: glob` + `globs: [...]` | `inclusion: fileMatch` + `fileMatchPattern` | — (not supported) | `paths: [...]` |
-| Model decides | `description: "..."` | `trigger: model_decision` + `description` | — (no direct equivalent) | `type: agent_requested` + `description` | — (no direct equivalent) |
-| Manual only | *(no flags set)* | `trigger: manual` | `inclusion: manual` (in `specs/`) | `type: manual` (IDE only) | — (uses Skills, out of scope) |
+| Concept | Cursor | Windsurf / Antigravity | Kiro | Augment | Claude Code | AGENTS.md |
+|---|---|---|---|---|---|---|
+| Always active | `alwaysApply: true` | `trigger: always_on` | `inclusion: always` (in `steering/`) | `type: always_apply` | No `paths` field (unconditional) | *(default — scoped by directory)* |
+| File-scoped | `globs: [...]` | `trigger: glob` + `globs: [...]` | `inclusion: fileMatch` + `fileMatchPattern` | — (not supported) | `paths: [...]` | *(directory placement)* |
+| Model decides | `description: "..."` | `trigger: model_decision` + `description` | — (no direct equivalent) | `type: agent_requested` + `description` | — (no direct equivalent) | — (not supported) |
+| Manual only | *(no flags set)* | `trigger: manual` | `inclusion: manual` (in `specs/`) | `type: manual` (IDE only) | — (uses Skills, out of scope) | — (not supported) |
 
 ### Glob field name mapping
 
@@ -330,6 +354,7 @@ The converter normalises all formats through a shared intermediate representatio
 | Kiro | `fileMatchPattern` | `string` or `string[]` |
 | Augment | — | *(no glob support)* |
 | Claude Code | `paths` | `string[]` |
+| AGENTS.md | — | *(directory placement, no globs)* |
 
 ---
 

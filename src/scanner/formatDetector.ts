@@ -40,9 +40,8 @@ export const FORMAT_CONFIGS: FormatScanConfig[] = [
     format: 'augment',
     directories: ['.augment/rules'],
     extensions: ['.md'],
-    // AGENTS.md is Augment's "main" hierarchical format
     standaloneFiles: ['.augment-guidelines'],
-    hierarchicalFiles: ['AGENTS.md', 'CLAUDE.md'],
+    hierarchicalFiles: ['CLAUDE.md'],
   },
   {
     format: 'claude-code',
@@ -51,6 +50,14 @@ export const FORMAT_CONFIGS: FormatScanConfig[] = [
     // CLAUDE.md is Claude Code's "main" hierarchical format
     standaloneFiles: ['CLAUDE.local.md'],
     hierarchicalFiles: ['CLAUDE.md'],
+  },
+  {
+    format: 'agents-md',
+    directories: [],
+    extensions: ['.md'],
+    standaloneFiles: [],
+    // AGENTS.md is the cross-agent hierarchical format
+    hierarchicalFiles: ['AGENTS.md'],
   },
 ];
 

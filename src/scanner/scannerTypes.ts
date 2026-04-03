@@ -1,11 +1,12 @@
-/** The 6 supported AI agent rule formats */
+/** The 7 supported AI agent rule formats */
 export type RuleFormat =
   | 'cursor'
   | 'windsurf'
   | 'kiro'
   | 'antigravity'
   | 'augment'
-  | 'claude-code';
+  | 'claude-code'
+  | 'agents-md';
 
 /** Normalized activation trigger */
 export type RuleTrigger = 'always' | 'glob' | 'agent_requested' | 'manual';
