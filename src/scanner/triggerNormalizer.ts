@@ -108,6 +108,8 @@ function normalizeKiro(
       return { trigger: 'always', globs: undefined, description };
     case 'fileMatch':
       return { trigger: 'glob', globs, description };
+    case 'auto':
+      return { trigger: 'agent_requested', globs: undefined, description };
     case 'manual':
       return { trigger: 'manual', globs: undefined, description };
     default:

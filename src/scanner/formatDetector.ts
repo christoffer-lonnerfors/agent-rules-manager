@@ -11,8 +11,7 @@ export const FORMAT_CONFIGS: FormatScanConfig[] = [
     format: 'cursor',
     directories: ['.cursor/rules'],
     extensions: ['.mdc', '.md'],
-    standaloneFiles: [],
-    // AGENTS.md is supported by Cursor but it's not the "main" format for it
+    standaloneFiles: ['.cursorrules'],
     hierarchicalFiles: [],
   },
   {
@@ -31,7 +30,7 @@ export const FORMAT_CONFIGS: FormatScanConfig[] = [
   },
   {
     format: 'antigravity',
-    directories: ['.agent/rules'],
+    directories: ['.agents/rules', '.agent/rules'],
     extensions: ['.md'],
     standaloneFiles: [],
     hierarchicalFiles: [],

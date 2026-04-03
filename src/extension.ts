@@ -532,6 +532,9 @@ function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
           lines.push('fileMatchPattern:');
           for (const g of lr.globs) { lines.push(`  - "${g}"`); }
         }
+      } else if (lr.trigger === 'agent_requested') {
+        lines.push('inclusion: auto');
+        if (lr.description) { lines.push(`description: "${lr.description}"`); }
       } else {
         lines.push('inclusion: manual');
       }

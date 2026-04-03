@@ -13,6 +13,7 @@ Reference specification for parsing, writing, and converting between agent rule 
 |---|---|
 | **Directory** | `.cursor/rules/` |
 | **File extensions** | `.mdc` (primary), `.md` (also supported) |
+| **Standalone files** | `.cursorrules` (legacy root-level rule file) |
 | **Scanning** | Recursive — all `.mdc` and `.md` files under `.cursor/rules/` are discovered |
 
 ### Frontmatter
@@ -92,7 +93,7 @@ trigger: always_on
 
 ### Behaviour Notes
 - `trigger` is the single field that controls activation mode — there is no boolean flag like Cursor's `alwaysApply`.
-- The `.windsurfrules` root file is a global rule with no frontmatter convention (treated as always-on, plain content).
+- The `.windsurfrules` root file is a legacy format not mentioned in the current official docs. It is still indexed as a read-only standalone file for backward compatibility.
 - Windsurf and Antigravity share an **identical frontmatter schema**; they differ only in directory path.
 
 ---
@@ -114,9 +115,10 @@ YAML frontmatter delimited by `---`. Kiro uses `inclusion` as its primary contro
 
 | Field | Type | Values / Description |
 |---|---|---|
-| `inclusion` | `string` (enum) | `always` · `fileMatch` · `manual` |
+| `inclusion` | `string` (enum) | `always` · `fileMatch` · `auto` · `manual` |
 | `fileMatchPattern` | `string` or `string[]` | Used when `inclusion: fileMatch`; single string if one pattern, array if multiple |
-| `description` | `string` | Optional; used alongside `fileMatch` inclusion |
+| `name` | `string` | Used when `inclusion: auto`; identifier for the steering file |
+| `description` | `string` | Used when `inclusion: auto` (required) or `fileMatch` (optional) |
 
 ```yaml
 ---
@@ -134,6 +136,14 @@ description: "TypeScript rules"
 
 ```yaml
 ---
+inclusion: auto
+name: api-design
+description: "REST API design patterns and conventions. Use when creating or modifying API endpoints."
+---
+```
+
+```yaml
+---
 inclusion: manual
 ---
 ```
@@ -146,8 +156,10 @@ inclusion: manual
 - When **writing** (converting to Kiro):
   - `alwaysApply: true` or `inclusion: always` → written to `.kiro/steering/` with `inclusion: always`
   - `globs` present → written to `.kiro/steering/` with `inclusion: fileMatch` and `fileMatchPattern`
+  - `agent_requested` → written to `.kiro/steering/` with `inclusion: auto` and `description`
   - No trigger → written to `.kiro/specs/` with `inclusion: manual`
 - `fileMatchPattern` may be a single string (one glob) or an array (multiple globs).
+- `.kiro/specs/` is not referenced in current official docs but is still scanned for backward compatibility.
 
 ---
 
@@ -158,9 +170,10 @@ inclusion: manual
 ### Storage
 | Property | Value |
 |---|---|
-| **Directory** | `.agent/rules/` |
+| **Directory (current)** | `.agents/rules/` |
+| **Directory (legacy)** | `.agent/rules/` (backward compatible; still scanned) |
 | **File extension** | `.md` |
-| **Scanning** | Recursive under `.agent/rules/` |
+| **Scanning** | Recursive under `.agents/rules/` and `.agent/rules/` |
 
 ### Frontmatter
 Identical schema to Windsurf. YAML frontmatter delimited by `---`.
@@ -180,6 +193,7 @@ trigger: always_on
 ### Behaviour Notes
 - Functionally identical to Windsurf in terms of frontmatter and trigger logic.
 - The converter handles Windsurf and Antigravity in the same code branch, branching only on the output directory.
+- Antigravity migrated from `.agent/rules` to `.agents/rules` (plural). The legacy path is still scanned for backward compatibility.
 
 ---
 
@@ -242,7 +256,7 @@ Augment discovers `CLAUDE.md` files placed in subdirectories as hierarchical rul
 
 ## 6. Claude Code
 
-> **Source:** [Memory — CLAUDE.md | Anthropic Docs](https://docs.anthropic.com/en/docs/claude-code/memory)
+> **Source:** [How Claude remembers your project — Claude Code Docs](https://code.claude.com/docs/en/memory)
 
 ### Storage
 | Property | Value |
@@ -341,7 +355,7 @@ The converter normalises all formats through a shared intermediate representatio
 |---|---|---|---|---|---|---|
 | Always active | `alwaysApply: true` | `trigger: always_on` | `inclusion: always` (in `steering/`) | `type: always_apply` | No `paths` field (unconditional) | *(default — scoped by directory)* |
 | File-scoped | `globs: [...]` | `trigger: glob` + `globs: [...]` | `inclusion: fileMatch` + `fileMatchPattern` | — (not supported) | `paths: [...]` | *(directory placement)* |
-| Model decides | `description: "..."` | `trigger: model_decision` + `description` | — (no direct equivalent) | `type: agent_requested` + `description` | — (no direct equivalent) | — (not supported) |
+| Model decides | `description: "..."` | `trigger: model_decision` + `description` | `inclusion: auto` + `description` | `type: agent_requested` + `description` | — (no direct equivalent) | — (not supported) |
 | Manual only | *(no flags set)* | `trigger: manual` | `inclusion: manual` (in `specs/`) | `type: manual` (IDE only) | — (uses Skills, out of scope) | — (not supported) |
 
 ### Glob field name mapping
