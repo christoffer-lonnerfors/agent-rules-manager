@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../scanner/scannerTypes';
 import { RuleIndex } from '../index/ruleIndex';
-import { buildLogicalRules } from '../index/logicalRuleBuilder';
 import { RuleIssue } from '../lint/ruleIssues';
 import { computeIssues, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues, IssueComputerConfig } from '../lint/issueComputer';
 import { estimateTokens, estimateLogicalRuleTokens, formatTokenCount } from '../lint/tokenEstimator';
@@ -94,7 +93,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   private rebuildLogicalRules(): void {
-    this.logicalRules = buildLogicalRules(this.ruleIndex.getAll());
+    this.logicalRules = this.ruleIndex.getLogicalRules();
     this.issueConfig = this.readIssueConfig();
   }
 

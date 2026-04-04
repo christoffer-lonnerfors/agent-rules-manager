@@ -24,11 +24,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "agentRules.scan",
-        "title": "Agent Rules: Scan Workspace",
-        "icon": "$(search)"
-      },
-      {
         "command": "agentRules.rescan",
         "title": "Agent Rules: Re-scan Workspace",
         "icon": "$(refresh)"
@@ -96,11 +91,6 @@
     },
     "menus": {
       "view/title": [
-        {
-          "command": "agentRules.scan",
-          "when": "view == agentRules.rulesView",
-          "group": "navigation"
-        },
         {
           "command": "agentRules.rescan",
           "when": "view == agentRules.rulesView",

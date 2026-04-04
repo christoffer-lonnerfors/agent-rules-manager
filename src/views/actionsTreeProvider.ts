@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { LogicalRule, RuleFormat } from '../scanner/scannerTypes';
 import { RuleIndex } from '../index/ruleIndex';
-import { buildLogicalRules } from '../index/logicalRuleBuilder';
 import { FORMAT_LABELS } from './ruleTreeProvider';
 
 type ActionElement = FormatSelectorNode | ActionButtonNode;
@@ -26,7 +25,7 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
 
   constructor(private readonly ruleIndex: RuleIndex) {
     ruleIndex.onDidChange(() => {
-      this.logicalRules = buildLogicalRules(this.ruleIndex.getAll());
+      this.logicalRules = this.ruleIndex.getLogicalRules();
       this._onDidChangeTreeData.fire(undefined);
     });
 

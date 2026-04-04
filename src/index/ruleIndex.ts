@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-import { IndexedRule } from '../scanner/scannerTypes';
+import { IndexedRule, LogicalRule } from '../scanner/scannerTypes';
+import { buildLogicalRules } from './logicalRuleBuilder';
 
 const STORAGE_KEY = 'agentRules.ruleIndex';
 
@@ -9,6 +10,7 @@ const STORAGE_KEY = 'agentRules.ruleIndex';
  */
 export class RuleIndex {
   private rules = new Map<string, IndexedRule>();
+  private logicalRulesCache: LogicalRule[] | null = null;
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
@@ -37,6 +39,7 @@ export class RuleIndex {
     for (const rule of rules) {
       this.rules.set(rule.id, rule);
     }
+    this.logicalRulesCache = null;
     await this.save();
     this._onDidChange.fire();
   }
@@ -71,9 +74,21 @@ export class RuleIndex {
     return this.rules.size === 0;
   }
 
+  /**
+   * Get logical rules (grouped from indexed rules via MinHash similarity).
+   * Result is lazily computed and cached — invalidated on replaceAll() / clear().
+   */
+  getLogicalRules(): LogicalRule[] {
+    if (this.logicalRulesCache === null) {
+      this.logicalRulesCache = buildLogicalRules(this.getAll());
+    }
+    return this.logicalRulesCache;
+  }
+
   /** Clear the index entirely */
   async clear(): Promise<void> {
     this.rules.clear();
+    this.logicalRulesCache = null;
     await this.save();
     this._onDidChange.fire();
   }

@@ -53,10 +53,6 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   // Register commands
-  const scanCmd = vscode.commands.registerCommand('agentRules.scan', async () => {
-    await scannerService.scan();
-  });
-
   const rescanCmd = vscode.commands.registerCommand('agentRules.rescan', async () => {
     await scannerService.scan();
   });
@@ -385,7 +381,6 @@ export function activate(context: vscode.ExtensionContext) {
     treeView,
     actionsView,
     bodyProvider,
-    scanCmd,
     rescanCmd,
     openRuleCmd,
     compareCmd,
