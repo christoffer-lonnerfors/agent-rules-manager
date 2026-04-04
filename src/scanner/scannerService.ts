@@ -56,17 +56,19 @@ export class ScannerService {
       const workspaceRoot = workspaceFolder.uri.fsPath;
       const discovered = await discoverFiles(workspaceRoot);
 
-      const rules: IndexedRule[] = [];
-      for (const file of discovered) {
-        try {
-          const rule = await this.processFile(file.filePath, file.format, file.sourceType, workspaceRoot, file.extensionMismatch);
-          if (rule) {
-            rules.push(rule);
+      const results = await mapWithConcurrency(
+        discovered,
+        async (file) => {
+          try {
+            return await this.processFile(file.filePath, file.format, file.sourceType, workspaceRoot, file.extensionMismatch);
+          } catch (err) {
+            console.warn(`Agent Rules Manager: Failed to process ${file.filePath}:`, err);
+            return undefined;
           }
-        } catch (err) {
-          console.warn(`Agent Rules Manager: Failed to process ${file.filePath}:`, err);
-        }
-      }
+        },
+        20,
+      );
+      const rules = results.filter((r): r is IndexedRule => r !== undefined);
 
       await this.ruleIndex.replaceAll(rules);
 
@@ -185,4 +187,32 @@ function addIfRelativePath(raw: string, refs: Set<string>): void {
   // Strip leading ./ for consistency
   const cleaned = trimmed.replace(/^\.\//, '');
   refs.add(cleaned);
+}
+
+/**
+ * Run async work over an array with bounded concurrency.
+ * Starts `concurrency` workers that each pull the next item when idle.
+ * Results are returned in input order.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  concurrency: number,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await fn(items[index]);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return results;
 }
