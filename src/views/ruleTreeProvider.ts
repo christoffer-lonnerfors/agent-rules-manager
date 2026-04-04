@@ -48,16 +48,7 @@ const TRIGGER_ICONS: Record<RuleTrigger, string> = {
   'manual': 'account',
 };
 
-/** Map format keys to icon filenames */
-const FORMAT_ICON_FILES: Record<RuleFormat, string> = {
-  'cursor': 'cursor',
-  'windsurf': 'windsurf',
-  'kiro': 'kiro',
-  'antigravity': 'antigravity',
-  'augment': 'augment',
-  'claude-code': 'claude-code',
-  'agents-md': 'agents-md',
-};
+
 
 export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<TreeElement | undefined>();
@@ -85,7 +76,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   private getFormatIconPath(format: RuleFormat): { light: vscode.Uri; dark: vscode.Uri } {
-    const iconFile = FORMAT_ICON_FILES[format] + '.svg';
+    const iconFile = format + '.svg';
     return {
       light: vscode.Uri.file(path.join(this.extensionPath, 'resources', 'icons', 'light', iconFile)),
       dark: vscode.Uri.file(path.join(this.extensionPath, 'resources', 'icons', 'dark', iconFile)),
