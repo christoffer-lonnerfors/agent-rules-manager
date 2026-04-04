@@ -269,9 +269,12 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     const fileTokens = estimateTokens(rule.bodyLength);
 
     item.description = `${relativePath}  ${formatTokenCount(fileTokens)}`;
-    item.iconPath = hasFileIssues
-      ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'))
-      : this.getFormatIconPath(rule.format);
+    item.iconPath = this.getFormatIconPath(rule.format);
+
+    // Attach custom URI so FileDecorationProvider can badge files with issues
+    if (hasFileIssues) {
+      item.resourceUri = vscode.Uri.parse(`${ISSUE_SCHEME}:/${rule.id}`);
+    }
 
     const tooltipLines = [
       `**${rule.fileName}**`,
