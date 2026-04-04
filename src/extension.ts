@@ -8,6 +8,7 @@ import { LogicalRule, RuleFormat, AgentId, AGENT_LABELS, AGENT_CONFIGS, getReada
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from './scanner/formatDetector';
 import { toCaseInsensitiveGlob } from './scanner/fileDiscovery';
+import { detectDominantAgent } from './scanner/agentAutoDetector';
 import { scaffoldRuleFile } from './scanner/ruleScaffolder';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
@@ -422,8 +423,11 @@ export function activate(context: vscode.ExtensionContext) {
     ...watchers,
   );
 
-  // Auto-scan on activation (silent — no notification)
-  scannerService.scan({ silent: true });
+  // Auto-scan on activation (silent — no notification).
+  // After the first scan, auto-detect agent if none is configured.
+  scannerService.scan({ silent: true }).then(() => {
+    autoSelectAgentIfNeeded(ruleIndex);
+  });
 }
 
 /**
@@ -473,6 +477,29 @@ function createFileWatchers(scannerService: ScannerService): vscode.Disposable[]
   disposables.push({ dispose: () => { if (debounceTimer) { clearTimeout(debounceTimer); } } });
 
   return disposables;
+}
+
+/**
+ * If no agent has been selected (setting is empty), analyse the scanned rules
+ * and auto-select the dominant agent. Does nothing when:
+ *   - The user has already chosen an agent in settings.
+ *   - No agent-specific rule files were found.
+ *   - There is an exact tie between agents.
+ */
+async function autoSelectAgentIfNeeded(ruleIndex: RuleIndex): Promise<void> {
+  const cfg = vscode.workspace.getConfiguration('agentRules');
+  const currentAgent = cfg.get<string>('agent', '');
+  if (currentAgent) {
+    // User has already selected / configured an agent — do not override.
+    return;
+  }
+
+  const dominant = detectDominantAgent(ruleIndex.getAll());
+  if (!dominant) {
+    return;
+  }
+
+  await cfg.update('agent', dominant, vscode.ConfigurationTarget.Workspace);
 }
 
 export function deactivate() {
