@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { LogicalRule, RuleFormat, FORMAT_LABELS, AgentId, AGENT_LABELS, isRuleCoveredByAgent, getReadableFormats } from '../scanner/scannerTypes';
+import { LogicalRule, RuleFormat, FORMAT_LABELS, AgentId, AGENT_LABELS, getReadableFormats } from '../scanner/scannerTypes';
 import { FORMAT_CONFIGS } from '../scanner/formatDetector';
 import { RuleIssue } from './ruleIssues';
 import { estimateTokens, formatTokenCount } from './tokenEstimator';
@@ -78,12 +78,19 @@ function checkMissingPrimary(
   issues: RuleIssue[],
 ): void {
   if (!config.agent) { return; }
-  if (isRuleCoveredByAgent(lr.formats, config.agent as AgentId)) { return; }
+
+  // Stricter check: a rule is covered only if at least one file is in a
+  // readable format AND has the correct file extension.
+  const readable = getReadableFormats(config.agent as AgentId);
+  const effectivelyCovered = lr.rules.some(
+    r => readable.includes(r.format) && !r.extensionMismatch,
+  );
+  if (effectivelyCovered) { return; }
 
   const label = AGENT_LABELS[config.agent as AgentId];
   issues.push({
     id: 'missing-primary',
-    severity: 'info',
+    severity: 'warning',
     message: `Not readable by ${label}`,
   });
 }
@@ -97,7 +104,7 @@ function checkExtensionMismatch(
       const expected = (FORMAT_EXTENSIONS.get(rule.format) ?? ['.md']).join(' / ');
       issues.push({
         id: 'extension-mismatch',
-        severity: 'warning',
+        severity: 'error',
         message: `Wrong file extension — ${FORMAT_LABELS[rule.format]} expects ${expected}`,
         ruleId: rule.id,
       });
