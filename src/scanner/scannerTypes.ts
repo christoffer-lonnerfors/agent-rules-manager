@@ -151,13 +151,3 @@ export interface DiscoveredFile {
   /** True when the file extension doesn't match the format's expected extensions */
   extensionMismatch?: boolean;
 }
-
-/** Similarity match between two rules */
-export interface SimilarityMatch {
-  ruleA: string; // ID
-  ruleB: string; // ID
-  similarity: number; // Jaccard similarity 0..1
-}
-
-
-

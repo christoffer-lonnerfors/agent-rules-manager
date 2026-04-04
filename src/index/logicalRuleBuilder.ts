@@ -1,6 +1,8 @@
 import { IndexedRule, LogicalRule, RuleFormat } from '../scanner/scannerTypes';
 import { computeSimilarity } from '../hashing/minHasher';
-import { DUPLICATE_THRESHOLD } from './similarityDetector';
+
+/** Threshold for flagging as "near duplicate" */
+const DUPLICATE_THRESHOLD = 0.9;
 
 /**
  * Groups IndexedRules into LogicalRules by merging near-duplicates

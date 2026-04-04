@@ -1,5 +1,4 @@
-import * as path from 'path';
-import { FormatScanConfig, RuleFormat } from './scannerTypes';
+import { FormatScanConfig } from './scannerTypes';
 
 /**
  * All format scanning configurations.
@@ -59,50 +58,3 @@ export const FORMAT_CONFIGS: FormatScanConfig[] = [
     hierarchicalFiles: ['AGENTS.md'],
   },
 ];
-
-/**
- * Determines the RuleFormat for a file based on its path relative to workspace root.
- * Returns undefined if the file doesn't match any known format.
- */
-export function detectFormat(
-  filePath: string,
-  workspaceRoot: string
-): { format: RuleFormat; sourceType: 'directory_rule' | 'standalone_file' | 'hierarchical_md' } | undefined {
-  const relativePath = path.relative(workspaceRoot, filePath);
-  const normalizedRelative = relativePath.split(path.sep).join('/');
-  const fileName = path.basename(filePath);
-
-  // Check directory rules first (most specific)
-  for (const config of FORMAT_CONFIGS) {
-    for (const dir of config.directories) {
-      if (normalizedRelative.startsWith(dir + '/')) {
-        const ext = path.extname(filePath).toLowerCase();
-        if (config.extensions.includes(ext)) {
-          return { format: config.format, sourceType: 'directory_rule' };
-        }
-      }
-    }
-  }
-
-  // Check standalone files at root
-  for (const config of FORMAT_CONFIGS) {
-    for (const standaloneFile of config.standaloneFiles) {
-      if (normalizedRelative === standaloneFile) {
-        return { format: config.format, sourceType: 'standalone_file' };
-      }
-    }
-  }
-
-  // Check hierarchical MD files (case-insensitive) — last config to declare a file "wins"
-  // Claude Code is listed after Augment, so it wins for CLAUDE.md (correct: it's the main format)
-  const fileNameLower = fileName.toLowerCase();
-  let hierarchicalMatch: { format: RuleFormat; sourceType: 'hierarchical_md' } | undefined;
-  for (const config of FORMAT_CONFIGS) {
-    if (config.hierarchicalFiles.some(hf => hf.toLowerCase() === fileNameLower)) {
-      hierarchicalMatch = { format: config.format, sourceType: 'hierarchical_md' };
-    }
-  }
-
-  return hierarchicalMatch;
-}
-
