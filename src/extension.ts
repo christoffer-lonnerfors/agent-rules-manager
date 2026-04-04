@@ -40,6 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Register issue decoration provider (badges rules that have any issues)
   const issueDecoProvider = new RuleIssueDecorationProvider();
   const decoRegistration = vscode.window.registerFileDecorationProvider(issueDecoProvider);
+  treeProvider.setIssueDecorationProvider(issueDecoProvider);
 
   // Register TreeViews
   const treeView = vscode.window.createTreeView('agentRules.rulesView', {

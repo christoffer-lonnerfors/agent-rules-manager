@@ -60,12 +60,33 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private extensionPath: string = '';
   /** Cached config — recomputed once per tree rebuild */
   private issueConfig: IssueComputerConfig = { agent: '', detectDivergence: true, lintEnabled: true, maxRuleTokens: 2000 };
+  private issueDecoProvider?: RuleIssueDecorationProvider;
+  private configDisposable: vscode.Disposable;
 
   constructor(private readonly ruleIndex: RuleIndex) {
     ruleIndex.onDidChange(() => {
       this.rebuildLogicalRules();
       this._onDidChangeTreeData.fire(undefined);
+      this.issueDecoProvider?.fire();
     });
+
+    // Rebuild tree when agent or lint settings change
+    this.configDisposable = vscode.workspace.onDidChangeConfiguration(e => {
+      if (
+        e.affectsConfiguration('agentRules.agent') ||
+        e.affectsConfiguration('agentRules.detectDivergence') ||
+        e.affectsConfiguration('agentRules.lint')
+      ) {
+        this.rebuildLogicalRules();
+        this._onDidChangeTreeData.fire(undefined);
+        this.issueDecoProvider?.fire();
+      }
+    });
+  }
+
+  /** Link the decoration provider so it can be refreshed when issues change */
+  setIssueDecorationProvider(provider: RuleIssueDecorationProvider): void {
+    this.issueDecoProvider = provider;
   }
 
   setExtensionPath(extensionPath: string): void {
@@ -306,6 +327,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   dispose(): void {
     this._onDidChangeTreeData.dispose();
+    this.configDisposable.dispose();
   }
 }
 
