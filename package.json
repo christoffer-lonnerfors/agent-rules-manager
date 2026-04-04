@@ -5,6 +5,7 @@
   "version": "0.0.1",
   "license": "MIT",
   "publisher": "ai-rules",
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -73,7 +74,7 @@
         {
           "id": "agentRules",
           "title": "Agent Rules",
-          "icon": "$(book)"
+          "icon": "icon.svg"
         }
       ]
     },
