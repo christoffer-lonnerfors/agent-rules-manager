@@ -1,8 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { LogicalRule, RuleFormat, FORMAT_LABELS } from '../scanner/scannerTypes';
+import { FORMAT_CONFIGS } from '../scanner/formatDetector';
 import { RuleIssue } from './ruleIssues';
 import { estimateTokens, formatTokenCount } from './tokenEstimator';
+
+/** Lookup: format → expected extensions (derived from FORMAT_CONFIGS) */
+const FORMAT_EXTENSIONS = new Map<RuleFormat, string[]>(
+  FORMAT_CONFIGS.map(c => [c.format, c.extensions]),
+);
 
 /**
  * Configuration that controls which checks run and their thresholds.
@@ -88,7 +94,7 @@ function checkExtensionMismatch(
 ): void {
   for (const rule of lr.rules) {
     if (rule.extensionMismatch) {
-      const expected = rule.format === 'cursor' ? '.mdc / .md' : '.md';
+      const expected = (FORMAT_EXTENSIONS.get(rule.format) ?? ['.md']).join(' / ');
       issues.push({
         id: 'extension-mismatch',
         severity: 'warning',
