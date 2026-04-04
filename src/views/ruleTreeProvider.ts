@@ -108,7 +108,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     }
   }
 
-  getChildren(element?: TreeElement): TreeElement[] {
+  getChildren(element?: TreeElement): TreeElement[] | Promise<TreeElement[]> {
     if (!element) {
       return this.getTriggerGroups();
     }
@@ -139,15 +139,18 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       }));
   }
 
-  private getLogicalRulesForTrigger(trigger: RuleTrigger): LogicalRuleNode[] {
-    return this.logicalRules
+  private async getLogicalRulesForTrigger(trigger: RuleTrigger): Promise<LogicalRuleNode[]> {
+    const filtered = this.logicalRules
       .filter(lr => lr.trigger === trigger)
-      .sort((a, b) => a.description.localeCompare(b.description))
-      .map(logicalRule => ({
+      .sort((a, b) => a.description.localeCompare(b.description));
+
+    return Promise.all(
+      filtered.map(async logicalRule => ({
         type: 'logical' as const,
         logicalRule,
-        issues: computeIssues(logicalRule, this.issueConfig),
-      }));
+        issues: await computeIssues(logicalRule, this.issueConfig),
+      })),
+    );
   }
 
   private getFilesForLogicalRule(node: LogicalRuleNode): RuleFileNode[] {

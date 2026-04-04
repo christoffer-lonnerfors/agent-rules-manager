@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import * as vscode from 'vscode';
 import * as path from 'path';
 import { LogicalRule, RuleFormat, FORMAT_LABELS } from '../scanner/scannerTypes';
 import { FORMAT_CONFIGS } from '../scanner/formatDetector';
@@ -31,10 +31,10 @@ export interface IssueComputerConfig {
  * This is the single entry point that replaces the scattered ad-hoc checks
  * in the tree provider. New checks are added here as additional functions.
  */
-export function computeIssues(
+export async function computeIssues(
   logicalRule: LogicalRule,
   config: IssueComputerConfig,
-): RuleIssue[] {
+): Promise<RuleIssue[]> {
   const issues: RuleIssue[] = [];
 
   // Structural checks (always run)
@@ -47,7 +47,7 @@ export function computeIssues(
     checkEmptyBody(logicalRule, issues);
     checkMissingDescription(logicalRule, issues);
     checkRuleTooLarge(logicalRule, config, issues);
-    checkBrokenReferences(logicalRule, issues);
+    await checkBrokenReferences(logicalRule, issues);
   }
 
   return issues;
@@ -167,16 +167,17 @@ function checkRuleTooLarge(
   }
 }
 
-function checkBrokenReferences(
+async function checkBrokenReferences(
   lr: LogicalRule,
   issues: RuleIssue[],
-): void {
+): Promise<void> {
   for (const rule of lr.rules) {
     if (rule.references.length === 0) { continue; }
     const ruleDir = path.dirname(rule.filePath);
     for (const ref of rule.references) {
       const resolved = path.resolve(ruleDir, ref);
-      if (!fs.existsSync(resolved)) {
+      const exists = await fileExists(vscode.Uri.file(resolved));
+      if (!exists) {
         issues.push({
           id: 'broken-reference',
           severity: 'warning',
@@ -185,6 +186,15 @@ function checkBrokenReferences(
         });
       }
     }
+  }
+}
+
+async function fileExists(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
   }
 }
 
