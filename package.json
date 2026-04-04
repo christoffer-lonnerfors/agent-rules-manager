@@ -62,6 +62,11 @@
         "command": "agentRules.addMissingRule",
         "title": "Add Missing Rule",
         "icon": "$(add)"
+      },
+      {
+        "command": "agentRules.addRule",
+        "title": "Agent Rules: Add Rule",
+        "icon": "$(new-file)"
       }
     ],
     "viewsContainers": {
@@ -83,6 +88,7 @@
         },
         {
           "id": "agentRules.actionsView",
+          "type": "webview",
           "name": "Actions",
           "icon": "$(tools)",
           "contextualTitle": "Agent Rules"
@@ -127,11 +133,6 @@
           "command": "agentRules.addMissingRule",
           "when": "view == agentRules.rulesView && viewItem =~ /logicalRule.*missing/",
           "group": "1_add"
-        },
-        {
-          "command": "agentRules.setAgent",
-          "when": "view == agentRules.actionsView && viewItem == agentSelector",
-          "group": "inline"
         }
       ]
     },

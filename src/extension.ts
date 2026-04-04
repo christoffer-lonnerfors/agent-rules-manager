@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { RuleIndex } from './index/ruleIndex';
 import { ScannerService } from './scanner/scannerService';
 import { RuleTreeProvider, RuleIssueDecorationProvider } from './views/ruleTreeProvider';
-import { ActionsTreeProvider } from './views/actionsTreeProvider';
+import { ActionsWebviewProvider } from './views/actionsWebviewProvider';
 import { LogicalRule, RuleFormat, AgentId, AGENT_LABELS, AGENT_CONFIGS, getReadableFormats, getEffectiveWriteFormat, FORMAT_LABELS } from './scanner/scannerTypes';
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from './scanner/formatDetector';
@@ -48,10 +48,11 @@ export function activate(context: vscode.ExtensionContext) {
     showCollapseAll: true,
   });
 
-  const actionsProvider = new ActionsTreeProvider(ruleIndex);
-  const actionsView = vscode.window.createTreeView('agentRules.actionsView', {
-    treeDataProvider: actionsProvider,
-  });
+  const actionsProvider = new ActionsWebviewProvider(ruleIndex);
+  const actionsViewRegistration = vscode.window.registerWebviewViewProvider(
+    ActionsWebviewProvider.viewType,
+    actionsProvider,
+  );
 
   // Register commands
   const rescanCmd = vscode.commands.registerCommand('agentRules.rescan', async () => {
@@ -399,13 +400,66 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Register add-rule command (create a new empty rule in the target format)
+  const addRuleCmd = vscode.commands.registerCommand(
+    'agentRules.addRule',
+    async () => {
+      const { agentId, writeFormat } = readAgentSettings();
+      if (!agentId || !writeFormat) {
+        vscode.window.showWarningMessage('Select an agent first.');
+        return;
+      }
+
+      const name = await vscode.window.showInputBox({
+        prompt: 'Rule name',
+        placeHolder: 'e.g. coding-standards',
+        validateInput: (v) => {
+          if (!v.trim()) { return 'Name is required'; }
+          if (/[^a-zA-Z0-9 _-]/.test(v)) { return 'Use only letters, numbers, spaces, hyphens, and underscores'; }
+          return undefined;
+        },
+      });
+      if (!name) { return; }
+
+      const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const config = FORMAT_CONFIGS.find(c => c.format === writeFormat);
+      if (!config) { return; }
+
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) { return; }
+      const root = workspaceFolders[0].uri.fsPath;
+
+      const fs = await import('fs');
+      const path = await import('path');
+
+      if (config.directories.length > 0) {
+        const dir = path.join(root, config.directories[0]);
+        const ext = config.extensions[0];
+        const filePath = path.join(dir, slug + ext);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(filePath, '', 'utf-8');
+        const uri = vscode.Uri.file(filePath);
+        await vscode.window.showTextDocument(uri);
+      } else if (config.hierarchicalFiles.length > 0) {
+        const filePath = path.join(root, config.hierarchicalFiles[0]);
+        if (!fs.existsSync(filePath)) {
+          fs.writeFileSync(filePath, '', 'utf-8');
+        }
+        const uri = vscode.Uri.file(filePath);
+        await vscode.window.showTextDocument(uri);
+      }
+
+      await scannerService.scan();
+    }
+  );
+
   // Set up file system watchers derived from FORMAT_CONFIGS
   const watchers = createFileWatchers(scannerService);
 
   // Push all disposables
   context.subscriptions.push(
     treeView,
-    actionsView,
+    actionsViewRegistration,
     bodyProvider,
     rescanCmd,
     openRuleCmd,
@@ -415,6 +469,7 @@ export function activate(context: vscode.ExtensionContext) {
     syncAllCmd,
     addAllMissingCmd,
     addMissingRuleCmd,
+    addRuleCmd,
     ruleIndex,
     scannerService,
     treeProvider,
