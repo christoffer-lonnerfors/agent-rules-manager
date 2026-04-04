@@ -3,7 +3,7 @@ import * as path from 'path';
 import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS, AgentId } from '../scanner/scannerTypes';
 import { RuleIndex } from '../index/ruleIndex';
 import { RuleIssue } from '../lint/ruleIssues';
-import { computeIssues, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues, IssueComputerConfig } from '../lint/issueComputer';
+import { computeIssues, filterIssuesForAgent, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues, IssueComputerConfig } from '../lint/issueComputer';
 import { estimateTokens, estimateLogicalRuleTokens, formatTokenCount } from '../lint/tokenEstimator';
 
 /** Custom URI scheme used to attach FileDecorations to tree items with issues */
@@ -20,8 +20,10 @@ interface TriggerGroupNode {
 interface LogicalRuleNode {
   type: 'logical';
   logicalRule: LogicalRule;
-  /** Pre-computed issues for this logical rule (computed once per tree rebuild) */
+  /** All issues for this logical rule (used for file-level children) */
   issues: RuleIssue[];
+  /** Issues filtered to those relevant to the selected agent (used for badge, tooltip, description) */
+  agentIssues: RuleIssue[];
 }
 
 interface RuleFileNode {
@@ -136,11 +138,15 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       .sort((a, b) => a.description.localeCompare(b.description));
 
     return Promise.all(
-      filtered.map(async logicalRule => ({
-        type: 'logical' as const,
-        logicalRule,
-        issues: await computeIssues(logicalRule, this.issueConfig),
-      })),
+      filtered.map(async logicalRule => {
+        const issues = await computeIssues(logicalRule, this.issueConfig);
+        return {
+          type: 'logical' as const,
+          logicalRule,
+          issues,
+          agentIssues: filterIssuesForAgent(issues, logicalRule, this.issueConfig.agent),
+        };
+      }),
     );
   }
 
@@ -183,13 +189,13 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   private createLogicalRuleItem(node: LogicalRuleNode): vscode.TreeItem {
-    const { logicalRule, issues } = node;
+    const { logicalRule, agentIssues } = node;
     const formatList = logicalRule.formats.map(f => FORMAT_LABELS[f]).join(', ');
 
-    // Use pre-computed issues from the node
-    const hasIssues = issues.length > 0;
-    const isDiverged = hasIssue(issues, 'diverged-content');
-    const isMissing = hasIssue(issues, 'missing-primary');
+    // Use agent-filtered issues for display (badge, description, tooltip)
+    const hasIssues = agentIssues.length > 0;
+    const isDiverged = hasIssue(agentIssues, 'diverged-content');
+    const isMissing = hasIssue(agentIssues, 'missing-primary');
 
     // If only one file, make it non-collapsible and directly openable
     const hasMultipleFiles = logicalRule.rules.length > 1;
@@ -205,7 +211,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     // Token estimate for the logical rule
     const ruleTokens = estimateLogicalRuleTokens(logicalRule.rules);
 
-    // Tooltip: base info + token estimate + de-duped issue messages
+    // Tooltip: base info + token estimate + agent-filtered issue messages
     const tooltipLines = [
       `**${logicalRule.description}**`,
       `Trigger: ${TRIGGER_LABELS[logicalRule.trigger]}`,
@@ -214,8 +220,8 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       `Files: ${logicalRule.rules.length}`,
       `Size: ${formatTokenCount(ruleTokens)}`,
     ];
-    // Logical-level issues first, then de-duped file-level issues
-    const displayIssues = [...getLogicalIssues(issues), ...dedupeFileIssues(issues)];
+    // Logical-level issues first, then de-duped file-level issues (agent-filtered)
+    const displayIssues = [...getLogicalIssues(agentIssues), ...dedupeFileIssues(agentIssues)];
     for (const issue of displayIssues) {
       const icon = issue.severity === 'error' ? '🔴' : issue.severity === 'warning' ? '⚠️' : 'ℹ️';
       tooltipLines.push(`${icon} ${issue.message}`);
@@ -235,6 +241,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     }
 
     // Attach custom URI so FileDecorationProvider can badge rules with issues
+    // (only for agent-relevant issues)
     if (hasIssues) {
       item.resourceUri = vscode.Uri.parse(`${ISSUE_SCHEME}:/${logicalRule.id}`);
     }
