@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { LogicalRule, RuleFormat, FORMAT_LABELS } from '../scanner/scannerTypes';
+import { LogicalRule, RuleFormat, FORMAT_LABELS, AgentId, AGENT_LABELS, isRuleCoveredByAgent } from '../scanner/scannerTypes';
 import { FORMAT_CONFIGS } from '../scanner/formatDetector';
 import { RuleIssue } from './ruleIssues';
 import { estimateTokens, formatTokenCount } from './tokenEstimator';
@@ -15,8 +15,8 @@ const FORMAT_EXTENSIONS = new Map<RuleFormat, string[]>(
  * Passed in so the function stays pure (no vscode.workspace dependency).
  */
 export interface IssueComputerConfig {
-  /** User's chosen primary format, or '' if none */
-  primaryFormat: RuleFormat | '';
+  /** User's chosen agent, or '' if none */
+  agent: AgentId | '';
   /** Whether divergence detection is enabled */
   detectDivergence: boolean;
   /** Whether lint checks are enabled */
@@ -77,14 +77,14 @@ function checkMissingPrimary(
   config: IssueComputerConfig,
   issues: RuleIssue[],
 ): void {
-  if (!config.primaryFormat) { return; }
-  if (lr.formats.includes(config.primaryFormat as RuleFormat)) { return; }
+  if (!config.agent) { return; }
+  if (isRuleCoveredByAgent(lr.formats, config.agent as AgentId)) { return; }
 
-  const label = FORMAT_LABELS[config.primaryFormat as RuleFormat];
+  const label = AGENT_LABELS[config.agent as AgentId];
   issues.push({
     id: 'missing-primary',
     severity: 'info',
-    message: `Missing from ${label}`,
+    message: `Not readable by ${label}`,
   });
 }
 

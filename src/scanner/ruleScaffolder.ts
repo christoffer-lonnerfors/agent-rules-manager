@@ -27,6 +27,25 @@ export function scaffoldRuleFile(logicalRule: LogicalRule, targetFormat: RuleFor
   const config = FORMAT_CONFIGS.find(c => c.format === targetFormat);
   if (!config || config.directories.length === 0 && config.hierarchicalFiles.length === 0) { return undefined; }
 
+  // claude-md format: place CLAUDE.md in the LCA directory for glob-scoped rules, or workspace root
+  if (targetFormat === 'claude-md') {
+    const targetDir = (logicalRule.trigger === 'glob' && logicalRule.globs?.length)
+      ? (() => { const lcaDir = extractCommonDirectory(logicalRule.globs!); return lcaDir ? path.join(root, lcaDir) : root; })()
+      : root;
+    const targetPath = path.join(targetDir, 'CLAUDE.md');
+
+    if (fs.existsSync(targetPath)) {
+      // Append to existing file
+      const existing = fs.readFileSync(targetPath, 'utf-8');
+      const content = existing.trimEnd() + '\n\n---\n\n' + sourceBody + '\n';
+      fs.writeFileSync(targetPath, content, 'utf-8');
+    } else {
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(targetPath, sourceBody + '\n', 'utf-8');
+    }
+    return targetPath;
+  }
+
   // agents-md format: place AGENTS.md in the LCA directory for glob-scoped rules, or workspace root
   if (targetFormat === 'agents-md') {
     const targetDir = (logicalRule.trigger === 'glob' && logicalRule.globs?.length)
@@ -44,26 +63,7 @@ export function scaffoldRuleFile(logicalRule: LogicalRule, targetFormat: RuleFor
     return targetPath;
   }
 
-  // Augment with glob-scoped rules: place AGENTS.md in the LCA directory
-  // instead of creating a file in .augment/rules/
-  if (targetFormat === 'augment' && logicalRule.trigger === 'glob' && logicalRule.globs?.length) {
-    const lcaDir = extractCommonDirectory(logicalRule.globs);
-    const targetDir = lcaDir ? path.join(root, lcaDir) : root;
-    const targetPath = path.join(targetDir, 'AGENTS.md');
 
-    // Don't overwrite existing AGENTS.md
-    if (fs.existsSync(targetPath)) {
-      // Append to existing file
-      const existing = fs.readFileSync(targetPath, 'utf-8');
-      const content = existing.trimEnd() + '\n\n---\n\n' + sourceBody + '\n';
-      fs.writeFileSync(targetPath, content, 'utf-8');
-    } else {
-      fs.mkdirSync(targetDir, { recursive: true });
-      // AGENTS.md has no frontmatter — plain markdown
-      fs.writeFileSync(targetPath, sourceBody + '\n', 'utf-8');
-    }
-    return targetPath;
-  }
 
   const targetDir = path.join(root, config.directories[0]);
   const targetExt = config.extensions[0];
@@ -158,8 +158,9 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
       // No frontmatter needed for always-on rules in claude-code
       break;
 
+    case 'claude-md':
     case 'agents-md':
-      // AGENTS.md uses plain markdown — no frontmatter
+      // Cross-agent hierarchical formats use plain markdown — no frontmatter
       break;
   }
 

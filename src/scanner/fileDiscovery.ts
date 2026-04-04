@@ -20,14 +20,17 @@ export async function discoverFiles(workspaceRoot: string): Promise<DiscoveredFi
     discovered.push(...dirFiles, ...standaloneFiles, ...hierarchicalFiles);
   }
 
-  // Deduplicate by filePath — if a file was claimed by multiple formats,
-  // keep the LAST one (later formats in FORMAT_CONFIGS are more specific/main)
-  const byPath = new Map<string, DiscoveredFile>();
+  // No deduplication — a file can legitimately belong to multiple formats
+  // (e.g. CLAUDE.md is both 'claude-md' format, readable by multiple agents).
+  // Each format's scan config produces its own DiscoveredFile entries.
+  // However, within the same format, deduplicate by filePath.
+  const byFormatAndPath = new Map<string, DiscoveredFile>();
   for (const file of discovered) {
-    byPath.set(file.filePath, file);
+    const key = `${file.format}::${file.filePath}`;
+    byFormatAndPath.set(key, file);
   }
 
-  return Array.from(byPath.values());
+  return Array.from(byFormatAndPath.values());
 }
 
 /** Text-like extensions we consider as potential rule files when checking for mismatches */

@@ -1,20 +1,19 @@
 import * as vscode from 'vscode';
-import { LogicalRule, RuleFormat } from '../scanner/scannerTypes';
+import { LogicalRule, RuleFormat, AgentId, AGENT_LABELS, isRuleCoveredByAgent, getEffectiveWriteFormat, FORMAT_LABELS } from '../scanner/scannerTypes';
 import { RuleIndex } from '../index/ruleIndex';
-import { FORMAT_LABELS } from './ruleTreeProvider';
 
-type ActionElement = FormatSelectorNode | ActionButtonNode;
+type ActionElement = AgentSelectorNode | ActionButtonNode;
 
-interface FormatSelectorNode {
-  type: 'formatSelector';
-  format: RuleFormat | '';
+interface AgentSelectorNode {
+  type: 'agentSelector';
+  agent: AgentId | '';
 }
 
 interface ActionButtonNode {
   type: 'actionButton';
   action: 'syncAll' | 'addAllMissing';
   count: number;
-  primaryFormat: RuleFormat | '';
+  agent: AgentId | '';
 }
 
 export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElement> {
@@ -31,14 +30,14 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
 
     // Listen for config changes to rebuild
     vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('agentRules.primaryFormat') || e.affectsConfiguration('agentRules.detectDivergence')) {
+      if (e.affectsConfiguration('agentRules.agent') || e.affectsConfiguration('agentRules.writeFormat') || e.affectsConfiguration('agentRules.detectDivergence')) {
         this._onDidChangeTreeData.fire(undefined);
       }
     });
   }
 
-  private getPrimaryFormat(): RuleFormat | '' {
-    return vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat | '';
+  private getAgent(): AgentId | '' {
+    return vscode.workspace.getConfiguration('agentRules').get<string>('agent', '') as AgentId | '';
   }
 
   private getDivergedCount(): number {
@@ -47,14 +46,14 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
     return this.logicalRules.filter(lr => lr.rules.length > 1 && lr.minSimilarity < 1.0).length;
   }
 
-  private getMissingCount(primaryFormat: RuleFormat): number {
-    return this.logicalRules.filter(lr => !lr.formats.includes(primaryFormat)).length;
+  private getMissingCount(agent: AgentId): number {
+    return this.logicalRules.filter(lr => !isRuleCoveredByAgent(lr.formats, agent)).length;
   }
 
   getTreeItem(element: ActionElement): vscode.TreeItem {
     switch (element.type) {
-      case 'formatSelector':
-        return this.createFormatSelectorItem(element);
+      case 'agentSelector':
+        return this.createAgentSelectorItem(element);
       case 'actionButton':
         return this.createActionButtonItem(element);
     }
@@ -63,10 +62,10 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
   getChildren(element?: ActionElement): ActionElement[] {
     if (element) { return []; }
 
-    const primaryFormat = this.getPrimaryFormat();
+    const agent = this.getAgent();
 
     const children: ActionElement[] = [
-      { type: 'formatSelector', format: primaryFormat },
+      { type: 'agentSelector', agent },
     ];
 
     const divergedCount = this.getDivergedCount();
@@ -74,39 +73,47 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
       type: 'actionButton',
       action: 'syncAll',
       count: divergedCount,
-      primaryFormat,
+      agent,
     });
 
-    const missingCount = primaryFormat ? this.getMissingCount(primaryFormat as RuleFormat) : 0;
+    const missingCount = agent ? this.getMissingCount(agent as AgentId) : 0;
     children.push({
       type: 'actionButton',
       action: 'addAllMissing',
       count: missingCount,
-      primaryFormat,
+      agent,
     });
 
     return children;
   }
 
-  private createFormatSelectorItem(node: FormatSelectorNode): vscode.TreeItem {
-    const label = node.format
-      ? `Primary Format: ${FORMAT_LABELS[node.format as RuleFormat]}`
-      : 'Select Primary Format…';
+  private createAgentSelectorItem(node: AgentSelectorNode): vscode.TreeItem {
+    const label = node.agent
+      ? `Agent: ${AGENT_LABELS[node.agent as AgentId]}`
+      : 'Select Agent…';
 
     const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
     item.iconPath = new vscode.ThemeIcon('target');
-    item.contextValue = 'primaryFormat';
+    item.contextValue = 'agentSelector';
     item.command = {
-      command: 'agentRules.setPrimaryFormat',
-      title: 'Set Primary Format',
+      command: 'agentRules.setAgent',
+      title: 'Select Agent',
     };
+
+    // Show the write format as description if an agent is selected
+    if (node.agent) {
+      const writeFormatOverride = vscode.workspace.getConfiguration('agentRules').get<string>('writeFormat', '') as RuleFormat | '';
+      const effectiveFormat = getEffectiveWriteFormat(node.agent as AgentId, writeFormatOverride);
+      item.description = `writes to ${FORMAT_LABELS[effectiveFormat]}`;
+    }
+
     return item;
   }
 
   private createActionButtonItem(node: ActionButtonNode): vscode.TreeItem {
     const isSyncAll = node.action === 'syncAll';
     const hasWork = node.count > 0;
-    const hasFormat = !!node.primaryFormat;
+    const hasAgent = !!node.agent;
 
     let label: string;
     let description: string;
@@ -114,32 +121,32 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
 
     if (isSyncAll) {
       label = hasWork ? 'Sync All Diverged' : 'Sync All';
-      if (!hasFormat) {
-        description = 'Select a format first';
+      if (!hasAgent) {
+        description = 'Select an agent first';
       } else if (hasWork) {
         description = `${node.count} rule${node.count > 1 ? 's' : ''}`;
       } else {
         description = 'All aligned';
       }
-      iconId = hasWork ? 'sync' : (!hasFormat ? 'sync' : 'pass');
+      iconId = hasWork ? 'sync' : (!hasAgent ? 'sync' : 'pass');
     } else {
-      const formatLabel = hasFormat ? FORMAT_LABELS[node.primaryFormat as RuleFormat] : '';
-      label = hasWork ? `Add All Missing to ${formatLabel}` : (hasFormat ? `Add All to ${formatLabel}` : 'Add All');
-      if (!hasFormat) {
-        description = 'Select a format first';
+      const agentLabel = hasAgent ? AGENT_LABELS[node.agent as AgentId] : '';
+      label = hasWork ? `Add All Missing for ${agentLabel}` : (hasAgent ? `Add All for ${agentLabel}` : 'Add All');
+      if (!hasAgent) {
+        description = 'Select an agent first';
       } else if (hasWork) {
         description = `${node.count} rule${node.count > 1 ? 's' : ''}`;
       } else {
         description = 'Full coverage';
       }
-      iconId = hasWork ? 'add' : (!hasFormat ? 'add' : 'pass');
+      iconId = hasWork ? 'add' : (!hasAgent ? 'add' : 'pass');
     }
 
     const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
     item.description = description;
-    item.iconPath = new vscode.ThemeIcon(iconId, (!hasWork && hasFormat) ? new vscode.ThemeColor('charts.green') : undefined);
+    item.iconPath = new vscode.ThemeIcon(iconId, (!hasWork && hasAgent) ? new vscode.ThemeColor('charts.green') : undefined);
 
-    if (hasWork && hasFormat) {
+    if (hasWork && hasAgent) {
       item.command = {
         command: isSyncAll ? 'agentRules.syncAll' : 'agentRules.addAllMissing',
         title: label,
@@ -150,9 +157,9 @@ export class ActionsTreeProvider implements vscode.TreeDataProvider<ActionElemen
     return item;
   }
 
-  /** Get logical rules missing the primary format */
-  getMissingRules(primaryFormat: RuleFormat): LogicalRule[] {
-    return this.logicalRules.filter(lr => !lr.formats.includes(primaryFormat));
+  /** Get logical rules not readable by the agent */
+  getMissingRules(agent: AgentId): LogicalRule[] {
+    return this.logicalRules.filter(lr => !isRuleCoveredByAgent(lr.formats, agent));
   }
 
   /** Get diverged logical rules */

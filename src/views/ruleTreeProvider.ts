@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../scanner/scannerTypes';
+import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS, AgentId } from '../scanner/scannerTypes';
 import { RuleIndex } from '../index/ruleIndex';
 import { RuleIssue } from '../lint/ruleIssues';
 import { computeIssues, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues, IssueComputerConfig } from '../lint/issueComputer';
@@ -57,7 +57,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private logicalRules: LogicalRule[] = [];
   private extensionPath: string = '';
   /** Cached config — recomputed once per tree rebuild */
-  private issueConfig: IssueComputerConfig = { primaryFormat: '', detectDivergence: true, lintEnabled: true, maxRuleTokens: 2000 };
+  private issueConfig: IssueComputerConfig = { agent: '', detectDivergence: true, lintEnabled: true, maxRuleTokens: 2000 };
 
   constructor(private readonly ruleIndex: RuleIndex) {
     ruleIndex.onDidChange(() => {
@@ -175,7 +175,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private readIssueConfig(): IssueComputerConfig {
     const cfg = vscode.workspace.getConfiguration('agentRules');
     return {
-      primaryFormat: cfg.get<string>('primaryFormat', '') as RuleFormat | '',
+      agent: cfg.get<string>('agent', '') as AgentId | '',
       detectDivergence: cfg.get<boolean>('detectDivergence', true),
       lintEnabled: cfg.get<boolean>('lint.enabled', true),
       maxRuleTokens: cfg.get<number>('lint.maxRuleTokens', 2000),

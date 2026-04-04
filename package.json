@@ -44,8 +44,8 @@
         "icon": "$(sync)"
       },
       {
-        "command": "agentRules.setPrimaryFormat",
-        "title": "Agent Rules: Set Primary Format",
+        "command": "agentRules.setAgent",
+        "title": "Agent Rules: Select Agent",
         "icon": "$(edit)"
       },
       {
@@ -60,7 +60,7 @@
       },
       {
         "command": "agentRules.addMissingRule",
-        "title": "Add to Primary Format",
+        "title": "Add Missing Rule",
         "icon": "$(add)"
       }
     ],
@@ -129,8 +129,8 @@
           "group": "1_add"
         },
         {
-          "command": "agentRules.setPrimaryFormat",
-          "when": "view == agentRules.actionsView && viewItem == primaryFormat",
+          "command": "agentRules.setAgent",
+          "when": "view == agentRules.actionsView && viewItem == agentSelector",
           "group": "inline"
         }
       ]
@@ -138,7 +138,30 @@
     "configuration": {
       "title": "Agent Rules",
       "properties": {
-        "agentRules.primaryFormat": {
+        "agentRules.agent": {
+          "type": "string",
+          "enum": [
+            "",
+            "cursor",
+            "windsurf",
+            "kiro",
+            "antigravity",
+            "augment",
+            "claude-code"
+          ],
+          "enumItemLabels": [
+            "(none)",
+            "Cursor",
+            "Windsurf",
+            "Kiro",
+            "Antigravity",
+            "Augment",
+            "Claude Code"
+          ],
+          "default": "",
+          "description": "The AI agent you use. Determines which rule formats are considered readable and where new rules are written."
+        },
+        "agentRules.writeFormat": {
           "type": "string",
           "enum": [
             "",
@@ -148,20 +171,22 @@
             "antigravity",
             "augment",
             "claude-code",
+            "claude-md",
             "agents-md"
           ],
           "enumItemLabels": [
-            "(none)",
-            "Cursor",
-            "Windsurf",
-            "Kiro",
-            "Antigravity",
-            "Augment",
-            "Claude Code",
+            "(agent default)",
+            "Cursor (.cursor/rules/)",
+            "Windsurf (.windsurf/rules/)",
+            "Kiro (.kiro/steering/)",
+            "Antigravity (.agents/rules/)",
+            "Augment (.augment/rules/)",
+            "Claude Code (.claude/rules/)",
+            "CLAUDE.md",
             "AGENTS.md"
           ],
           "default": "",
-          "description": "Primary AI agent format. When set, this format is suggested as the source of truth when aligning diverged rules."
+          "description": "Override the format used when writing new rules. Must be a format readable by the selected agent. If empty or invalid, the agent's default format is used."
         },
         "agentRules.detectDivergence": {
           "type": "boolean",

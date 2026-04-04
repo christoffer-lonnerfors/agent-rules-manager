@@ -2,8 +2,10 @@ import { FormatScanConfig } from './scannerTypes';
 
 /**
  * All format scanning configurations.
- * Order matters for shared file disambiguation — formats listed first
- * are considered less specific for shared files.
+ *
+ * Each entry represents a distinct file convention — not an agent.
+ * Cross-agent formats (AGENTS.md, CLAUDE.md) have their own entries;
+ * the Agent concept (see scannerTypes.ts) maps agents to the formats they read.
  */
 export const FORMAT_CONFIGS: FormatScanConfig[] = [
   {
@@ -39,14 +41,21 @@ export const FORMAT_CONFIGS: FormatScanConfig[] = [
     directories: ['.augment/rules'],
     extensions: ['.md'],
     standaloneFiles: ['.augment-guidelines'],
-    hierarchicalFiles: ['CLAUDE.md'],
+    hierarchicalFiles: [],
   },
   {
     format: 'claude-code',
     directories: ['.claude/rules'],
     extensions: ['.md'],
-    // CLAUDE.md is Claude Code's "main" hierarchical format
     standaloneFiles: ['CLAUDE.local.md'],
+    hierarchicalFiles: [],
+  },
+  {
+    format: 'claude-md',
+    directories: [],
+    extensions: ['.md'],
+    standaloneFiles: [],
+    // CLAUDE.md is a cross-agent hierarchical format (read by Claude Code, Augment)
     hierarchicalFiles: ['CLAUDE.md'],
   },
   {
@@ -54,7 +63,7 @@ export const FORMAT_CONFIGS: FormatScanConfig[] = [
     directories: [],
     extensions: ['.md'],
     standaloneFiles: [],
-    // AGENTS.md is the cross-agent hierarchical format
+    // AGENTS.md is a cross-agent hierarchical format (read by Cursor, Augment, Claude Code)
     hierarchicalFiles: ['AGENTS.md'],
   },
 ];

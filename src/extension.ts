@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { RuleIndex } from './index/ruleIndex';
 import { ScannerService } from './scanner/scannerService';
-import { RuleTreeProvider, RuleIssueDecorationProvider, FORMAT_LABELS } from './views/ruleTreeProvider';
+import { RuleTreeProvider, RuleIssueDecorationProvider } from './views/ruleTreeProvider';
 import { ActionsTreeProvider } from './views/actionsTreeProvider';
-import { LogicalRule, RuleFormat } from './scanner/scannerTypes';
+import { LogicalRule, RuleFormat, AgentId, AGENT_LABELS, AGENT_CONFIGS, getReadableFormats, getEffectiveWriteFormat, FORMAT_LABELS } from './scanner/scannerTypes';
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from './scanner/formatDetector';
 import { toCaseInsensitiveGlob } from './scanner/fileDiscovery';
@@ -153,7 +153,9 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       // Build Quick Pick items sorted by lastModified descending
-      const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat') || '';
+      const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '') as AgentId | '';
+      const writeFormatOverride = vscode.workspace.getConfiguration('agentRules').get<string>('writeFormat', '') as RuleFormat | '';
+      const writeFormat = agentId ? getEffectiveWriteFormat(agentId as AgentId, writeFormatOverride) : '';
       const sorted = [...rules].sort((a, b) =>
         new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
       );
@@ -162,7 +164,7 @@ export function activate(context: vscode.ExtensionContext) {
       const items = sorted.map(r => {
         const labels: string[] = [];
         if (r.id === latestId) { labels.push('latest'); }
-        if (primaryFormat && r.format === primaryFormat) { labels.push('primary format'); }
+        if (writeFormat && r.format === writeFormat) { labels.push('write format'); }
         const suffix = labels.length > 0 ? ` (${labels.join(', ')})` : '';
         return {
           label: `${FORMAT_LABELS[r.format]}${suffix}`,
@@ -176,10 +178,10 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (!selected) { return; }
 
-      // Only overwrite directory rules and agents-md hierarchical files — other standalone/hierarchical files are read-only sources
+      // Only overwrite directory rules and cross-agent hierarchical files — other standalone/hierarchical files are read-only sources
       const allOthers = rules.filter(r => r.id !== selected.rule.id);
       const isWritable = (r: { sourceType: string; format: RuleFormat }) =>
-        r.sourceType === 'directory_rule' || r.format === 'agents-md';
+        r.sourceType === 'directory_rule' || r.format === 'agents-md' || r.format === 'claude-md';
       const targets = allOthers.filter(isWritable);
       const skipped = allOthers.filter(r => !isWritable(r));
 
@@ -228,22 +230,34 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // Register set-primary-format command
-  const setPrimaryFormatCmd = vscode.commands.registerCommand(
-    'agentRules.setPrimaryFormat',
+  // Helper to read the effective agent and write format from settings
+  const readAgentSettings = () => {
+    const cfg = vscode.workspace.getConfiguration('agentRules');
+    const agentId = cfg.get<string>('agent', '') as AgentId | '';
+    const writeFormatOverride = cfg.get<string>('writeFormat', '') as RuleFormat | '';
+    const writeFormat = agentId ? getEffectiveWriteFormat(agentId as AgentId, writeFormatOverride) : '' as RuleFormat | '';
+    return { agentId, writeFormat };
+  };
+
+  // Register set-agent command
+  const setAgentCmd = vscode.commands.registerCommand(
+    'agentRules.setAgent',
     async () => {
       const items = [
-        { label: '(none)', description: 'No primary format', value: '' },
-        ...(['cursor', 'windsurf', 'kiro', 'antigravity', 'augment', 'claude-code', 'agents-md'] as RuleFormat[]).map(f => ({
-          label: FORMAT_LABELS[f],
-          value: f,
+        { label: '(none)', description: 'No agent selected', value: '' },
+        ...AGENT_CONFIGS.map(a => ({
+          label: a.label,
+          description: a.supportedFormats.length > 0
+            ? `Also reads: ${a.supportedFormats.map(f => FORMAT_LABELS[f]).join(', ')}`
+            : undefined,
+          value: a.id,
         })),
       ];
       const selected = await vscode.window.showQuickPick(items, {
-        placeHolder: 'Select the primary AI agent format for this project',
+        placeHolder: 'Select the AI agent you use',
       });
       if (selected) {
-        await vscode.workspace.getConfiguration('agentRules').update('primaryFormat', selected.value, vscode.ConfigurationTarget.Workspace);
+        await vscode.workspace.getConfiguration('agentRules').update('agent', selected.value, vscode.ConfigurationTarget.Workspace);
       }
     }
   );
@@ -252,9 +266,9 @@ export function activate(context: vscode.ExtensionContext) {
   const syncAllCmd = vscode.commands.registerCommand(
     'agentRules.syncAll',
     async () => {
-      const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat;
-      if (!primaryFormat) {
-        vscode.window.showWarningMessage('Set a primary format first.');
+      const { agentId, writeFormat } = readAgentSettings();
+      if (!agentId) {
+        vscode.window.showWarningMessage('Select an agent first.');
         return;
       }
 
@@ -264,26 +278,37 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // Only sync rules that have the primary format version
-      const syncable = diverged.filter(lr => lr.formats.includes(primaryFormat));
+      // Find source of truth: prefer write format, fall back to any readable format
+      const readableFormats = getReadableFormats(agentId as AgentId);
+      const findSource = (lr: LogicalRule) => {
+        // Prefer the write format version
+        const writeSource = lr.rules.find(r => r.format === writeFormat);
+        if (writeSource) { return writeSource; }
+        // Fall back to any version in a readable format
+        return lr.rules.find(r => readableFormats.includes(r.format));
+      };
+
+      const syncable = diverged.filter(lr => findSource(lr) !== undefined);
       if (syncable.length === 0) {
-        vscode.window.showWarningMessage('No diverged rules have a version in the primary format to sync from.');
+        vscode.window.showWarningMessage(`No diverged rules have a version readable by ${AGENT_LABELS[agentId as AgentId]} to sync from.`);
         return;
       }
 
-      // Only count writable targets (directory rules + agents-md hierarchical files)
+      // Only count writable targets (directory rules + cross-agent hierarchical files)
       const isSyncWritable = (r: { sourceType: string; format: RuleFormat }) =>
-        r.sourceType === 'directory_rule' || r.format === 'agents-md';
-      const totalTargets = syncable.reduce((sum, lr) =>
-        sum + lr.rules.filter(r => r.format !== primaryFormat && isSyncWritable(r)).length, 0
-      );
+        r.sourceType === 'directory_rule' || r.format === 'agents-md' || r.format === 'claude-md';
+      const totalTargets = syncable.reduce((sum, lr) => {
+        const source = findSource(lr)!;
+        return sum + lr.rules.filter(r => r.id !== source.id && isSyncWritable(r)).length;
+      }, 0);
       if (totalTargets === 0) {
         vscode.window.showWarningMessage('No writable rule files to align — standalone and hierarchical files are read-only.');
         return;
       }
 
+      const sourceLabel = FORMAT_LABELS[writeFormat as RuleFormat] || AGENT_LABELS[agentId as AgentId];
       const confirm = await vscode.window.showWarningMessage(
-        `Align ${syncable.length} diverged rule${syncable.length > 1 ? 's' : ''} — overwrite ${totalTargets} file${totalTargets > 1 ? 's' : ''} to match their ${FORMAT_LABELS[primaryFormat]} versions? Frontmatter will be preserved. Standalone and hierarchical files will be skipped.`,
+        `Align ${syncable.length} diverged rule${syncable.length > 1 ? 's' : ''} — overwrite ${totalTargets} file${totalTargets > 1 ? 's' : ''} to match their ${sourceLabel} versions? Frontmatter will be preserved.`,
         { modal: true },
         'Align'
       );
@@ -291,11 +316,11 @@ export function activate(context: vscode.ExtensionContext) {
 
       let aligned = 0;
       for (const lr of syncable) {
-        const source = lr.rules.find(r => r.format === primaryFormat)!;
+        const source = findSource(lr)!;
         const sourceContent = fs.readFileSync(source.filePath, 'utf-8');
         const { body: sourceBody } = parseFrontmatter(sourceContent);
 
-        for (const target of lr.rules.filter(r => r.format !== primaryFormat && isSyncWritable(r))) {
+        for (const target of lr.rules.filter(r => r.id !== source.id && isSyncWritable(r))) {
           const targetContent = fs.readFileSync(target.filePath, 'utf-8');
           const frontmatterMatch = targetContent.match(/^---[\r\n]+([\s\S]*?)[\r\n]+---[\r\n]*/);
           const newContent = frontmatterMatch
@@ -306,7 +331,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
 
-      vscode.window.showInformationMessage(`Aligned ${aligned} file${aligned > 1 ? 's' : ''} to ${FORMAT_LABELS[primaryFormat]}.`);
+      vscode.window.showInformationMessage(`Aligned ${aligned} file${aligned > 1 ? 's' : ''}.`);
       await scannerService.scan();
     }
   );
@@ -315,20 +340,20 @@ export function activate(context: vscode.ExtensionContext) {
   const addAllMissingCmd = vscode.commands.registerCommand(
     'agentRules.addAllMissing',
     async () => {
-      const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat;
-      if (!primaryFormat) {
-        vscode.window.showWarningMessage('Set a primary format first.');
+      const { agentId, writeFormat } = readAgentSettings();
+      if (!agentId || !writeFormat) {
+        vscode.window.showWarningMessage('Select an agent first.');
         return;
       }
 
-      const missing = actionsProvider.getMissingRules(primaryFormat);
+      const missing = actionsProvider.getMissingRules(agentId as AgentId);
       if (missing.length === 0) {
-        vscode.window.showInformationMessage('Full coverage — all rules exist in ' + FORMAT_LABELS[primaryFormat] + '.');
+        vscode.window.showInformationMessage(`Full coverage — all rules are readable by ${AGENT_LABELS[agentId as AgentId]}.`);
         return;
       }
 
       const confirm = await vscode.window.showWarningMessage(
-        `Create ${missing.length} new rule file${missing.length > 1 ? 's' : ''} in ${FORMAT_LABELS[primaryFormat]}?`,
+        `Create ${missing.length} new rule file${missing.length > 1 ? 's' : ''} in ${FORMAT_LABELS[writeFormat]}?`,
         { modal: true },
         'Create'
       );
@@ -336,12 +361,12 @@ export function activate(context: vscode.ExtensionContext) {
 
       const created: string[] = [];
       for (const lr of missing) {
-        const filePath = scaffoldRuleFile(lr, primaryFormat);
+        const filePath = scaffoldRuleFile(lr, writeFormat);
         if (filePath) { created.push(filePath); }
       }
 
       if (created.length > 0) {
-        vscode.window.showInformationMessage(`Created ${created.length} rule file${created.length > 1 ? 's' : ''} in ${FORMAT_LABELS[primaryFormat]}.`);
+        vscode.window.showInformationMessage(`Created ${created.length} rule file${created.length > 1 ? 's' : ''} in ${FORMAT_LABELS[writeFormat]}.`);
         // Open the first created file for review
         const uri = vscode.Uri.file(created[0]);
         await vscode.window.showTextDocument(uri);
@@ -357,13 +382,13 @@ export function activate(context: vscode.ExtensionContext) {
       const logicalRule = node?.logicalRule;
       if (!logicalRule) { return; }
 
-      const primaryFormat = vscode.workspace.getConfiguration('agentRules').get<string>('primaryFormat', '') as RuleFormat;
-      if (!primaryFormat) {
-        vscode.window.showWarningMessage('Set a primary format first.');
+      const { agentId, writeFormat } = readAgentSettings();
+      if (!agentId || !writeFormat) {
+        vscode.window.showWarningMessage('Select an agent first.');
         return;
       }
 
-      const filePath = scaffoldRuleFile(logicalRule, primaryFormat);
+      const filePath = scaffoldRuleFile(logicalRule, writeFormat);
       if (filePath) {
         const uri = vscode.Uri.file(filePath);
         await vscode.window.showTextDocument(uri);
@@ -384,7 +409,7 @@ export function activate(context: vscode.ExtensionContext) {
     openRuleCmd,
     compareCmd,
     alignCmd,
-    setPrimaryFormatCmd,
+    setAgentCmd,
     syncAllCmd,
     addAllMissingCmd,
     addMissingRuleCmd,
