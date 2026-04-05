@@ -361,7 +361,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
   <div id="addRuleSection" class="section" style="display:none">
     <button class="btn-primary" id="addRuleBtn" title="Create a new rule file in the target format">+ Add Rule</button>
-    <button class="btn-secondary" id="showCoverageBtn" title="Analyse token cost of rules across workspace files" style="margin-top:6px">Show Coverage</button>
+    <button class="btn-secondary" id="showCoverageBtn" title="Analyse token cost of rules across workspace files" style="margin-top:6px">Generate Coverage Report</button>
   </div>
 
   <div id="bannersSection"></div>

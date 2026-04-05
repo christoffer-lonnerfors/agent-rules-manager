@@ -9,11 +9,10 @@ type CoverageWebviewMessage =
   | { type: 'openRule'; filePath: string };
 
 /**
- * Manages a single Coverage Analysis webview panel.
- * Opens as a tab in the main editor area.
+ * Manages a Coverage Analysis webview panel.
+ * Each invocation opens a new tab so reports can be compared side-by-side.
  */
 export class CoverageWebviewPanel {
-  private static instance: CoverageWebviewPanel | undefined;
   private panel: vscode.WebviewPanel;
   private disposables: vscode.Disposable[] = [];
 
@@ -23,7 +22,7 @@ export class CoverageWebviewPanel {
   ) {
     this.panel = vscode.window.createWebviewPanel(
       'agentRules.coverage',
-      'Coverage Analysis',
+      'Agent Rules Coverage Report',
       vscode.ViewColumn.One,
       { enableScripts: true, retainContextWhenHidden: true },
     );
@@ -44,25 +43,20 @@ export class CoverageWebviewPanel {
     );
 
     this.panel.onDidDispose(() => {
-      CoverageWebviewPanel.instance = undefined;
       for (const d of this.disposables) { d.dispose(); }
     });
 
     this.runAnalysis();
   }
 
-  /** Open or reveal the coverage panel */
+  /** Open a new coverage report panel */
   static show(ruleIndex: RuleIndex, extensionUri: vscode.Uri): void {
-    if (CoverageWebviewPanel.instance) {
-      CoverageWebviewPanel.instance.panel.reveal(vscode.ViewColumn.One);
-      return;
-    }
-    CoverageWebviewPanel.instance = new CoverageWebviewPanel(ruleIndex, extensionUri);
+    new CoverageWebviewPanel(ruleIndex, extensionUri);
   }
 
   private async runAnalysis(): Promise<void> {
     // Show loading state
-    this.panel.webview.postMessage({ type: 'loading' });
+    this.panel.webview.html = getLoadingHtml();
 
     const cfg = vscode.workspace.getConfiguration('agentRules');
     const agentId = cfg.get<string>('agent', '') as AgentId | '';
@@ -131,7 +125,7 @@ function getLoadingHtml(): string {
 <body>
   <div class="loading">
     <div class="spinner">&#8635;</div>
-    <div style="margin-top:12px">Generating coverage analysis...</div>
+    <div style="margin-top:12px">Generating coverage report...</div>
   </div>
 </body>
 </html>`;
@@ -230,7 +224,7 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri): strin
 <body>
   <div class="header">
     <h1>
-      Coverage Analysis
+      Agent Rules Coverage Report
     </h1>
     <div class="header-meta">
       <span>Agent: ${escHtml(state.agentLabel)}</span>
