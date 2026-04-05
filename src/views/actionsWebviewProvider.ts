@@ -30,6 +30,7 @@ type WebviewMessage =
   | { type: 'agentChanged'; value: string }
   | { type: 'writeFormatChanged'; value: string }
   | { type: 'addRule' }
+  | { type: 'showCoverage' }
   | { type: 'runSyncAll' }
   | { type: 'runAddAllMissing' };
 
@@ -84,6 +85,9 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
           break;
         case 'addRule':
           vscode.commands.executeCommand('agentRules.addRule');
+          break;
+        case 'showCoverage':
+          vscode.commands.executeCommand('agentRules.showCoverage');
           break;
         case 'runSyncAll':
           vscode.commands.executeCommand('agentRules.syncAll');
@@ -263,6 +267,22 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   }
   .btn-primary:hover { background: var(--vscode-button-hoverBackground); }
 
+  /* Secondary button (Show Coverage) */
+  .btn-secondary {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+    border-radius: 2px;
+    cursor: pointer;
+    color: var(--vscode-button-secondaryForeground);
+    background: var(--vscode-button-secondaryBackground);
+    text-align: center;
+  }
+  .btn-secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+
   /* Contextual banners */
   .banner {
     display: flex;
@@ -341,6 +361,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
   <div id="addRuleSection" class="section" style="display:none">
     <button class="btn-primary" id="addRuleBtn" title="Create a new rule file in the target format">+ Add Rule</button>
+    <button class="btn-secondary" id="showCoverageBtn" title="Analyse token cost of rules across workspace files" style="margin-top:6px">Show Coverage</button>
   </div>
 
   <div id="bannersSection"></div>
@@ -372,6 +393,9 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   });
   addRuleBtn.addEventListener('click', () => {
     vscode.postMessage({ type: 'addRule' });
+  });
+  document.getElementById('showCoverageBtn').addEventListener('click', () => {
+    vscode.postMessage({ type: 'showCoverage' });
   });
 
   window.addEventListener('message', event => {

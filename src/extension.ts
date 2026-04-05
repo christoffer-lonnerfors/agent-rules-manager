@@ -12,6 +12,7 @@ import { toCaseInsensitiveGlob } from './scanner/fileDiscovery';
 import { CandidateStore } from './scanner/candidateStore';
 import { detectDominantAgent } from './agents/agentAutoDetector';
 import { scaffoldRuleFile } from './actions/ruleScaffolder';
+import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
 const RULE_BODY_SCHEME = 'ai-rules-body';
@@ -472,6 +473,14 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Register show-coverage command
+  const showCoverageCmd = vscode.commands.registerCommand(
+    'agentRules.showCoverage',
+    () => {
+      CoverageWebviewPanel.show(ruleIndex, context.extensionUri);
+    },
+  );
+
   // Set up file system watchers derived from FORMAT_CONFIGS
   const watchers = createFileWatchers(scannerService);
 
@@ -499,6 +508,7 @@ export function activate(context: vscode.ExtensionContext) {
     addAllMissingCmd,
     addMissingRuleCmd,
     addRuleCmd,
+    showCoverageCmd,
     ruleIndex,
     candidateStore,
     scannerService,

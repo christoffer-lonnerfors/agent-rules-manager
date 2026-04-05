@@ -69,6 +69,11 @@
         "icon": "$(new-file)"
       },
       {
+        "command": "agentRules.showCoverage",
+        "title": "Agent Rules: Show Coverage Analysis",
+        "icon": "$(graph)"
+      },
+      {
         "command": "agentRules.filterRules",
         "title": "Agent Rules: Filter Rules",
         "icon": "$(search)"
@@ -235,6 +240,11 @@
             "**/*.mdx"
           ],
           "description": "Glob patterns for candidate rule file discovery. Files matching these patterns can be promoted to rules if referenced by an existing rule."
+        },
+        "agentRules.coverage.contextWindowTokens": {
+          "type": "number",
+          "default": 128000,
+          "description": "Context window size (in tokens) used for coverage analysis severity thresholds."
         },
         "agentRules.candidateExclude": {
           "type": "array",
