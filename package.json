@@ -25,7 +25,7 @@
     "commands": [
       {
         "command": "agentRules.rescan",
-        "title": "Agent Rules: Re-scan Workspace",
+        "title": "Agent Rules: Refresh Rules",
         "icon": "$(refresh)"
       },
       {
@@ -108,14 +108,19 @@
     "menus": {
       "view/title": [
         {
-          "command": "agentRules.filterRules",
+          "command": "agentRules.addRule",
           "when": "view == agentRules.rulesView",
           "group": "navigation@1"
         },
         {
-          "command": "agentRules.rescan",
+          "command": "agentRules.filterRules",
           "when": "view == agentRules.rulesView",
           "group": "navigation@2"
+        },
+        {
+          "command": "agentRules.rescan",
+          "when": "view == agentRules.rulesView",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
