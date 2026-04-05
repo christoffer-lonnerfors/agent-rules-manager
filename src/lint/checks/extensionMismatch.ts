@@ -1,4 +1,4 @@
-import { RuleFormat, FORMAT_LABELS } from '../../scanner/scannerTypes';
+import { RuleFormat, FORMAT_LABELS } from '../../types';
 import { FORMAT_CONFIGS } from '../../scanner/formatDetector';
 import { RuleIssue } from '../ruleIssues';
 import { LintCheck } from '../lintCheck';

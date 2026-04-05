@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../scanner/scannerTypes';
+import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
 import { AgentId } from '../agents/agentConfig';
 import { RuleIndex } from '../index/ruleIndex';
 import { RuleIssue, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues } from '../lint/ruleIssues';
@@ -36,7 +36,7 @@ interface RuleFileNode {
 }
 
 // Re-export for backward compatibility
-export { FORMAT_LABELS } from '../scanner/scannerTypes';
+export { FORMAT_LABELS } from '../types';
 
 const TRIGGER_LABELS: Record<RuleTrigger, string> = {
   'always': 'Always Active',

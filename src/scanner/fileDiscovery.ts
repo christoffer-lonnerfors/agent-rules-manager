@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { DiscoveredFile, FormatScanConfig } from './scannerTypes';
+import { DiscoveredFile } from '../types';
+import { FormatScanConfig } from './scannerTypes';
 import { FORMAT_CONFIGS } from './formatDetector';
 
 /**

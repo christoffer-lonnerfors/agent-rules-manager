@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { LogicalRule, RuleFormat } from '../scanner/scannerTypes';
+import { LogicalRule, RuleFormat } from '../types';
 import { parseFrontmatter } from '../scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from '../scanner/formatDetector';
 import { extractCommonDirectory } from '../utils/scopeTranslator';

@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { IndexedRule } from './scannerTypes';
+import { IndexedRule } from '../types';
 import { discoverFiles } from './fileDiscovery';
 import { parseFrontmatter, extractFirstHeading } from './frontmatterParser';
 import { normalizeTrigger } from './triggerNormalizer';
+import { extractReferences } from './referenceExtractor';
 import { computeMinHash } from '../hashing/minHasher';
 import { RuleIndex, generateRuleId } from '../index/ruleIndex';
+import { mapWithConcurrency } from '../utils/concurrency';
 
 /**
  * Orchestrates workspace scanning: discovers files, parses frontmatter,
@@ -140,79 +142,4 @@ export class ScannerService {
     this._onScanStarted.dispose();
     this._onScanCompleted.dispose();
   }
-}
-
-
-/**
- * Extract relative file path references from a markdown rule body.
- *
- * Captures:
- *   - Markdown links: [text](./path/to/file.md)
- *   - Backtick paths: `path/to/file.md`
- *
- * Skips URLs (http/https/ftp), anchors (#), absolute paths (/),
- * and paths without a file extension (likely not file references).
- */
-function extractReferences(body: string): string[] {
-  const refs = new Set<string>();
-
-  // Markdown link targets: [text](path)
-  const linkRegex = /\[[^\]]*\]\(([^)]+)\)/g;
-  let match: RegExpExecArray | null;
-  while ((match = linkRegex.exec(body)) !== null) {
-    addIfRelativePath(match[1], refs);
-  }
-
-  // Backtick-quoted paths: `some/path.ext`
-  const backtickRegex = /`([^`\n]+)`/g;
-  while ((match = backtickRegex.exec(body)) !== null) {
-    addIfRelativePath(match[1], refs);
-  }
-
-  return Array.from(refs);
-}
-
-function addIfRelativePath(raw: string, refs: Set<string>): void {
-  const trimmed = raw.trim();
-  // Skip URLs
-  if (/^https?:\/\/|^ftp:\/\//i.test(trimmed)) { return; }
-  // Skip anchors
-  if (trimmed.startsWith('#')) { return; }
-  // Skip absolute paths
-  if (trimmed.startsWith('/')) { return; }
-  // Must contain a dot (file extension) and a slash or start with ./ to look like a path
-  // This avoids matching inline code like `const x = 1` or `package.json`
-  if (!trimmed.includes('/')) { return; }
-  if (!/\.[a-zA-Z0-9]+$/.test(trimmed)) { return; }
-  // Strip leading ./ for consistency
-  const cleaned = trimmed.replace(/^\.\//, '');
-  refs.add(cleaned);
-}
-
-/**
- * Run async work over an array with bounded concurrency.
- * Starts `concurrency` workers that each pull the next item when idle.
- * Results are returned in input order.
- */
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  fn: (item: T) => Promise<R>,
-  concurrency: number,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-
-  async function worker(): Promise<void> {
-    while (nextIndex < items.length) {
-      const index = nextIndex++;
-      results[index] = await fn(items[index]);
-    }
-  }
-
-  const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
-    () => worker(),
-  );
-  await Promise.all(workers);
-  return results;
 }

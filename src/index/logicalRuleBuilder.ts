@@ -1,4 +1,4 @@
-import { IndexedRule, LogicalRule, RuleFormat } from '../scanner/scannerTypes';
+import { IndexedRule, LogicalRule, RuleFormat } from '../types';
 import { computeSimilarity } from '../hashing/minHasher';
 
 /** Threshold for flagging as "near duplicate" */

@@ -1,4 +1,4 @@
-import { RuleFormat } from '../scanner/scannerTypes';
+import { RuleFormat } from '../types';
 
 // ── Agent concept ──────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { IndexedRule, RuleFormat } from '../scanner/scannerTypes';
+import { IndexedRule, RuleFormat } from '../types';
 import { AgentId } from './agentConfig';
 
 /**

@@ -1,4 +1,4 @@
-import { LogicalRule } from '../scanner/scannerTypes';
+import { LogicalRule } from '../types';
 import { RuleIssue } from './ruleIssues';
 import { LintCheck, LintConfig } from './lintCheck';
 

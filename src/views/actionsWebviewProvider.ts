@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import {
   LogicalRule, RuleFormat, FORMAT_LABELS,
-} from '../scanner/scannerTypes';
+} from '../types';
 import {
   AgentId, AGENT_CONFIGS,
   getReadableFormats, getDefaultWriteFormat, getEffectiveWriteFormat,

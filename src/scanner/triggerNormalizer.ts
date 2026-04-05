@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { RuleFormat, RuleTrigger, RuleSourceType } from './scannerTypes';
+import { RuleFormat, RuleTrigger, RuleSourceType } from '../types';
 import { deriveGlobFromHierarchicalPath } from '../utils/scopeTranslator';
 
 /**

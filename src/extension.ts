@@ -4,7 +4,7 @@ import { RuleIndex } from './index/ruleIndex';
 import { ScannerService } from './scanner/scannerService';
 import { RuleTreeProvider, RuleIssueDecorationProvider } from './views/ruleTreeProvider';
 import { ActionsWebviewProvider } from './views/actionsWebviewProvider';
-import { LogicalRule, RuleFormat, FORMAT_LABELS } from './scanner/scannerTypes';
+import { LogicalRule, RuleFormat, FORMAT_LABELS } from './types';
 import { AgentId, AGENT_CONFIGS, getAgentConfig, getReadableFormats, getEffectiveWriteFormat } from './agents/agentConfig';
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from './scanner/formatDetector';

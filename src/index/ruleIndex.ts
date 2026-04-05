@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-import { IndexedRule, LogicalRule } from '../scanner/scannerTypes';
+import { IndexedRule, LogicalRule } from '../types';
 import { buildLogicalRules } from './logicalRuleBuilder';
 
 const STORAGE_KEY = 'agentRules.ruleIndex';

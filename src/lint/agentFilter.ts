@@ -1,4 +1,4 @@
-import { LogicalRule } from '../scanner/scannerTypes';
+import { LogicalRule } from '../types';
 import { AgentId, getReadableFormats } from '../agents/agentConfig';
 import { RuleIssue } from './ruleIssues';
 
