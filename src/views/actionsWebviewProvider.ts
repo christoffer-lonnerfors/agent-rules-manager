@@ -7,7 +7,8 @@ import {
   getReadableFormats, getDefaultWriteFormat, getEffectiveWriteFormat,
 } from '../agents/agentConfig';
 import { RuleIndex } from '../index/ruleIndex';
-import { computeIssues, filterIssuesForAgent, IssueComputerConfig } from '../lint/issueComputer';
+import { computeIssues, LintConfig } from '../lint/lintEngine';
+import { filterIssuesForAgent } from '../lint/agentFilter';
 import { RuleIssue } from '../lint/ruleIssues';
 
 /** State object sent to the webview for rendering */
@@ -163,7 +164,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     const multiFormatCount = this.logicalRules.filter(lr => lr.rules.length > 1).length;
 
     // Compute issues across all logical rules
-    const issueConfig: IssueComputerConfig = { agent, lintEnabled, detectDivergence, maxRuleTokens };
+    const issueConfig: LintConfig = { agent, lintEnabled, detectDivergence, maxRuleTokens };
     const allIssues: RuleIssue[] = [];
     for (const lr of this.logicalRules) {
       const raw = await computeIssues(lr, issueConfig);

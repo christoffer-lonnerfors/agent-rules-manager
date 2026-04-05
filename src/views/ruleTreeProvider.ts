@@ -3,9 +3,10 @@ import * as path from 'path';
 import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../scanner/scannerTypes';
 import { AgentId } from '../agents/agentConfig';
 import { RuleIndex } from '../index/ruleIndex';
-import { RuleIssue } from '../lint/ruleIssues';
-import { computeIssues, filterIssuesForAgent, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues, IssueComputerConfig } from '../lint/issueComputer';
-import { estimateTokens, estimateLogicalRuleTokens, formatTokenCount } from '../lint/tokenEstimator';
+import { RuleIssue, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues } from '../lint/ruleIssues';
+import { computeIssues, LintConfig } from '../lint/lintEngine';
+import { filterIssuesForAgent } from '../lint/agentFilter';
+import { estimateTokens, estimateLogicalRuleTokens, formatTokenCount } from '../utils/tokenEstimator';
 
 /** Custom URI scheme used to attach FileDecorations to tree items with issues */
 const ISSUE_SCHEME = 'ai-rules-issue';
@@ -60,7 +61,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private logicalRules: LogicalRule[] = [];
   private extensionPath: string = '';
   /** Cached config — recomputed once per tree rebuild */
-  private issueConfig: IssueComputerConfig = { agent: '', detectDivergence: true, lintEnabled: true, maxRuleTokens: 2000 };
+  private issueConfig: LintConfig = { agent: '', detectDivergence: true, lintEnabled: true, maxRuleTokens: 2000 };
   private issueDecoProvider?: RuleIssueDecorationProvider;
   private configDisposable: vscode.Disposable;
 
@@ -199,8 +200,8 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     return item;
   }
 
-  /** Build the IssueComputerConfig from current workspace settings */
-  private readIssueConfig(): IssueComputerConfig {
+  /** Build the LintConfig from current workspace settings */
+  private readIssueConfig(): LintConfig {
     const cfg = vscode.workspace.getConfiguration('agentRules');
     return {
       agent: cfg.get<string>('agent', '') as AgentId | '',

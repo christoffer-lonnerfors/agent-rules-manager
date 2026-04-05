@@ -52,4 +52,3 @@ export function formatTokenCount(tokens: number): string {
   const formatted = k % 1 === 0 ? k.toFixed(0) : k.toFixed(1);
   return `≈ ${formatted}k tokens`;
 }
-
