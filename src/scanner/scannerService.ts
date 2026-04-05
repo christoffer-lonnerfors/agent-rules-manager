@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { IndexedRule, CandidateFile } from '../types';
+import { IndexedRule, CandidateFile, RuleTrigger } from '../types';
 import { discoverFiles, discoverCandidates } from './fileDiscovery';
 import { parseFrontmatter, extractFirstHeading } from './frontmatterParser';
 import { normalizeTrigger } from './triggerNormalizer';
@@ -162,22 +162,22 @@ export class ScannerService {
   /**
    * Phase 3: Recursively resolve references from resolved rules into the candidate pool.
    * Promotes candidates to IndexedRule with format 'document'.
+   * Promoted documents inherit trigger/globs from their referencing rules,
+   * widened to the broadest scope when multiple rules reference the same document.
    */
   private async resolveReferences(
     resolvedRules: IndexedRule[],
     candidates: Map<string, CandidateFile>,
     workspaceRoot: string,
   ): Promise<IndexedRule[]> {
-    const promoted: IndexedRule[] = [];
     const resolvedPaths = new Set(resolvedRules.map(r => r.filePath));
 
-    // BFS queue: [absoluteFilePath, depth]
-    const queue: Array<[string, number]> = [];
+    // Track which rules reference each candidate: candidatePath → set of referencing IndexedRules
+    const referencedBy = new Map<string, IndexedRule[]>();
 
-    // Seed queue from all resolved rules' discovery references
-    for (const rule of resolvedRules) {
+    // Helper to extract discovery refs from a rule and record them
+    const recordReferences = async (rule: IndexedRule) => {
       const ruleDir = path.dirname(rule.filePath);
-      // Re-extract using discovery-mode extractor (markdown links only, any extension ok for bare names)
       const uri = vscode.Uri.file(rule.filePath);
       const contentBytes = await vscode.workspace.fs.readFile(uri);
       const content = Buffer.from(contentBytes).toString('utf-8');
@@ -187,13 +187,27 @@ export class ScannerService {
       for (const ref of discoveryRefs) {
         const absPath = path.resolve(ruleDir, ref);
         if (!resolvedPaths.has(absPath) && candidates.has(absPath)) {
-          queue.push([absPath, 1]);
+          const refs = referencedBy.get(absPath) ?? [];
+          refs.push(rule);
+          referencedBy.set(absPath, refs);
         }
       }
+    };
+
+    // Seed from all Phase 2 resolved rules
+    for (const rule of resolvedRules) {
+      await recordReferences(rule);
     }
 
-    // Process queue with cycle detection and depth limit
+    // BFS: promote candidates and follow their references recursively
+    const promoted: IndexedRule[] = [];
     const visited = new Set<string>();
+    // Queue: [absoluteFilePath, depth]
+    const queue: Array<[string, number]> = [];
+    for (const filePath of referencedBy.keys()) {
+      queue.push([filePath, 1]);
+    }
+
     while (queue.length > 0) {
       const [filePath, depth] = queue.shift()!;
       if (visited.has(filePath)) { continue; }
@@ -208,13 +222,22 @@ export class ScannerService {
       try {
         const rule = await this.processFile(filePath, 'document', 'directory_rule', workspaceRoot);
         if (rule) {
+          // Inherit trigger/globs from referencing rules (widened to broadest scope)
+          const referrers = referencedBy.get(filePath) ?? [];
+          const inherited = widenTrigger(referrers);
+          rule.trigger = inherited.trigger;
+          rule.globs = inherited.globs;
+
           promoted.push(rule);
 
-          // Follow this rule's references recursively
+          // Follow this promoted document's references recursively
+          await recordReferences(rule);
           const ruleDir = path.dirname(filePath);
-          const discoveryRefs = extractDiscoveryReferences(
-            (await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))).toString()
-          );
+          const contentBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(filePath));
+          const content = Buffer.from(contentBytes).toString('utf-8');
+          const { body } = parseFrontmatter(content);
+          const discoveryRefs = extractDiscoveryReferences(body);
+
           for (const ref of discoveryRefs) {
             const absPath = path.resolve(ruleDir, ref);
             if (!resolvedPaths.has(absPath) && !visited.has(absPath) && candidates.has(absPath)) {
@@ -234,4 +257,44 @@ export class ScannerService {
     this._onScanStarted.dispose();
     this._onScanCompleted.dispose();
   }
+}
+
+/**
+ * Widen trigger/globs across multiple referencing rules.
+ * Priority (broadest wins): always > glob > agent_requested > manual.
+ * If any referrer is 'always', the result is 'always' with no globs.
+ * If all referrers are 'glob', all their globs are merged.
+ */
+function widenTrigger(referrers: IndexedRule[]): { trigger: RuleTrigger; globs: string[] | undefined } {
+  if (referrers.length === 0) {
+    return { trigger: 'always', globs: undefined };
+  }
+
+  // If any referrer is 'always', the document is always active
+  if (referrers.some(r => r.trigger === 'always')) {
+    return { trigger: 'always', globs: undefined };
+  }
+
+  // If any referrer is 'glob', merge all globs
+  const globReferrers = referrers.filter(r => r.trigger === 'glob');
+  if (globReferrers.length > 0) {
+    const allGlobs = new Set<string>();
+    for (const r of globReferrers) {
+      if (r.globs) {
+        for (const g of r.globs) { allGlobs.add(g); }
+      }
+    }
+    // If any non-glob referrer exists too, widen to always
+    if (referrers.some(r => r.trigger !== 'glob')) {
+      return { trigger: 'always', globs: undefined };
+    }
+    return { trigger: 'glob', globs: allGlobs.size > 0 ? Array.from(allGlobs) : undefined };
+  }
+
+  // If any referrer is 'agent_requested', use that
+  if (referrers.some(r => r.trigger === 'agent_requested')) {
+    return { trigger: 'agent_requested', globs: undefined };
+  }
+
+  return { trigger: 'manual', globs: undefined };
 }
