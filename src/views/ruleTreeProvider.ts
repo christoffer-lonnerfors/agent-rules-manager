@@ -11,7 +11,12 @@ import { estimateTokens, estimateLogicalRuleTokens, formatTokenCount } from '../
 /** Custom URI scheme used to attach FileDecorations to tree items with issues */
 const ISSUE_SCHEME = 'ai-rules-issue';
 
-type TreeElement = TriggerGroupNode | LogicalRuleNode | RuleFileNode;
+type TreeElement = FilterBannerNode | TriggerGroupNode | LogicalRuleNode | RuleFileNode;
+
+interface FilterBannerNode {
+  type: 'filterBanner';
+  filterText: string;
+}
 
 interface TriggerGroupNode {
   type: 'trigger';
@@ -65,6 +70,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private issueDecoProvider?: RuleIssueDecorationProvider;
   private configDisposable: vscode.Disposable;
 
+  /** Current filter text (empty = no filter) */
+  private filterText: string = '';
+
   constructor(private readonly ruleIndex: RuleIndex) {
     ruleIndex.onDidChange(() => {
       this.rebuildLogicalRules();
@@ -100,6 +108,34 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     this._onDidChangeTreeData.fire(undefined);
   }
 
+  /** Set a filter string — only rules matching the text (in description or file name) are shown */
+  setFilter(text: string): void {
+    this.filterText = text.toLowerCase();
+    this._onDidChangeTreeData.fire(undefined);
+    this.issueDecoProvider?.fire();
+    // Set context key so the clear-filter button can conditionally appear
+    vscode.commands.executeCommand('setContext', 'agentRules.filterActive', this.filterText.length > 0);
+  }
+
+  /** Clear the active filter */
+  clearFilter(): void {
+    this.setFilter('');
+  }
+
+  /** Check whether a logical rule matches the current filter */
+  private matchesFilter(lr: LogicalRule): boolean {
+    if (!this.filterText) { return true; }
+    // Match against logical rule description
+    if (lr.description.toLowerCase().includes(this.filterText)) { return true; }
+    // Match against any child file name or relative path
+    for (const rule of lr.rules) {
+      if (rule.fileName.toLowerCase().includes(this.filterText)) { return true; }
+      const relPath = vscode.workspace.asRelativePath(rule.filePath, false).toLowerCase();
+      if (relPath.includes(this.filterText)) { return true; }
+    }
+    return false;
+  }
+
   private getFormatIconPath(format: RuleFormat): { light: vscode.Uri; dark: vscode.Uri } {
     const iconFile = format + '.svg';
     return {
@@ -115,6 +151,8 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   getTreeItem(element: TreeElement): vscode.TreeItem {
     switch (element.type) {
+      case 'filterBanner':
+        return this.createFilterBannerItem(element);
       case 'trigger':
         return this.createTriggerItem(element);
       case 'logical':
@@ -126,7 +164,13 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   getChildren(element?: TreeElement): TreeElement[] | Promise<TreeElement[]> {
     if (!element) {
-      return this.getTriggerGroups();
+      const children: TreeElement[] = [];
+      // Show a dismissable filter banner when a filter is active
+      if (this.filterText) {
+        children.push({ type: 'filterBanner', filterText: this.filterText });
+      }
+      children.push(...this.getTriggerGroups());
+      return children;
     }
     if (element.type === 'trigger') {
       return this.getLogicalRulesForTrigger(element.trigger);
@@ -140,7 +184,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private getTriggerGroups(): TriggerGroupNode[] {
     const triggers = new Map<RuleTrigger, number>();
 
+    // Count only rules that pass the filter
     for (const lr of this.logicalRules) {
+      if (!this.matchesFilter(lr)) { continue; }
       triggers.set(lr.trigger, (triggers.get(lr.trigger) || 0) + 1);
     }
 
@@ -157,7 +203,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   private async getLogicalRulesForTrigger(trigger: RuleTrigger): Promise<LogicalRuleNode[]> {
     const filtered = this.logicalRules
-      .filter(lr => lr.trigger === trigger)
+      .filter(lr => lr.trigger === trigger && this.matchesFilter(lr))
       .sort((a, b) => a.description.localeCompare(b.description));
 
     return Promise.all(
@@ -180,6 +226,21 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       rule,
       issues: getFileIssues(issues, rule.id),
     }));
+  }
+
+  private createFilterBannerItem(node: FilterBannerNode): vscode.TreeItem {
+    const item = new vscode.TreeItem(
+      `Filter: "${node.filterText}"`,
+      vscode.TreeItemCollapsibleState.None
+    );
+    item.iconPath = new vscode.ThemeIcon('close');
+    item.tooltip = 'Click to clear the filter';
+    item.contextValue = 'filterBanner';
+    item.command = {
+      command: 'agentRules.clearFilter',
+      title: 'Clear Filter',
+    };
+    return item;
   }
 
   private createTriggerItem(node: TriggerGroupNode): vscode.TreeItem {

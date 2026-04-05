@@ -55,6 +55,22 @@ export function activate(context: vscode.ExtensionContext) {
     actionsProvider,
   );
 
+  // Register filter commands
+  const filterCmd = vscode.commands.registerCommand('agentRules.filterRules', async () => {
+    const value = await vscode.window.showInputBox({
+      prompt: 'Filter rules by name, description, or file path',
+      placeHolder: 'e.g. typescript, coding-standards',
+      value: '',
+    });
+    if (value !== undefined) {
+      treeProvider.setFilter(value);
+    }
+  });
+
+  const clearFilterCmd = vscode.commands.registerCommand('agentRules.clearFilter', () => {
+    treeProvider.clearFilter();
+  });
+
   // Register commands
   const rescanCmd = vscode.commands.registerCommand('agentRules.rescan', async () => {
     await scannerService.scan();
@@ -462,6 +478,8 @@ export function activate(context: vscode.ExtensionContext) {
     treeView,
     actionsViewRegistration,
     bodyProvider,
+    filterCmd,
+    clearFilterCmd,
     rescanCmd,
     openRuleCmd,
     compareCmd,

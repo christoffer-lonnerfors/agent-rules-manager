@@ -67,6 +67,16 @@
         "command": "agentRules.addRule",
         "title": "Agent Rules: Add Rule",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "agentRules.filterRules",
+        "title": "Agent Rules: Filter Rules",
+        "icon": "$(search)"
+      },
+      {
+        "command": "agentRules.clearFilter",
+        "title": "Agent Rules: Clear Filter",
+        "icon": "$(close)"
       }
     ],
     "viewsContainers": {
@@ -98,9 +108,14 @@
     "menus": {
       "view/title": [
         {
+          "command": "agentRules.filterRules",
+          "when": "view == agentRules.rulesView",
+          "group": "navigation@1"
+        },
+        {
           "command": "agentRules.rescan",
           "when": "view == agentRules.rulesView",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
