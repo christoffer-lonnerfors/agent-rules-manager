@@ -267,21 +267,21 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   }
   .btn-primary:hover { background: var(--vscode-button-hoverBackground); }
 
-  /* Secondary button (Show Coverage) */
+  /* Secondary button (Show Coverage) — outline / ghost style */
   .btn-secondary {
     display: block;
     width: 100%;
     padding: 6px 12px;
     font-family: var(--vscode-font-family);
     font-size: var(--vscode-font-size);
-    border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+    border: 1px solid var(--vscode-button-background);
     border-radius: 2px;
     cursor: pointer;
-    color: var(--vscode-button-secondaryForeground);
-    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-background);
+    background: transparent;
     text-align: center;
   }
-  .btn-secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+  .btn-secondary:hover { background: color-mix(in srgb, var(--vscode-button-background) 12%, transparent); }
 
   /* Contextual banners */
   .banner {
