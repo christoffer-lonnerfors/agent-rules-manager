@@ -1,14 +1,18 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { IndexedRule } from '../types';
-import { discoverFiles } from './fileDiscovery';
+import { IndexedRule, CandidateFile } from '../types';
+import { discoverFiles, discoverCandidates } from './fileDiscovery';
 import { parseFrontmatter, extractFirstHeading } from './frontmatterParser';
 import { normalizeTrigger } from './triggerNormalizer';
-import { extractReferences } from './referenceExtractor';
+import { extractReferences, extractDiscoveryReferences } from './referenceExtractor';
 import { computeMinHash } from '../hashing/minHasher';
 import { RuleIndex, generateRuleId } from '../index/ruleIndex';
+import { CandidateStore } from './candidateStore';
 import { mapWithConcurrency } from '../utils/concurrency';
+
+/** Maximum depth for recursive reference resolution */
+const MAX_REFERENCE_DEPTH = 10;
 
 /**
  * Orchestrates workspace scanning: discovers files, parses frontmatter,
@@ -22,7 +26,10 @@ export class ScannerService {
 
   private scanning = false;
 
-  constructor(private readonly ruleIndex: RuleIndex) { }
+  constructor(
+    private readonly ruleIndex: RuleIndex,
+    private readonly candidateStore: CandidateStore,
+  ) { }
 
   get isScanning(): boolean {
     return this.scanning;
@@ -56,6 +63,11 @@ export class ScannerService {
 
     try {
       const workspaceRoot = workspaceFolder.uri.fsPath;
+
+      // Phase 1: Candidate discovery (wide net)
+      const candidates = await discoverCandidates(workspaceRoot);
+
+      // Phase 2: Pattern classification (existing format-based discovery)
       const discovered = await discoverFiles(workspaceRoot);
 
       const results = await mapWithConcurrency(
@@ -71,6 +83,15 @@ export class ScannerService {
         20,
       );
       const rules = results.filter((r): r is IndexedRule => r !== undefined);
+
+      // Phase 3: Reference resolution — promote candidates referenced by resolved rules
+      const promoted = await this.resolveReferences(rules, candidates, workspaceRoot);
+      rules.push(...promoted);
+
+      // Store unresolved candidates
+      const resolvedPaths = new Set(rules.map(r => r.filePath));
+      const unresolved = Array.from(candidates.values()).filter(c => !resolvedPaths.has(c.filePath));
+      this.candidateStore.replaceAll(unresolved);
 
       await this.ruleIndex.replaceAll(rules);
 
@@ -136,6 +157,77 @@ export class ScannerService {
       rawFrontmatter: Object.keys(fields).length > 0 ? fields : undefined,
       ...(extensionMismatch ? { extensionMismatch: true } : {}),
     };
+  }
+
+  /**
+   * Phase 3: Recursively resolve references from resolved rules into the candidate pool.
+   * Promotes candidates to IndexedRule with format 'document'.
+   */
+  private async resolveReferences(
+    resolvedRules: IndexedRule[],
+    candidates: Map<string, CandidateFile>,
+    workspaceRoot: string,
+  ): Promise<IndexedRule[]> {
+    const promoted: IndexedRule[] = [];
+    const resolvedPaths = new Set(resolvedRules.map(r => r.filePath));
+
+    // BFS queue: [absoluteFilePath, depth]
+    const queue: Array<[string, number]> = [];
+
+    // Seed queue from all resolved rules' discovery references
+    for (const rule of resolvedRules) {
+      const ruleDir = path.dirname(rule.filePath);
+      // Re-extract using discovery-mode extractor (markdown links only, any extension ok for bare names)
+      const uri = vscode.Uri.file(rule.filePath);
+      const contentBytes = await vscode.workspace.fs.readFile(uri);
+      const content = Buffer.from(contentBytes).toString('utf-8');
+      const { body } = parseFrontmatter(content);
+      const discoveryRefs = extractDiscoveryReferences(body);
+
+      for (const ref of discoveryRefs) {
+        const absPath = path.resolve(ruleDir, ref);
+        if (!resolvedPaths.has(absPath) && candidates.has(absPath)) {
+          queue.push([absPath, 1]);
+        }
+      }
+    }
+
+    // Process queue with cycle detection and depth limit
+    const visited = new Set<string>();
+    while (queue.length > 0) {
+      const [filePath, depth] = queue.shift()!;
+      if (visited.has(filePath)) { continue; }
+      visited.add(filePath);
+      resolvedPaths.add(filePath);
+
+      if (depth > MAX_REFERENCE_DEPTH) {
+        console.warn(`Agent Rules Manager: Reference depth limit (${MAX_REFERENCE_DEPTH}) reached at ${filePath}`);
+        continue;
+      }
+
+      try {
+        const rule = await this.processFile(filePath, 'document', 'directory_rule', workspaceRoot);
+        if (rule) {
+          promoted.push(rule);
+
+          // Follow this rule's references recursively
+          const ruleDir = path.dirname(filePath);
+          const discoveryRefs = extractDiscoveryReferences(
+            (await vscode.workspace.fs.readFile(vscode.Uri.file(filePath))).toString()
+          );
+          for (const ref of discoveryRefs) {
+            const absPath = path.resolve(ruleDir, ref);
+            if (!resolvedPaths.has(absPath) && !visited.has(absPath) && candidates.has(absPath)) {
+              queue.push([absPath, depth + 1]);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`Agent Rules Manager: Failed to promote referenced file ${filePath}:`, err);
+      }
+    }
+
+    return promoted;
   }
 
   dispose(): void {

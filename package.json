@@ -223,6 +223,30 @@
           "type": "number",
           "default": 2000,
           "description": "Warn when a single rule body exceeds this estimated token count."
+        },
+        "agentRules.candidatePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/*.md",
+            "**/*.mdc",
+            "**/*.mdx"
+          ],
+          "description": "Glob patterns for candidate rule file discovery. Files matching these patterns can be promoted to rules if referenced by an existing rule."
+        },
+        "agentRules.candidateExclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/.git/**"
+          ],
+          "description": "Glob patterns to exclude from candidate discovery."
         }
       }
     }

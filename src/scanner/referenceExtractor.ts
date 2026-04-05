@@ -27,6 +27,27 @@ export function extractReferences(body: string): string[] {
   return Array.from(refs);
 }
 
+/** Extensions eligible for candidate promotion via reference resolution */
+const DISCOVERY_EXTENSIONS = new Set(['.md', '.mdc', '.mdx']);
+
+/**
+ * Extract file references from markdown links only, for candidate promotion.
+ *
+ * Differences from extractReferences():
+ *   - Only markdown links [text](path) — no backtick paths
+ *   - Bare filenames allowed (no slash required) — [text](setup.md) is valid
+ *   - Only .md, .mdc, .mdx extensions are returned
+ */
+export function extractDiscoveryReferences(body: string): string[] {
+  const refs = new Set<string>();
+  const linkRegex = /\[[^\]]*\]\(([^)]+)\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = linkRegex.exec(body)) !== null) {
+    addIfDiscoveryPath(match[1], refs);
+  }
+  return Array.from(refs);
+}
+
 function addIfRelativePath(raw: string, refs: Set<string>): void {
   const trimmed = raw.trim();
   // Skip URLs
@@ -39,6 +60,22 @@ function addIfRelativePath(raw: string, refs: Set<string>): void {
   // This avoids matching inline code like `const x = 1` or `package.json`
   if (!trimmed.includes('/')) { return; }
   if (!/\.[a-zA-Z0-9]+$/.test(trimmed)) { return; }
+  // Strip leading ./ for consistency
+  const cleaned = trimmed.replace(/^\.\//, '');
+  refs.add(cleaned);
+}
+
+function addIfDiscoveryPath(raw: string, refs: Set<string>): void {
+  const trimmed = raw.trim();
+  // Skip URLs
+  if (/^https?:\/\/|^ftp:\/\//i.test(trimmed)) { return; }
+  // Skip anchors
+  if (trimmed.startsWith('#')) { return; }
+  // Skip absolute paths
+  if (trimmed.startsWith('/')) { return; }
+  // Must end with a discovery-eligible extension
+  const extMatch = trimmed.match(/(\.[a-zA-Z0-9]+)$/);
+  if (!extMatch || !DISCOVERY_EXTENSIONS.has(extMatch[1].toLowerCase())) { return; }
   // Strip leading ./ for consistency
   const cleaned = trimmed.replace(/^\.\//, '');
   refs.add(cleaned);

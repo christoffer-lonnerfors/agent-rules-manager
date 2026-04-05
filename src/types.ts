@@ -1,4 +1,4 @@
-/** The 8 supported AI agent rule formats */
+/** The 8 supported AI agent rule formats plus 'document' for referenced files */
 export type RuleFormat =
   | 'cursor'
   | 'windsurf'
@@ -7,7 +7,8 @@ export type RuleFormat =
   | 'augment'
   | 'claude-code'
   | 'claude-md'
-  | 'agents-md';
+  | 'agents-md'
+  | 'document';
 
 /** Human-readable labels for each format (used in UI and lint messages) */
 export const FORMAT_LABELS: Record<RuleFormat, string> = {
@@ -19,6 +20,7 @@ export const FORMAT_LABELS: Record<RuleFormat, string> = {
   'claude-code': 'Claude Code',
   'claude-md': 'CLAUDE.md',
   'agents-md': 'AGENTS.md',
+  'document': 'Document',
 };
 
 /** Normalized activation trigger */
@@ -129,4 +131,14 @@ export interface DiscoveredFile {
   sourceType: RuleSourceType;
   /** True when the file extension doesn't match the format's expected extensions */
   extensionMismatch?: boolean;
+}
+
+/** Minimal metadata for a candidate file that was not promoted to a rule */
+export interface CandidateFile {
+  /** Absolute file path */
+  filePath: string;
+  /** File extension (e.g., ".md") */
+  fileExtension: string;
+  /** File size in bytes */
+  fileSize: number;
 }

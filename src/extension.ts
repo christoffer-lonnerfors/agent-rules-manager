@@ -9,6 +9,7 @@ import { AgentId, AGENT_CONFIGS, getAgentConfig, getReadableFormats, getEffectiv
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from './scanner/formatDetector';
 import { toCaseInsensitiveGlob } from './scanner/fileDiscovery';
+import { CandidateStore } from './scanner/candidateStore';
 import { detectDominantAgent } from './agents/agentAutoDetector';
 import { scaffoldRuleFile } from './actions/ruleScaffolder';
 
@@ -18,7 +19,8 @@ const RULE_BODY_SCHEME = 'ai-rules-body';
 export function activate(context: vscode.ExtensionContext) {
   // Initialize core services
   const ruleIndex = new RuleIndex(context);
-  const scannerService = new ScannerService(ruleIndex);
+  const candidateStore = new CandidateStore();
+  const scannerService = new ScannerService(ruleIndex, candidateStore);
   const treeProvider = new RuleTreeProvider(ruleIndex);
   treeProvider.setExtensionPath(context.extensionPath);
 
@@ -201,7 +203,7 @@ export function activate(context: vscode.ExtensionContext) {
       // Only overwrite directory rules and cross-agent hierarchical files — other standalone/hierarchical files are read-only sources
       const allOthers = rules.filter(r => r.id !== selected.rule.id);
       const isWritable = (r: { sourceType: string; format: RuleFormat }) =>
-        r.sourceType === 'directory_rule' || r.format === 'agents-md' || r.format === 'claude-md';
+        r.format !== 'document' && (r.sourceType === 'directory_rule' || r.format === 'agents-md' || r.format === 'claude-md');
       const targets = allOthers.filter(isWritable);
       const skipped = allOthers.filter(r => !isWritable(r));
 
@@ -316,7 +318,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Only count writable targets (directory rules + cross-agent hierarchical files)
       const isSyncWritable = (r: { sourceType: string; format: RuleFormat }) =>
-        r.sourceType === 'directory_rule' || r.format === 'agents-md' || r.format === 'claude-md';
+        r.format !== 'document' && (r.sourceType === 'directory_rule' || r.format === 'agents-md' || r.format === 'claude-md');
       const totalTargets = syncable.reduce((sum, lr) => {
         const source = findSource(lr)!;
         return sum + lr.rules.filter(r => r.id !== source.id && isSyncWritable(r)).length;
@@ -473,6 +475,14 @@ export function activate(context: vscode.ExtensionContext) {
   // Set up file system watchers derived from FORMAT_CONFIGS
   const watchers = createFileWatchers(scannerService);
 
+  // Rescan when candidate-related settings change
+  const configChangeListener = vscode.workspace.onDidChangeConfiguration(e => {
+    if (e.affectsConfiguration('agentRules.candidatePatterns') ||
+      e.affectsConfiguration('agentRules.candidateExclude')) {
+      scannerService.scan({ silent: true });
+    }
+  });
+
   // Push all disposables
   context.subscriptions.push(
     treeView,
@@ -490,11 +500,13 @@ export function activate(context: vscode.ExtensionContext) {
     addMissingRuleCmd,
     addRuleCmd,
     ruleIndex,
+    candidateStore,
     scannerService,
     treeProvider,
     actionsProvider,
     issueDecoProvider,
     decoRegistration,
+    configChangeListener,
     ...watchers,
   );
 

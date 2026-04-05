@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { DiscoveredFile } from '../types';
+import { DiscoveredFile, CandidateFile } from '../types';
 import { FormatScanConfig } from './scannerTypes';
 import { FORMAT_CONFIGS } from './formatDetector';
 
@@ -170,5 +170,44 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Discovers all candidate files in the workspace using configurable glob patterns.
+ * Returns a Map of absolute file path → CandidateFile for quick lookup during
+ * reference resolution (Phase 3).
+ */
+export async function discoverCandidates(workspaceRoot: string): Promise<Map<string, CandidateFile>> {
+  const cfg = vscode.workspace.getConfiguration('agentRules');
+  const patterns: string[] = cfg.get('candidatePatterns', ['**/*.md', '**/*.mdc', '**/*.mdx']);
+  const excludes: string[] = cfg.get('candidateExclude', ['**/node_modules/**', '**/dist/**', '**/.git/**']);
+
+  const rootUri = vscode.Uri.file(workspaceRoot);
+  const excludePattern = excludes.length > 0 ? `{${excludes.join(',')}}` : undefined;
+
+  const candidates = new Map<string, CandidateFile>();
+
+  for (const pattern of patterns) {
+    const relPattern = new vscode.RelativePattern(rootUri, pattern);
+    const uris = await vscode.workspace.findFiles(relPattern, excludePattern);
+
+    for (const uri of uris) {
+      const filePath = uri.fsPath;
+      if (candidates.has(filePath)) { continue; }
+
+      try {
+        const stat = await vscode.workspace.fs.stat(uri);
+        candidates.set(filePath, {
+          filePath,
+          fileExtension: path.extname(filePath).toLowerCase(),
+          fileSize: stat.size,
+        });
+      } catch {
+        // File may have been deleted between findFiles and stat — skip
+      }
+    }
+  }
+
+  return candidates;
 }
 
