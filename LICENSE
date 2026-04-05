@@ -20,3 +20,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+---
+
+The icon files in `resources/icons/` depict third-party product logos and are
+NOT covered by this license. They are trademarks of their respective owners
+and are used for identification purposes only. See THIRD_PARTY_NOTICES.md for
+details.
+
