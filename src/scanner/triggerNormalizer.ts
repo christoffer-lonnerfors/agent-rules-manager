@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { RuleFormat, RuleTrigger, RuleSourceType } from './scannerTypes';
-import { deriveGlobFromHierarchicalPath } from './scopeTranslator';
+import { deriveGlobFromHierarchicalPath } from '../utils/scopeTranslator';
 
 /**
  * Normalizes format-specific trigger/activation fields into the common RuleTrigger enum.

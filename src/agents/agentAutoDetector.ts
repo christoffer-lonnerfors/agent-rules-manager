@@ -1,4 +1,5 @@
-import { IndexedRule, RuleFormat, AgentId, AGENT_CONFIGS } from './scannerTypes';
+import { IndexedRule, RuleFormat } from '../scanner/scannerTypes';
+import { AgentId } from './agentConfig';
 
 /**
  * Maps an agent-specific rule format to its owning agent.

@@ -4,12 +4,13 @@ import { RuleIndex } from './index/ruleIndex';
 import { ScannerService } from './scanner/scannerService';
 import { RuleTreeProvider, RuleIssueDecorationProvider } from './views/ruleTreeProvider';
 import { ActionsWebviewProvider } from './views/actionsWebviewProvider';
-import { LogicalRule, RuleFormat, AgentId, AGENT_LABELS, AGENT_CONFIGS, getReadableFormats, getEffectiveWriteFormat, FORMAT_LABELS } from './scanner/scannerTypes';
+import { LogicalRule, RuleFormat, FORMAT_LABELS } from './scanner/scannerTypes';
+import { AgentId, AGENT_CONFIGS, getAgentConfig, getReadableFormats, getEffectiveWriteFormat } from './agents/agentConfig';
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from './scanner/formatDetector';
 import { toCaseInsensitiveGlob } from './scanner/fileDiscovery';
-import { detectDominantAgent } from './scanner/agentAutoDetector';
-import { scaffoldRuleFile } from './scanner/ruleScaffolder';
+import { detectDominantAgent } from './agents/agentAutoDetector';
+import { scaffoldRuleFile } from './actions/ruleScaffolder';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
 const RULE_BODY_SCHEME = 'ai-rules-body';
@@ -293,7 +294,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       const syncable = diverged.filter(lr => findSource(lr) !== undefined);
       if (syncable.length === 0) {
-        vscode.window.showWarningMessage(`No diverged rules have a version readable by ${AGENT_LABELS[agentId as AgentId]} to sync from.`);
+        vscode.window.showWarningMessage(`No diverged rules have a version readable by ${getAgentConfig(agentId as AgentId).label} to sync from.`);
         return;
       }
 
@@ -309,7 +310,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const sourceLabel = FORMAT_LABELS[writeFormat as RuleFormat] || AGENT_LABELS[agentId as AgentId];
+      const sourceLabel = FORMAT_LABELS[writeFormat as RuleFormat] || getAgentConfig(agentId as AgentId).label;
       const confirm = await vscode.window.showWarningMessage(
         `Align ${syncable.length} diverged rule${syncable.length > 1 ? 's' : ''} — overwrite ${totalTargets} file${totalTargets > 1 ? 's' : ''} to match their ${sourceLabel} versions? Frontmatter will be preserved.`,
         { modal: true },
@@ -351,7 +352,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       const missing = actionsProvider.getMissingRules(agentId as AgentId);
       if (missing.length === 0) {
-        vscode.window.showInformationMessage(`Full coverage — all rules are readable by ${AGENT_LABELS[agentId as AgentId]}.`);
+        vscode.window.showInformationMessage(`Full coverage — all rules are readable by ${getAgentConfig(agentId as AgentId).label}.`);
         return;
       }
 

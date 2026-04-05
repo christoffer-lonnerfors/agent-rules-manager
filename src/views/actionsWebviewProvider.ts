@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import {
-  LogicalRule, RuleFormat, AgentId,
-  AGENT_CONFIGS, FORMAT_LABELS,
-  getReadableFormats, getDefaultWriteFormat, getEffectiveWriteFormat,
+  LogicalRule, RuleFormat, FORMAT_LABELS,
 } from '../scanner/scannerTypes';
+import {
+  AgentId, AGENT_CONFIGS,
+  getReadableFormats, getDefaultWriteFormat, getEffectiveWriteFormat,
+} from '../agents/agentConfig';
 import { RuleIndex } from '../index/ruleIndex';
 import { computeIssues, filterIssuesForAgent, IssueComputerConfig } from '../lint/issueComputer';
 import { RuleIssue } from '../lint/ruleIssues';

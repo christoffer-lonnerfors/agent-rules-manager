@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS, AgentId } from '../scanner/scannerTypes';
+import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../scanner/scannerTypes';
+import { AgentId } from '../agents/agentConfig';
 import { RuleIndex } from '../index/ruleIndex';
 import { RuleIssue } from '../lint/ruleIssues';
 import { computeIssues, filterIssuesForAgent, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues, IssueComputerConfig } from '../lint/issueComputer';

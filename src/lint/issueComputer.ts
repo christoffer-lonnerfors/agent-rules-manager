@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { LogicalRule, RuleFormat, FORMAT_LABELS, AgentId, AGENT_LABELS, getReadableFormats } from '../scanner/scannerTypes';
+import { LogicalRule, RuleFormat, FORMAT_LABELS } from '../scanner/scannerTypes';
+import { AgentId, getAgentConfig, getReadableFormats } from '../agents/agentConfig';
 import { FORMAT_CONFIGS } from '../scanner/formatDetector';
 import { RuleIssue } from './ruleIssues';
 import { estimateTokens, formatTokenCount } from './tokenEstimator';
@@ -87,7 +88,7 @@ function checkMissingPrimary(
   );
   if (effectivelyCovered) { return; }
 
-  const label = AGENT_LABELS[config.agent as AgentId];
+  const label = getAgentConfig(config.agent as AgentId).label;
   issues.push({
     id: 'missing-primary',
     severity: 'warning',
