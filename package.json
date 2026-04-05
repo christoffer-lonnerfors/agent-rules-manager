@@ -277,6 +277,7 @@
     "typescript": "^5.8.0"
   },
   "dependencies": {
+    "@vscode/codicons": "^0.0.45",
     "yaml": "^2.7.0"
   }
 }

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { CoverageState, CoverageModel, CoverageTreeNode } from '../coverage/coverageModel';
 import { RuleIndex } from '../index/ruleIndex';
 import { AgentId, getAgentConfig } from '../agents/agentConfig';
@@ -18,7 +19,7 @@ export class CoverageWebviewPanel {
 
   private constructor(
     private readonly ruleIndex: RuleIndex,
-    extensionUri: vscode.Uri,
+    private readonly extensionUri: vscode.Uri,
   ) {
     this.panel = vscode.window.createWebviewPanel(
       'agentRules.coverage',
@@ -96,8 +97,14 @@ export class CoverageWebviewPanel {
     // Build coverage tree
     const state = model.buildTree(relativePaths, contextWindowTokens, agentLabel);
 
+    // Build codicon CSS URI for the webview
+    const codiconCssPath = vscode.Uri.file(
+      path.join(this.extensionUri.fsPath, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css'),
+    );
+    const codiconCssUri = this.panel.webview.asWebviewUri(codiconCssPath);
+
     // Send to webview
-    this.panel.webview.html = getAnalysisHtml(state);
+    this.panel.webview.html = getAnalysisHtml(state, codiconCssUri);
   }
 }
 
@@ -130,7 +137,7 @@ function getLoadingHtml(): string {
 </html>`;
 }
 
-function getAnalysisHtml(state: CoverageState): string {
+function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri): string {
   const s = state.summary;
   const pct = (tokens: number) => ((tokens / s.contextWindowTokens) * 100).toFixed(1);
   const fmt = (tokens: number) => tokens < 1000 ? `${tokens}` : `${(tokens / 1000).toFixed(1)}k`;
@@ -139,6 +146,7 @@ function getAnalysisHtml(state: CoverageState): string {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" type="text/css" href="${codiconCssUri}">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -174,7 +182,8 @@ function getAnalysisHtml(state: CoverageState): string {
     user-select: none; flex-shrink: 0; opacity: 0.7;
   }
   .tree-toggle:empty { cursor: default; }
-  .tree-icon { width: 18px; text-align: center; flex-shrink: 0; opacity: 0.8; }
+  .tree-icon { width: 18px; text-align: center; flex-shrink: 0; opacity: 0.8; display: inline-flex; align-items: center; justify-content: center; }
+  .detail-rule-icon { margin-right: 4px; flex-shrink: 0; }
   .tree-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tree-cost {
     flex-shrink: 0; text-align: right; min-width: 70px;
@@ -279,7 +288,6 @@ function getAnalysisHtml(state: CoverageState): string {
     if (!cov) { panel.classList.remove('visible'); return; }
 
     let html = '<h3>' + escH(filePath || '(root)') + '</h3>';
-    html += '<div>~' + cov.tokens + ' tokens</div>';
 
     if (cov.alwaysRules && cov.alwaysRules.length > 0) {
       html += renderDetailSection('Always-on', cov.alwaysRules);
@@ -310,6 +318,7 @@ function getAnalysisHtml(state: CoverageState): string {
     let sum = 0;
     for (const r of rules) {
       html += '<div class="detail-rule" data-rulepath="' + escA(r.filePath) + '">';
+      html += '<span class="detail-rule-icon codicon codicon-book"></span>';
       html += '<span class="detail-rule-name">' + escH(r.name) + '</span>';
       html += '<span class="detail-rule-tokens">~' + r.tokens + '</span>';
       html += '</div>';
@@ -351,15 +360,15 @@ function renderTreeChildren(
     const severity = severityClass(node.tokens, contextWindow);
     const isDir = node.isDirectory;
 
-    html += `<div class="tree-item" style="padding-left:${indent}px">`;
-    html += `<div class="tree-row ${severity}" data-path="${escHtml(node.path)}">`;
+    html += `<div class="tree-item">`;
+    html += `<div class="tree-row ${severity}" style="padding-left:${indent}px" data-path="${escHtml(node.path)}">`;
 
     if (isDir) {
       html += `<span class="tree-toggle">&#9656;</span>`;
-      html += `<span class="tree-icon">&#128193;</span>`;
+      html += `<span class="tree-icon"><span class="codicon codicon-folder"></span></span>`;
     } else {
       html += `<span class="tree-toggle"></span>`;
-      html += `<span class="tree-icon">&#128196;</span>`;
+      html += `<span class="tree-icon"><span class="codicon codicon-file"></span></span>`;
     }
 
     html += `<span class="tree-name">${escHtml(node.name)}${isDir ? '/' : ''}</span>`;
