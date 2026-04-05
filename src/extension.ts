@@ -420,56 +420,18 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // Register add-rule command (create a new empty rule in the target format)
+  // Register add-rule command (opens the create-rule form in the Actions webview)
   const addRuleCmd = vscode.commands.registerCommand(
     'agentRules.addRule',
     async () => {
-      const { agentId, writeFormat } = readAgentSettings();
-      if (!agentId || !writeFormat) {
+      const { agentId } = readAgentSettings();
+      if (!agentId) {
         vscode.window.showWarningMessage('Select an agent first.');
         return;
       }
-
-      const name = await vscode.window.showInputBox({
-        prompt: 'Rule name',
-        placeHolder: 'e.g. coding-standards',
-        validateInput: (v) => {
-          if (!v.trim()) { return 'Name is required'; }
-          if (/[^a-zA-Z0-9 _-]/.test(v)) { return 'Use only letters, numbers, spaces, hyphens, and underscores'; }
-          return undefined;
-        },
-      });
-      if (!name) { return; }
-
-      const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      const config = FORMAT_CONFIGS.find(c => c.format === writeFormat);
-      if (!config) { return; }
-
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (!workspaceFolders || workspaceFolders.length === 0) { return; }
-      const root = workspaceFolders[0].uri.fsPath;
-
-      const fs = await import('fs');
-      const path = await import('path');
-
-      if (config.directories.length > 0) {
-        const dir = path.join(root, config.directories[0]);
-        const ext = config.extensions[0];
-        const filePath = path.join(dir, slug + ext);
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(filePath, '', 'utf-8');
-        const uri = vscode.Uri.file(filePath);
-        await vscode.window.showTextDocument(uri);
-      } else if (config.hierarchicalFiles.length > 0) {
-        const filePath = path.join(root, config.hierarchicalFiles[0]);
-        if (!fs.existsSync(filePath)) {
-          fs.writeFileSync(filePath, '', 'utf-8');
-        }
-        const uri = vscode.Uri.file(filePath);
-        await vscode.window.showTextDocument(uri);
-      }
-
-      await scannerService.scan();
+      // Reveal the Actions webview and trigger the create form
+      await vscode.commands.executeCommand('agentRules.actionsView.focus');
+      actionsProvider.triggerCreateForm();
     }
   );
 

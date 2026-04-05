@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { LogicalRule, RuleFormat } from '../types';
+import { LogicalRule, RuleFormat, RuleTrigger } from '../types';
 import { parseFrontmatter } from '../scanner/frontmatterParser';
 import { FORMAT_CONFIGS } from '../scanner/formatDetector';
 import { extractCommonDirectory } from '../utils/scopeTranslator';
@@ -166,4 +166,32 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
   }
 
   return lines.length > 0 ? lines.join('\n') + '\n' : '';
+}
+
+
+/**
+ * Build the full file content for a brand-new rule.
+ * Uses buildFrontmatter() with a synthetic LogicalRule, plus a common body template.
+ */
+export function buildNewRuleContent(
+  format: RuleFormat,
+  trigger: RuleTrigger,
+  name: string,
+): string {
+  const syntheticRule: LogicalRule = {
+    id: '',
+    description: 'Your rule description here',
+    trigger,
+    globs: trigger === 'glob' ? ['**/*'] : undefined,
+    formats: [format],
+    rules: [],
+    minSimilarity: 1,
+  };
+
+  const frontmatter = buildFrontmatter(format, syntheticRule);
+  const body = `# Rule Title\n\nAdd your rule content here.\n`;
+
+  return frontmatter
+    ? `---\n${frontmatter}---\n\n${body}`
+    : body;
 }

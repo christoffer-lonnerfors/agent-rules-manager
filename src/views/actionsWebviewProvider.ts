@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
-  LogicalRule, RuleFormat, FORMAT_LABELS,
+  LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS,
 } from '../types';
 import {
   AgentId, AGENT_CONFIGS,
@@ -10,6 +12,8 @@ import { RuleIndex } from '../index/ruleIndex';
 import { computeIssues, LintConfig } from '../lint/lintEngine';
 import { filterIssuesForAgent } from '../lint/agentFilter';
 import { RuleIssue } from '../lint/ruleIssues';
+import { FORMAT_CONFIGS } from '../scanner/formatDetector';
+import { buildNewRuleContent } from '../actions/ruleScaffolder';
 
 /** State object sent to the webview for rendering */
 interface ActionsViewState {
@@ -25,6 +29,20 @@ interface ActionsViewState {
   issueMessages: { errors: string[]; warnings: string[]; infos: string[] };
 }
 
+/** State for the create-rule form */
+interface CreateFormState {
+  /** Whether this is a hierarchical format (AGENTS.md, CLAUDE.md) */
+  isHierarchical: boolean;
+  /** The fixed location label for directory-based formats (e.g. ".cursor/rules/") */
+  fixedLocation: string;
+  /** Human-readable format label */
+  formatLabel: string;
+  /** File extension for directory-based formats (e.g. ".mdc", ".md") */
+  fileExtension: string;
+  /** Fixed filename for hierarchical formats (e.g. "AGENTS.md") */
+  fixedFileName: string;
+}
+
 /** Messages sent from webview → extension */
 type WebviewMessage =
   | { type: 'agentChanged'; value: string }
@@ -32,7 +50,10 @@ type WebviewMessage =
   | { type: 'addRule' }
   | { type: 'showCoverage' }
   | { type: 'runSyncAll' }
-  | { type: 'runAddAllMissing' };
+  | { type: 'runAddAllMissing' }
+  | { type: 'cancelCreate' }
+  | { type: 'createRule'; name: string; trigger: string; location: string }
+  | { type: 'browseFolderForRule' };
 
 
 
@@ -73,7 +94,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.options = { enableScripts: true };
     webviewView.webview.html = this.getHtml();
 
-    webviewView.webview.onDidReceiveMessage((msg: WebviewMessage) => {
+    webviewView.webview.onDidReceiveMessage(async (msg: WebviewMessage) => {
       switch (msg.type) {
         case 'agentChanged':
           vscode.workspace.getConfiguration('agentRules')
@@ -84,7 +105,16 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
             .update('writeFormat', msg.value, vscode.ConfigurationTarget.Workspace);
           break;
         case 'addRule':
-          vscode.commands.executeCommand('agentRules.addRule');
+          this.showCreateForm();
+          break;
+        case 'cancelCreate':
+          this.postState();
+          break;
+        case 'createRule':
+          await this.handleCreateRule(msg.name, msg.trigger as RuleTrigger, msg.location);
+          break;
+        case 'browseFolderForRule':
+          await this.handleBrowseFolder();
           break;
         case 'showCoverage':
           vscode.commands.executeCommand('agentRules.showCoverage');
@@ -116,6 +146,12 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   /** Get logical rules not effectively readable by the agent (accounts for extensionMismatch) */
   getMissingRules(agent: AgentId): LogicalRule[] {
     return this.logicalRules.filter(lr => !isEffectivelyCovered(lr, agent));
+  }
+
+  /** Trigger the create-rule form from an external command (e.g. tree view + button) */
+  triggerCreateForm(): void {
+    // Small delay to let the webview become visible if it was just focused
+    setTimeout(() => this.showCreateForm(), 150);
   }
 
   /** Get diverged logical rules */
@@ -202,6 +238,136 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     if (!this.view) { return; }
     const state = await this.computeState();
     this.view.webview.postMessage({ type: 'updateState', state });
+  }
+
+  /**
+   * Switch the webview to the "New Rule" creation form.
+   * Sends format metadata and workspace directories to the webview.
+   */
+  private showCreateForm(): void {
+    if (!this.view) { return; }
+
+    const agent = this.getAgent();
+    if (!agent) { return; }
+
+    const cfg = vscode.workspace.getConfiguration('agentRules');
+    const writeFormatOverride = cfg.get<string>('writeFormat', '') as RuleFormat | '';
+    const writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
+    const formatConfig = FORMAT_CONFIGS.find(c => c.format === writeFormat);
+    if (!formatConfig) { return; }
+
+    const isHierarchical = formatConfig.hierarchicalFiles.length > 0;
+
+    let fixedLocation = '';
+    if (!isHierarchical && formatConfig.directories.length > 0) {
+      fixedLocation = formatConfig.directories[0] + '/';
+    }
+
+    const fileExtension = (!isHierarchical && formatConfig.extensions.length > 0)
+      ? formatConfig.extensions[0]
+      : '';
+
+    const fixedFileName = isHierarchical ? formatConfig.hierarchicalFiles[0] : '';
+
+    const formState: CreateFormState = {
+      isHierarchical,
+      fixedLocation,
+      formatLabel: FORMAT_LABELS[writeFormat],
+      fileExtension,
+      fixedFileName,
+    };
+
+    this.view.webview.postMessage({ type: 'showCreateForm', state: formState });
+  }
+
+  /**
+   * Handle a "Browse…" request from the create-rule form.
+   * Opens a native folder dialog and sends the selected path back to the webview.
+   */
+  private async handleBrowseFolder(): Promise<void> {
+    if (!this.view) { return; }
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) { return; }
+
+    const result = await vscode.window.showOpenDialog({
+      canSelectFolders: true,
+      canSelectFiles: false,
+      canSelectMany: false,
+      defaultUri: workspaceFolders[0].uri,
+      openLabel: 'Select folder',
+    });
+
+    if (result && result.length > 0) {
+      const root = workspaceFolders[0].uri.fsPath;
+      const selected = result[0].fsPath;
+      const relative = path.relative(root, selected);
+
+      // Only allow folders within the workspace
+      if (!relative.startsWith('..')) {
+        this.view.webview.postMessage({
+          type: 'folderSelected',
+          path: relative || '/',
+        });
+      }
+    }
+  }
+
+  /**
+   * Handle creation of a new rule file from the form inputs.
+   */
+  private async handleCreateRule(name: string, trigger: RuleTrigger, location: string): Promise<void> {
+    const agent = this.getAgent();
+    if (!agent) { return; }
+
+    const cfg = vscode.workspace.getConfiguration('agentRules');
+    const writeFormatOverride = cfg.get<string>('writeFormat', '') as RuleFormat | '';
+    const writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
+    const formatConfig = FORMAT_CONFIGS.find(c => c.format === writeFormat);
+    if (!formatConfig) { return; }
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) { return; }
+    const root = workspaceFolders[0].uri.fsPath;
+
+    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const isHierarchical = formatConfig.hierarchicalFiles.length > 0;
+
+    const content = buildNewRuleContent(writeFormat, trigger, name.trim());
+
+    let filePath: string;
+
+    if (isHierarchical) {
+      const targetDir = (location === '/' || !location)
+        ? root
+        : path.join(root, location);
+      const fileName = formatConfig.hierarchicalFiles[0];
+      filePath = path.join(targetDir, fileName);
+
+      if (fs.existsSync(filePath)) {
+        // Append a new section to existing file
+        const existing = fs.readFileSync(filePath, 'utf-8');
+        const appendContent = existing.trimEnd() + '\n\n---\n\n' + content;
+        fs.writeFileSync(filePath, appendContent, 'utf-8');
+      } else {
+        fs.mkdirSync(targetDir, { recursive: true });
+        fs.writeFileSync(filePath, content, 'utf-8');
+      }
+    } else {
+      const dir = path.join(root, formatConfig.directories[0]);
+      const ext = formatConfig.extensions[0];
+      filePath = path.join(dir, slug + ext);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, content, 'utf-8');
+    }
+
+    // Open the created file in the editor
+    const uri = vscode.Uri.file(filePath);
+    await vscode.window.showTextDocument(uri);
+
+    // Rescan and restore the normal view
+    vscode.commands.executeCommand('agentRules.rescan');
+    this.postState();
   }
 
   private getHtml(): string {
@@ -344,9 +510,91 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   .issue-info { color: var(--vscode-editorInfo-foreground, #3794ff); }
 
   .section { margin-bottom: 12px; }
+
+  /* ── Create-rule form ────────────────────────────── */
+  #createRuleForm { display: none; }
+
+  .form-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .input-group {
+    display: flex;
+    align-items: center;
+    background: var(--vscode-input-background);
+    border: 1px solid var(--vscode-input-border, var(--vscode-dropdown-border));
+    border-radius: 2px;
+  }
+  .input-group:focus-within { border-color: var(--vscode-focusBorder); }
+
+  .input-group input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-input-foreground);
+    background: transparent;
+    border: none;
+    outline: none;
+  }
+
+  .input-suffix {
+    padding: 4px 8px 4px 0;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-descriptionForeground);
+    white-space: nowrap;
+    user-select: none;
+  }
+  .input-suffix:empty { display: none; }
+
+  select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .form-hint {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .location-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .location-display span {
+    flex: 1;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-foreground);
+  }
+
+  .form-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .form-buttons button {
+    flex: 1;
+  }
+
+  .validation-error {
+    color: var(--vscode-editorError-foreground, #f14c4c);
+    font-size: 11px;
+    margin-top: 4px;
+    display: none;
+  }
 </style>
 </head>
 <body>
+  <div id="mainView">
   <div class="section">
     <div class="section-label" title="The AI coding agent you use.">Agent</div>
     <select id="agentSelect" title="Select the AI coding agent you use">
@@ -372,10 +620,54 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
   <hr class="divider">
   <div id="footer" class="footer"></div>
+  </div>
+
+  <!-- ── Create Rule Form (hidden by default) ──────────────── -->
+  <div id="createRuleForm">
+    <div class="form-title">New Rule</div>
+    <hr class="divider" style="margin-top:0">
+
+    <div class="section">
+      <div class="section-label">File Name</div>
+      <div class="input-group">
+        <input type="text" id="ruleNameInput" placeholder="e.g. coding-standards">
+        <span class="input-suffix" id="extensionSuffix"></span>
+      </div>
+      <div id="ruleNameError" class="validation-error"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Apply</div>
+      <select id="triggerSelect">
+        <option value="always">Always</option>
+        <option value="glob">File pattern</option>
+        <option value="agent_requested">Agent requested</option>
+        <option value="manual">Manual</option>
+      </select>
+      <div id="triggerHint" class="form-hint"></div>
+    </div>
+
+    <div class="section" id="locationSection">
+      <div class="section-label">Location</div>
+      <div id="locationHint" class="form-hint" style="display:none"></div>
+      <div id="locationDisplay" class="location-display" style="display:none">
+        <span id="locationPath">/ (entire workspace)</span>
+        <button id="browseFolderBtn" class="btn-secondary" style="padding:2px 8px;width:auto">Browse…</button>
+      </div>
+      <div id="locationFixed" class="form-hint" style="display:none"></div>
+    </div>
+
+    <div class="form-buttons">
+      <button class="btn-primary" id="createBtn">Create</button>
+      <button class="btn-secondary" id="cancelBtn">Cancel</button>
+    </div>
+  </div>
 
 <script>
   const vscode = acquireVsCodeApi();
 
+  // ── Main view elements ──
+  const mainView = document.getElementById('mainView');
   const agentSelect = document.getElementById('agentSelect');
   const formatSection = document.getElementById('formatSection');
   const formatSelect = document.getElementById('formatSelect');
@@ -384,6 +676,25 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   const bannersSection = document.getElementById('bannersSection');
   const emptySection = document.getElementById('emptySection');
   const footer = document.getElementById('footer');
+
+  // ── Create form elements ──
+  const createRuleForm = document.getElementById('createRuleForm');
+  const ruleNameInput = document.getElementById('ruleNameInput');
+  const ruleNameError = document.getElementById('ruleNameError');
+  const extensionSuffix = document.getElementById('extensionSuffix');
+  const triggerSelect = document.getElementById('triggerSelect');
+  const triggerHint = document.getElementById('triggerHint');
+  const locationSection = document.getElementById('locationSection');
+  const locationFixed = document.getElementById('locationFixed');
+  const locationHint = document.getElementById('locationHint');
+  const locationDisplay = document.getElementById('locationDisplay');
+  const locationPath = document.getElementById('locationPath');
+  const browseFolderBtn = document.getElementById('browseFolderBtn');
+  const createBtn = document.getElementById('createBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
+
+  let currentFormState = null;
+  let selectedLocation = '/';
 
   agentSelect.addEventListener('change', () => {
     vscode.postMessage({ type: 'agentChanged', value: agentSelect.value });
@@ -398,10 +709,116 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     vscode.postMessage({ type: 'showCoverage' });
   });
 
+  // ── Create form event listeners ──
+  cancelBtn.addEventListener('click', () => {
+    hideCreateForm();
+    vscode.postMessage({ type: 'cancelCreate' });
+  });
+
+  createBtn.addEventListener('click', () => {
+    const name = ruleNameInput.value.trim();
+    const isHierarchical = currentFormState && currentFormState.isHierarchical;
+    if (!isHierarchical && !validateName(name)) { return; }
+    const trigger = triggerSelect.value;
+    vscode.postMessage({ type: 'createRule', name, trigger, location: selectedLocation });
+    hideCreateForm();
+  });
+
+  ruleNameInput.addEventListener('input', () => {
+    ruleNameError.style.display = 'none';
+    // Strip illegal characters as the user types
+    const cleaned = ruleNameInput.value.replace(/[^a-zA-Z0-9 _-]/g, '');
+    if (cleaned !== ruleNameInput.value) {
+      const pos = ruleNameInput.selectionStart - (ruleNameInput.value.length - cleaned.length);
+      ruleNameInput.value = cleaned;
+      ruleNameInput.setSelectionRange(pos, pos);
+    }
+  });
+
+  browseFolderBtn.addEventListener('click', () => {
+    vscode.postMessage({ type: 'browseFolderForRule' });
+  });
+
   window.addEventListener('message', event => {
     const msg = event.data;
-    if (msg.type === 'updateState') { render(msg.state); }
+    if (msg.type === 'updateState') {
+      hideCreateForm();
+      render(msg.state);
+    }
+    if (msg.type === 'showCreateForm') { showCreateForm(msg.state); }
+    if (msg.type === 'folderSelected') { selectLocationByPath(msg.path); }
   });
+
+  // ── Create form logic ──
+
+  function showCreateForm(state) {
+    currentFormState = state;
+    selectedLocation = '/';
+
+    // Reset form
+    ruleNameError.style.display = 'none';
+    if (state.isHierarchical) {
+      ruleNameInput.value = state.fixedFileName;
+      ruleNameInput.disabled = true;
+      extensionSuffix.textContent = '';
+    } else {
+      ruleNameInput.value = '';
+      ruleNameInput.disabled = false;
+      extensionSuffix.textContent = state.fileExtension || '';
+    }
+    triggerSelect.value = 'always';
+
+    // Trigger dropdown: disabled for hierarchical formats
+    triggerSelect.disabled = state.isHierarchical;
+    triggerHint.style.display = 'none';
+
+    // Location section
+    if (state.isHierarchical) {
+      // Editable location with Browse button
+      locationFixed.style.display = 'none';
+      locationHint.textContent = state.formatLabel + ' files apply to all files in their directory and subdirectories.';
+      locationHint.style.display = '';
+      locationPath.textContent = '/ (entire workspace)';
+      locationDisplay.style.display = 'flex';
+    } else {
+      // Fixed location (read-only)
+      locationFixed.textContent = state.fixedLocation;
+      locationFixed.style.display = '';
+      locationHint.style.display = 'none';
+      locationDisplay.style.display = 'none';
+    }
+
+    // Toggle visibility
+    mainView.style.display = 'none';
+    createRuleForm.style.display = 'block';
+    ruleNameInput.focus();
+  }
+
+  function hideCreateForm() {
+    createRuleForm.style.display = 'none';
+    mainView.style.display = '';
+    currentFormState = null;
+  }
+
+  function selectLocationByPath(p) {
+    selectedLocation = p;
+    const label = (!p || p === '/') ? '/ (entire workspace)' : p + '/';
+    locationPath.textContent = label;
+  }
+
+  function validateName(name) {
+    if (!name) {
+      ruleNameError.textContent = 'File name is required.';
+      ruleNameError.style.display = '';
+      return false;
+    }
+    if (/[^a-zA-Z0-9 _-]/.test(name)) {
+      ruleNameError.textContent = 'Use only letters, numbers, spaces, hyphens, and underscores.';
+      ruleNameError.style.display = '';
+      return false;
+    }
+    return true;
+  }
 
   function render(s) {
     // Agent dropdown
