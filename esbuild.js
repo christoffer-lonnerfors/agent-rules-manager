@@ -12,7 +12,7 @@ const buildOptions = {
   platform: 'node',
   target: 'node22',
   sourcemap: true,
-  minify: false,
+  minify: !watch,
 };
 
 async function main() {
