@@ -11,7 +11,7 @@
     "url": "https://github.com/christoffer-lonnerfors/agent-rules-manager"
   },
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Linters",
@@ -298,7 +298,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.0.0",
-    "@types/vscode": "^1.100.0",
+    "@types/vscode": "~1.85.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
