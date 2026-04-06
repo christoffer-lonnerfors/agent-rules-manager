@@ -17,3 +17,6 @@ Thumbs.db
 # VSIX package output
 *.vsix
 
+# Local working files
+tmp/
+

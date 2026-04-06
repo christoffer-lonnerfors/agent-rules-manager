@@ -2,22 +2,50 @@
   "name": "agent-rules-manager",
   "displayName": "Agent Rules Manager",
   "description": "Manage, compare, and sync AI agent rule files across Cursor, Windsurf, Kiro, Antigravity, Augment, and Claude Code formats.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "license": "MIT",
-  "publisher": "ai-rules",
+  "publisher": "christoffer-lonnerfors",
   "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christoffer-lonnerfors/agent-rules-manager"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
+    "Linters",
+    "Visualization",
     "Other"
   ],
   "keywords": [
     "ai",
     "rules",
+    "agent",
+    "ai-rules",
+    "ai-agent",
     "cursor",
     "windsurf",
-    "claude"
+    "kiro",
+    "antigravity",
+    "augment",
+    "claude",
+    "claude-code",
+    "cursorrules",
+    "windsurfrules",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "mdc",
+    "lint",
+    "linter",
+    "sync",
+    "coverage",
+    "tokens",
+    "context-window",
+    "copilot",
+    "coding-agent",
+    "frontmatter",
+    "divergence"
   ],
   "main": "./dist/extension.js",
   "activationEvents": [],
@@ -273,6 +301,7 @@
     "@types/vscode": "^1.100.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.25.0",
     "mocha": "^11.7.5",
     "typescript": "^5.8.0"

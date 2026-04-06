@@ -6,6 +6,5 @@ esbuild.js
 **/*.ts
 **/*.map
 .gitignore
-formats.md
-vscode-extension-structure.md
+tmp/**
 
