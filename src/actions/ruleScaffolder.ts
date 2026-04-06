@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { LogicalRule, RuleFormat, RuleTrigger } from '../types';
 import { parseFrontmatter } from '../scanner/frontmatterParser';
-import { FORMAT_CONFIGS } from '../scanner/formatDetector';
+import { FORMAT_DEFINITIONS } from '../scanner/formatRegistry';
 import { extractCommonDirectory } from '../utils/scopeTranslator';
 
 /**
@@ -29,8 +29,8 @@ export function scaffoldRuleFile(
   const { body: sourceBody } = parseFrontmatter(sourceContent);
 
   // Determine target directory and extension
-  const config = FORMAT_CONFIGS.find((c) => c.format === targetFormat);
-  if (!config || (config.directories.length === 0 && config.hierarchicalFiles.length === 0)) {
+  const config = FORMAT_DEFINITIONS.find((d) => d.id === targetFormat);
+  if (!config || (config.validPaths.length === 0 && config.validNames.length === 0)) {
     return undefined;
   }
 
@@ -39,9 +39,9 @@ export function scaffoldRuleFile(
     const targetDir =
       logicalRule.trigger === 'glob' && logicalRule.globs?.length
         ? (() => {
-            const lcaDir = extractCommonDirectory(logicalRule.globs!);
-            return lcaDir ? path.join(root, lcaDir) : root;
-          })()
+          const lcaDir = extractCommonDirectory(logicalRule.globs!);
+          return lcaDir ? path.join(root, lcaDir) : root;
+        })()
         : root;
     const targetPath = path.join(targetDir, 'CLAUDE.md');
 
@@ -62,9 +62,9 @@ export function scaffoldRuleFile(
     const targetDir =
       logicalRule.trigger === 'glob' && logicalRule.globs?.length
         ? (() => {
-            const lcaDir = extractCommonDirectory(logicalRule.globs!);
-            return lcaDir ? path.join(root, lcaDir) : root;
-          })()
+          const lcaDir = extractCommonDirectory(logicalRule.globs!);
+          return lcaDir ? path.join(root, lcaDir) : root;
+        })()
         : root;
     const targetPath = path.join(targetDir, 'AGENTS.md');
 
@@ -80,8 +80,8 @@ export function scaffoldRuleFile(
     return targetPath;
   }
 
-  const targetDir = path.join(root, config.directories[0]);
-  const targetExt = config.extensions[0];
+  const targetDir = path.join(root, config.validPaths[0]);
+  const targetExt = config.validExtensions[0];
 
   // Generate filename from the logical rule description
   const slug = logicalRule.description
@@ -108,7 +108,7 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
   const lines: string[] = [];
 
   switch (format) {
-    case 'cursor':
+    case 'cursor-rules':
       if (lr.trigger === 'always') {
         lines.push('alwaysApply: true');
       } else if (lr.trigger === 'glob' && lr.globs?.length) {
@@ -123,7 +123,7 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
       }
       break;
 
-    case 'windsurf':
+    case 'windsurf-rules':
     case 'antigravity':
       if (lr.trigger === 'always') {
         lines.push('trigger: always_on');
@@ -166,7 +166,7 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
       }
       break;
 
-    case 'augment':
+    case 'augment-rules':
       if (lr.trigger === 'always') {
         lines.push('type: always_apply');
       } else if (lr.trigger === 'agent_requested') {
@@ -179,7 +179,7 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
       }
       break;
 
-    case 'claude-code':
+    case 'claude-rules':
       if (lr.trigger === 'glob' && lr.globs?.length) {
         lines.push('paths:');
         for (const g of lr.globs) {
@@ -189,9 +189,13 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
       // No frontmatter needed for always-on rules in claude-code
       break;
 
+    case 'cursorrules':
+    case 'windsurfrules':
+    case 'augment-guidelines':
+    case 'claude-local':
     case 'claude-md':
     case 'agents-md':
-      // Cross-agent hierarchical formats use plain markdown — no frontmatter
+      // Standalone/legacy/hierarchical formats — no frontmatter
       break;
   }
 

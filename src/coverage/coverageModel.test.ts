@@ -1,26 +1,31 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CoverageModel } from './coverageModel';
-import { IndexedRule } from '../types';
+import { ClassifiedFile } from '../scanner/classifiedFile';
 import { computeMinHash } from '../hashing/minHasher';
 
-function makeRule(overrides: Partial<IndexedRule>): IndexedRule {
+function makeRule(overrides: Partial<ClassifiedFile>): ClassifiedFile {
   return {
     id: 'r1',
     filePath: '/workspace/.cursor/rules/r.md',
+    relativePath: '.cursor/rules/r.md',
     fileName: 'r.md',
     fileExtension: '.md',
-    format: 'cursor',
-    sourceType: 'directory_rule',
+    format: 'cursor-rules',
+    isHierarchical: false,
+    isStandalone: false,
+    body: 'test content',
+    rawFrontmatter: undefined,
+    frontmatterFields: {},
     trigger: 'always',
     description: 'Test rule',
     globs: undefined,
     contentHash: computeMinHash('test'),
     bodyHash: 'abc123',
     bodyLength: 350,
+    links: [],
     fileSize: 400,
     lastModified: '2025-01-01T00:00:00Z',
-    rawFrontmatter: undefined,
-    references: [],
+    diagnostics: [],
     ...overrides,
   };
 }
@@ -65,7 +70,7 @@ describe('CoverageModel', () => {
 
     it('filters by agent when agentId is provided', () => {
       const rules = [
-        makeRule({ id: 'r1', format: 'cursor', trigger: 'always' }),
+        makeRule({ id: 'r1', format: 'cursor-rules', trigger: 'always' }),
         makeRule({ id: 'r2', format: 'kiro', trigger: 'always' }),
       ];
       model.rebuild(rules, 'cursor');

@@ -1,30 +1,35 @@
 import { describe, it, expect } from 'vitest';
 import { buildLogicalRules } from './logicalRuleBuilder';
 import { computeMinHash } from '../hashing/minHasher';
-import { IndexedRule } from '../types';
+import { ClassifiedFile } from '../scanner/classifiedFile';
 import { createHash } from 'crypto';
 
-/** Helper to build a minimal IndexedRule for testing */
+/** Helper to build a minimal ClassifiedFile for testing */
 function makeRule(
-  overrides: Partial<IndexedRule> & { id: string; format: IndexedRule['format']; body: string },
-): IndexedRule {
+  overrides: Partial<ClassifiedFile> & { id: string; format: ClassifiedFile['format']; body: string },
+): ClassifiedFile {
   const { body, ...rest } = overrides;
   const bodyHash = createHash('sha256').update(body.trim()).digest('hex');
   return {
     filePath: `/workspace/.${rest.format}/rules/${rest.id}.md`,
+    relativePath: `.${rest.format}/rules/${rest.id}.md`,
     fileName: `${rest.id}.md`,
     fileExtension: '.md',
-    sourceType: 'directory_rule',
+    isHierarchical: false,
+    isStandalone: false,
+    body,
+    rawFrontmatter: undefined,
+    frontmatterFields: {},
     trigger: 'always',
     description: undefined,
     globs: undefined,
     contentHash: computeMinHash(body),
     bodyHash,
     bodyLength: body.length,
+    links: [],
     fileSize: body.length,
     lastModified: '2025-01-01T00:00:00Z',
-    rawFrontmatter: undefined,
-    references: [],
+    diagnostics: [],
     ...rest,
   };
 }
@@ -34,12 +39,12 @@ describe('buildLogicalRules', () => {
     const rules = [
       makeRule({
         id: 'a',
-        format: 'cursor',
+        format: 'cursor-rules',
         body: 'Completely unique content about cursor configuration',
       }),
       makeRule({
         id: 'b',
-        format: 'windsurf',
+        format: 'windsurf-rules',
         body: 'Totally different content about windsurf setup and deployment',
       }),
     ];
@@ -51,13 +56,13 @@ describe('buildLogicalRules', () => {
     const sharedBody =
       'Always use TypeScript strict mode with eslint configured for the project repository';
     const rules = [
-      makeRule({ id: 'r1', format: 'cursor', body: sharedBody }),
-      makeRule({ id: 'r2', format: 'windsurf', body: sharedBody }),
+      makeRule({ id: 'r1', format: 'cursor-rules', body: sharedBody }),
+      makeRule({ id: 'r2', format: 'windsurf-rules', body: sharedBody }),
     ];
     const logical = buildLogicalRules(rules);
     expect(logical).toHaveLength(1);
-    expect(logical[0].formats).toContain('cursor');
-    expect(logical[0].formats).toContain('windsurf');
+    expect(logical[0].formats).toContain('cursor-rules');
+    expect(logical[0].formats).toContain('windsurf-rules');
     expect(logical[0].rules).toHaveLength(2);
   });
 
@@ -65,8 +70,8 @@ describe('buildLogicalRules', () => {
     const body =
       'Always use TypeScript strict mode with eslint configured for the project repository';
     const rules = [
-      makeRule({ id: 'r1', format: 'cursor', body }),
-      makeRule({ id: 'r2', format: 'cursor', body }),
+      makeRule({ id: 'r1', format: 'cursor-rules', body }),
+      makeRule({ id: 'r2', format: 'cursor-rules', body }),
     ];
     const logical = buildLogicalRules(rules);
     expect(logical).toHaveLength(2);
@@ -76,12 +81,12 @@ describe('buildLogicalRules', () => {
     const rules = [
       makeRule({
         id: 'r1',
-        format: 'cursor',
+        format: 'cursor-rules',
         body: 'Use strict TypeScript mode for all files in the project repository always',
       }),
       makeRule({
         id: 'r2',
-        format: 'windsurf',
+        format: 'windsurf-rules',
         body: 'Use strict TypeScript mode for all files in the project repository usually',
       }),
     ];
@@ -95,8 +100,8 @@ describe('buildLogicalRules', () => {
   it('reports minSimilarity of 1.0 for identical content across formats', () => {
     const body = 'Exactly the same content in every format for testing purposes here';
     const rules = [
-      makeRule({ id: 'r1', format: 'cursor', body }),
-      makeRule({ id: 'r2', format: 'augment', body }),
+      makeRule({ id: 'r1', format: 'cursor-rules', body }),
+      makeRule({ id: 'r2', format: 'augment-rules', body }),
     ];
     const logical = buildLogicalRules(rules);
     expect(logical).toHaveLength(1);
@@ -106,8 +111,8 @@ describe('buildLogicalRules', () => {
   it('uses description from a rule that has one', () => {
     const body = 'Shared content about configuring the linter for the entire project and all files';
     const rules = [
-      makeRule({ id: 'r1', format: 'cursor', body, description: 'Linter config' }),
-      makeRule({ id: 'r2', format: 'windsurf', body }),
+      makeRule({ id: 'r1', format: 'cursor-rules', body, description: 'Linter config' }),
+      makeRule({ id: 'r2', format: 'windsurf-rules', body }),
     ];
     const logical = buildLogicalRules(rules);
     expect(logical).toHaveLength(1);
@@ -116,7 +121,7 @@ describe('buildLogicalRules', () => {
 
   it('falls back to filename without extension when no description', () => {
     const body = 'Some unique content that nobody else has for testing filename fallback behavior';
-    const rules = [makeRule({ id: 'my-rule', format: 'cursor', body })];
+    const rules = [makeRule({ id: 'my-rule', format: 'cursor-rules', body })];
     const logical = buildLogicalRules(rules);
     expect(logical[0].description).toBe('my-rule');
   });
@@ -128,12 +133,12 @@ describe('buildLogicalRules', () => {
   it('sorts formats alphabetically in the logical rule', () => {
     const body = 'Shared content across three formats for testing sort order in logical rules';
     const rules = [
-      makeRule({ id: 'r1', format: 'windsurf', body }),
-      makeRule({ id: 'r2', format: 'augment', body }),
-      makeRule({ id: 'r3', format: 'cursor', body }),
+      makeRule({ id: 'r1', format: 'windsurf-rules', body }),
+      makeRule({ id: 'r2', format: 'augment-rules', body }),
+      makeRule({ id: 'r3', format: 'cursor-rules', body }),
     ];
     const logical = buildLogicalRules(rules);
     expect(logical).toHaveLength(1);
-    expect(logical[0].formats).toEqual(['augment', 'cursor', 'windsurf']);
+    expect(logical[0].formats).toEqual(['augment-rules', 'cursor-rules', 'windsurf-rules']);
   });
 });

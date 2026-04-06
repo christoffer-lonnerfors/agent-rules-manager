@@ -1,4 +1,5 @@
-import { LintCheck } from '../lintCheck';
+import { FileLintCheck } from '../lintCheck';
+import { FileDiagnostic } from '../../scanner/classifiedFile';
 
 const MIN_DESCRIPTION_LENGTH = 10;
 
@@ -7,17 +8,19 @@ const MIN_DESCRIPTION_LENGTH = 10;
  * The description is the only signal agents use to decide whether
  * to attach the rule, so it must be present and non-trivial.
  */
-export const missingDescription: LintCheck = {
+export const missingDescription: FileLintCheck = {
+  id: 'missing-description',
   name: 'missing-description',
   category: 'lint',
+  applicableFormats: '*',
 
-  run(lr) {
+  run(file) {
     // Only relevant for agent_requested rules
-    if (lr.trigger !== 'agent_requested') {
+    if (file.trigger !== 'agent_requested') {
       return [];
     }
 
-    const desc = lr.description?.trim() ?? '';
+    const desc = file.description?.trim() ?? '';
     if (desc.length === 0) {
       return [
         {

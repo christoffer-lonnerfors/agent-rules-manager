@@ -1,21 +1,25 @@
 import { parse as parseYaml } from 'yaml';
-import { ParsedFrontmatter } from './scannerTypes';
 
 const FRONTMATTER_REGEX = /^---[\r\n]+([\s\S]*?)[\r\n]+---[\r\n]*/;
 
+export interface ParsedFrontmatter {
+  /** Extracted YAML fields */
+  fields: Record<string, unknown>;
+  /** Content body after frontmatter */
+  body: string;
+  /** Raw YAML string between --- delimiters, or undefined if no frontmatter */
+  rawYaml: string | undefined;
+}
+
 /**
  * Extracts YAML frontmatter and body content from a rule file.
- * Returns undefined fields if no valid frontmatter is found.
+ * Returns undefined rawYaml if no frontmatter block is present.
  */
 export function parseFrontmatter(content: string): ParsedFrontmatter {
   const match = content.match(FRONTMATTER_REGEX);
 
   if (!match) {
-    return {
-      fields: {},
-      body: content.trim(),
-      rawYaml: '',
-    };
+    return { fields: {}, body: content.trim(), rawYaml: undefined };
   }
 
   const rawYaml = match[1];

@@ -1,33 +1,33 @@
-import { RuleFormat, FORMAT_LABELS } from '../../types';
-import { FORMAT_CONFIGS } from '../../scanner/formatDetector';
-import { RuleIssue } from '../ruleIssues';
-import { LintCheck } from '../lintCheck';
-
-/** Lookup: format → expected extensions (derived from FORMAT_CONFIGS) */
-const FORMAT_EXTENSIONS = new Map<RuleFormat, string[]>(
-  FORMAT_CONFIGS.map((c) => [c.format, c.extensions]),
-);
+import { FORMAT_LABELS } from '../../types';
+import { FORMAT_DEFINITIONS } from '../../scanner/formatRegistry';
+import { FileLintCheck } from '../lintCheck';
+import { FileDiagnostic } from '../../scanner/classifiedFile';
 
 /**
- * Checks whether files in format directories have the correct extension.
+ * Checks whether a file has the correct extension for its format.
+ * Uses FormatDefinition.validExtensions as the source of truth.
  */
-export const extensionMismatch: LintCheck = {
+export const extensionMismatch: FileLintCheck = {
+  id: 'extension-mismatch',
   name: 'extension-mismatch',
   category: 'structural',
+  applicableFormats: '*',
 
-  run(lr) {
-    const issues: RuleIssue[] = [];
-    for (const rule of lr.rules) {
-      if (rule.extensionMismatch) {
-        const expected = (FORMAT_EXTENSIONS.get(rule.format) ?? ['.md']).join(' / ');
-        issues.push({
-          id: 'extension-mismatch',
-          severity: 'error',
-          message: `Wrong file extension — ${FORMAT_LABELS[rule.format]} expects ${expected}`,
-          ruleId: rule.id,
-        });
-      }
+  run(file) {
+    const diagnostics: FileDiagnostic[] = [];
+    const def = FORMAT_DEFINITIONS.find((d) => d.id === file.format);
+    if (!def || def.validExtensions.length === 0) {
+      return diagnostics;
     }
-    return issues;
+
+    if (!def.validExtensions.includes(file.fileExtension)) {
+      const expected = def.validExtensions.join(' / ');
+      diagnostics.push({
+        id: 'extension-mismatch',
+        severity: 'error',
+        message: `Wrong file extension — ${FORMAT_LABELS[file.format]} expects ${expected}`,
+      });
+    }
+    return diagnostics;
   },
 };

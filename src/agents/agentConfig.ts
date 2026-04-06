@@ -25,13 +25,13 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   {
     id: 'cursor',
     label: 'Cursor',
-    primaryFormats: ['cursor'],
+    primaryFormats: ['cursor-rules', 'cursorrules'],
     supportedFormats: ['agents-md'],
   },
   {
     id: 'windsurf',
     label: 'Windsurf',
-    primaryFormats: ['windsurf'],
+    primaryFormats: ['windsurf-rules', 'windsurfrules'],
     supportedFormats: [],
   },
   {
@@ -49,13 +49,13 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   {
     id: 'augment',
     label: 'Augment Code',
-    primaryFormats: ['augment'],
+    primaryFormats: ['augment-rules', 'augment-guidelines'],
     supportedFormats: ['agents-md', 'claude-md'],
   },
   {
     id: 'claude-code',
     label: 'Claude Code',
-    primaryFormats: ['claude-code'],
+    primaryFormats: ['claude-rules', 'claude-local'],
     supportedFormats: ['claude-md', 'agents-md'],
   },
 ];

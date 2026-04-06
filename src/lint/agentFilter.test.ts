@@ -1,32 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import { filterIssuesForAgent } from './agentFilter';
-import { LogicalRule, IndexedRule } from '../types';
+import { LogicalRule } from '../types';
+import { ClassifiedFile } from '../scanner/classifiedFile';
 import { RuleIssue } from './ruleIssues';
 import { computeMinHash } from '../hashing/minHasher';
 
-function makeIndexedRule(overrides: Partial<IndexedRule> = {}): IndexedRule {
+function makeClassifiedFile(overrides: Partial<ClassifiedFile> = {}): ClassifiedFile {
   return {
     id: 'r1',
     filePath: '/workspace/.cursor/rules/r.md',
+    relativePath: '.cursor/rules/r.md',
     fileName: 'r.md',
     fileExtension: '.md',
-    format: 'cursor',
-    sourceType: 'directory_rule',
+    format: 'cursor-rules',
+    isHierarchical: false,
+    isStandalone: false,
+    body: 'test content',
+    rawFrontmatter: undefined,
+    frontmatterFields: {},
     trigger: 'always',
     description: 'A rule',
     globs: undefined,
     contentHash: computeMinHash('test'),
     bodyHash: 'h1',
     bodyLength: 100,
+    links: [],
     fileSize: 150,
     lastModified: '2025-01-01T00:00:00Z',
-    rawFrontmatter: undefined,
-    references: [],
+    diagnostics: [],
     ...overrides,
   };
 }
 
-function makeLR(rules: IndexedRule[]): LogicalRule {
+function makeLR(rules: ClassifiedFile[]): LogicalRule {
   return {
     id: 'lr1',
     description: 'Test',
@@ -44,12 +50,12 @@ describe('filterIssuesForAgent', () => {
       { id: 'empty-body', severity: 'warning', message: 'empty', ruleId: 'r1' },
       { id: 'diverged-content', severity: 'warning', message: 'diverged' },
     ];
-    const lr = makeLR([makeIndexedRule()]);
+    const lr = makeLR([makeClassifiedFile()]);
     expect(filterIssuesForAgent(issues, lr, '')).toEqual(issues);
   });
 
   it('keeps file-level issues for agent-readable formats', () => {
-    const cursorRule = makeIndexedRule({ id: 'cr', format: 'cursor' });
+    const cursorRule = makeClassifiedFile({ id: 'cr', format: 'cursor-rules' });
     const lr = makeLR([cursorRule]);
     const issues: RuleIssue[] = [
       { id: 'empty-body', severity: 'warning', message: 'empty', ruleId: 'cr' },
@@ -59,7 +65,7 @@ describe('filterIssuesForAgent', () => {
   });
 
   it('removes file-level issues for formats the agent cannot read', () => {
-    const kiroRule = makeIndexedRule({ id: 'kr', format: 'kiro' });
+    const kiroRule = makeClassifiedFile({ id: 'kr', format: 'kiro' });
     const lr = makeLR([kiroRule]);
     const issues: RuleIssue[] = [
       { id: 'empty-body', severity: 'warning', message: 'empty', ruleId: 'kr' },
@@ -69,7 +75,7 @@ describe('filterIssuesForAgent', () => {
   });
 
   it('always keeps missing-primary issues', () => {
-    const kiroRule = makeIndexedRule({ id: 'kr', format: 'kiro' });
+    const kiroRule = makeClassifiedFile({ id: 'kr', format: 'kiro' });
     const lr = makeLR([kiroRule]);
     const issues: RuleIssue[] = [
       { id: 'missing-primary', severity: 'warning', message: 'Not readable by Cursor' },
@@ -79,7 +85,7 @@ describe('filterIssuesForAgent', () => {
   });
 
   it('keeps diverged-content only when agent has readable files', () => {
-    const cursorRule = makeIndexedRule({ id: 'cr', format: 'cursor' });
+    const cursorRule = makeClassifiedFile({ id: 'cr', format: 'cursor-rules' });
     const lr = makeLR([cursorRule]);
     const issues: RuleIssue[] = [
       { id: 'diverged-content', severity: 'warning', message: 'diverged' },
@@ -87,7 +93,7 @@ describe('filterIssuesForAgent', () => {
     expect(filterIssuesForAgent(issues, lr, 'cursor')).toHaveLength(1);
 
     // No cursor file → should be filtered out
-    const kiroRule = makeIndexedRule({ id: 'kr', format: 'kiro' });
+    const kiroRule = makeClassifiedFile({ id: 'kr', format: 'kiro' });
     const lr2 = makeLR([kiroRule]);
     expect(filterIssuesForAgent(issues, lr2, 'cursor')).toHaveLength(0);
   });

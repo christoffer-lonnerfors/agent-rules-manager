@@ -1,5 +1,6 @@
 import { minimatch } from 'minimatch';
-import { IndexedRule, RuleFormat } from '../types';
+import { ClassifiedFile } from '../scanner/classifiedFile';
+import { RuleFormat } from '../types';
 import { AgentId, getReadableFormats } from '../agents/agentConfig';
 import { estimateTokens } from '../utils/tokenEstimator';
 
@@ -83,7 +84,7 @@ export class CoverageModel {
    * Classify and index rules from the current RuleIndex.
    * Optionally filters by agent (only rules in formats the agent reads).
    */
-  rebuild(rules: IndexedRule[], agentId?: AgentId): void {
+  rebuild(rules: ClassifiedFile[], agentId?: AgentId): void {
     this.alwaysRules = [];
     this.globRules = [];
     this.agentRequestedRules = [];
@@ -243,7 +244,7 @@ export class CoverageModel {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function toRuleInfo(rule: IndexedRule): CoverageRuleInfo {
+function toRuleInfo(rule: ClassifiedFile): CoverageRuleInfo {
   return {
     name: rule.description || rule.fileName,
     tokens: estimateTokens(rule.bodyLength),

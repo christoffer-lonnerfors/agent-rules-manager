@@ -1,13 +1,14 @@
 import { AgentId, getAgentConfig, getReadableFormats } from '../../agents/agentConfig';
-import { LintCheck } from '../lintCheck';
+import { CrossFileLintCheck } from '../lintCheck';
 
 /**
  * Checks whether the logical rule has at least one file in the
  * selected agent's readable formats with a correct file extension.
  */
-export const missingPrimary: LintCheck = {
+export const missingPrimary: CrossFileLintCheck = {
   name: 'missing-primary',
   category: 'structural',
+  applicableFormats: '*',
 
   run(lr, config) {
     if (!config.agent) {
@@ -16,7 +17,9 @@ export const missingPrimary: LintCheck = {
 
     const readable = getReadableFormats(config.agent as AgentId);
     const effectivelyCovered = lr.rules.some(
-      (r) => readable.includes(r.format) && !r.extensionMismatch,
+      (r) =>
+        readable.includes(r.format) &&
+        !r.diagnostics.some((d) => d.id === 'extension-mismatch'),
     );
     if (effectivelyCovered) {
       return [];

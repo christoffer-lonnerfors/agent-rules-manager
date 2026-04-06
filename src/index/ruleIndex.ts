@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
-import * as crypto from 'crypto';
-import { IndexedRule, LogicalRule } from '../types';
+import { ClassifiedFile, generateRuleId } from '../scanner/classifiedFile';
+import { LogicalRule } from '../types';
 import { buildLogicalRules } from './logicalRuleBuilder';
 
-const STORAGE_KEY = 'agentRules.ruleIndex';
+const STORAGE_KEY = 'agentRules.ruleIndex.v2';
 
 /**
  * In-memory rule index with persistence to workspaceState.
  */
 export class RuleIndex {
-  private rules = new Map<string, IndexedRule>();
+  private rules = new Map<string, ClassifiedFile>();
   private logicalRulesCache: LogicalRule[] | null = null;
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
@@ -18,7 +18,7 @@ export class RuleIndex {
 
   /** Load persisted index from workspaceState */
   load(): void {
-    const stored = this.context.workspaceState.get<IndexedRule[]>(STORAGE_KEY);
+    const stored = this.context.workspaceState.get<ClassifiedFile[]>(STORAGE_KEY);
     this.rules.clear();
     if (stored) {
       for (const rule of stored) {
@@ -34,7 +34,7 @@ export class RuleIndex {
   }
 
   /** Replace the entire index with new rules (used on full scan) */
-  async replaceAll(rules: IndexedRule[]): Promise<void> {
+  async replaceAll(rules: ClassifiedFile[]): Promise<void> {
     this.rules.clear();
     for (const rule of rules) {
       this.rules.set(rule.id, rule);
@@ -45,22 +45,22 @@ export class RuleIndex {
   }
 
   /** Get a single rule by ID */
-  get(id: string): IndexedRule | undefined {
+  get(id: string): ClassifiedFile | undefined {
     return this.rules.get(id);
   }
 
   /** Get all indexed rules */
-  getAll(): IndexedRule[] {
+  getAll(): ClassifiedFile[] {
     return Array.from(this.rules.values());
   }
 
   /** Get rules filtered by format */
-  getByFormat(format: string): IndexedRule[] {
+  getByFormat(format: string): ClassifiedFile[] {
     return this.getAll().filter((r) => r.format === format);
   }
 
   /** Get rules filtered by trigger */
-  getByTrigger(trigger: string): IndexedRule[] {
+  getByTrigger(trigger: string): ClassifiedFile[] {
     return this.getAll().filter((r) => r.trigger === trigger);
   }
 
@@ -98,7 +98,5 @@ export class RuleIndex {
   }
 }
 
-/** Generate a deterministic ID for a rule based on its file path */
-export function generateRuleId(filePath: string): string {
-  return crypto.createHash('sha256').update(filePath).digest('hex').substring(0, 16);
-}
+// Re-export for callers that imported generateRuleId from here
+export { generateRuleId } from '../scanner/classifiedFile';

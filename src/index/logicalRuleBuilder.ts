@@ -1,4 +1,5 @@
-import { IndexedRule, LogicalRule, RuleFormat } from '../types';
+import { ClassifiedFile } from '../scanner/classifiedFile';
+import { LogicalRule, RuleFormat } from '../types';
 import { computeSimilarity } from '../hashing/minHasher';
 
 /** Threshold for flagging as "near duplicate" */
@@ -11,7 +12,7 @@ const DUPLICATE_THRESHOLD = 0.9;
  * Rules within the same format are never merged — only cross-format
  * duplicates are combined into a single LogicalRule.
  */
-export function buildLogicalRules(rules: IndexedRule[]): LogicalRule[] {
+export function buildLogicalRules(rules: ClassifiedFile[]): LogicalRule[] {
   // Union-Find for grouping
   const parent = new Map<string, string>();
 
@@ -57,7 +58,7 @@ export function buildLogicalRules(rules: IndexedRule[]): LogicalRule[] {
   }
 
   // Collect groups
-  const groups = new Map<string, IndexedRule[]>();
+  const groups = new Map<string, ClassifiedFile[]>();
   for (const rule of rules) {
     const root = find(rule.id);
     if (!groups.has(root)) {
@@ -79,7 +80,7 @@ export function buildLogicalRules(rules: IndexedRule[]): LogicalRule[] {
  * Create a LogicalRule from a group of IndexedRules.
  * Picks the best description and merges format lists.
  */
-function createLogicalRule(rules: IndexedRule[]): LogicalRule {
+function createLogicalRule(rules: ClassifiedFile[]): LogicalRule {
   // Pick the "primary" rule — prefer one with a description, then by format priority
   const primary = pickPrimaryRule(rules);
 
@@ -132,7 +133,7 @@ function createLogicalRule(rules: IndexedRule[]): LogicalRule {
 }
 
 /** Pick the most informative rule as the primary representative */
-function pickPrimaryRule(rules: IndexedRule[]): IndexedRule {
+function pickPrimaryRule(rules: ClassifiedFile[]): ClassifiedFile {
   // Prefer rules with a description
   const withDescription = rules.filter((r) => r.description);
   if (withDescription.length > 0) {
@@ -140,7 +141,7 @@ function pickPrimaryRule(rules: IndexedRule[]): IndexedRule {
   }
 
   // Prefer directory rules over standalone/hierarchical
-  const directoryRules = rules.filter((r) => r.sourceType === 'directory_rule');
+  const directoryRules = rules.filter((r) => !r.isHierarchical && !r.isStandalone);
   if (directoryRules.length > 0) {
     return directoryRules[0];
   }
@@ -154,9 +155,11 @@ function pickPrimaryRule(rules: IndexedRule[]): IndexedRule {
  * globs derived from hierarchical file paths.
  * Returns undefined if no rule has globs.
  */
-function pickBestGlobs(rules: IndexedRule[]): string[] | undefined {
+function pickBestGlobs(rules: ClassifiedFile[]): string[] | undefined {
   // First: prefer directory rules with explicit globs
-  const dirWithGlobs = rules.filter((r) => r.sourceType === 'directory_rule' && r.globs?.length);
+  const dirWithGlobs = rules.filter(
+    (r) => !r.isHierarchical && !r.isStandalone && r.globs?.length,
+  );
   if (dirWithGlobs.length > 0) {
     return dirWithGlobs[0].globs;
   }

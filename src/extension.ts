@@ -13,9 +13,8 @@ import {
   getEffectiveWriteFormat,
 } from './agents/agentConfig';
 import { parseFrontmatter } from './scanner/frontmatterParser';
-import { FORMAT_CONFIGS } from './scanner/formatDetector';
+import { FORMAT_DEFINITIONS } from './scanner/formatRegistry';
 import { toCaseInsensitiveGlob } from './scanner/fileDiscovery';
-import { CandidateStore } from './scanner/candidateStore';
 import { detectDominantAgent } from './agents/agentAutoDetector';
 import { scaffoldRuleFile } from './actions/ruleScaffolder';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
@@ -26,8 +25,7 @@ const RULE_BODY_SCHEME = 'ai-rules-body';
 export function activate(context: vscode.ExtensionContext) {
   // Initialize core services
   const ruleIndex = new RuleIndex(context);
-  const candidateStore = new CandidateStore();
-  const scannerService = new ScannerService(ruleIndex, candidateStore);
+  const scannerService = new ScannerService(ruleIndex);
   const treeProvider = new RuleTreeProvider(ruleIndex);
   treeProvider.setExtensionPath(context.extensionPath);
 
@@ -229,9 +227,9 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Only overwrite directory rules and cross-agent hierarchical files — other standalone/hierarchical files are read-only sources
       const allOthers = rules.filter((r) => r.id !== selected.rule.id);
-      const isWritable = (r: { sourceType: string; format: RuleFormat }) =>
+      const isWritable = (r: { isHierarchical: boolean; isStandalone: boolean; format: RuleFormat }) =>
         r.format !== 'document' &&
-        (r.sourceType === 'directory_rule' || r.format === 'agents-md' || r.format === 'claude-md');
+        (!r.isHierarchical && !r.isStandalone || r.format === 'agents-md' || r.format === 'claude-md');
       const targets = allOthers.filter(isWritable);
       const skipped = allOthers.filter((r) => !isWritable(r));
 
@@ -353,9 +351,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // Only count writable targets (directory rules + cross-agent hierarchical files)
-    const isSyncWritable = (r: { sourceType: string; format: RuleFormat }) =>
+    const isSyncWritable = (r: { isHierarchical: boolean; isStandalone: boolean; format: RuleFormat }) =>
       r.format !== 'document' &&
-      (r.sourceType === 'directory_rule' || r.format === 'agents-md' || r.format === 'claude-md');
+      (!r.isHierarchical && !r.isStandalone || r.format === 'agents-md' || r.format === 'claude-md');
     const totalTargets = syncable.reduce((sum, lr) => {
       const source = findSource(lr)!;
       return sum + lr.rules.filter((r) => r.id !== source.id && isSyncWritable(r)).length;
@@ -487,16 +485,6 @@ export function activate(context: vscode.ExtensionContext) {
   // Set up file system watchers derived from FORMAT_CONFIGS
   const watchers = createFileWatchers(scannerService);
 
-  // Rescan when candidate-related settings change
-  const configChangeListener = vscode.workspace.onDidChangeConfiguration((e) => {
-    if (
-      e.affectsConfiguration('agentRules.candidatePatterns') ||
-      e.affectsConfiguration('agentRules.candidateExclude')
-    ) {
-      scannerService.scan({ silent: true });
-    }
-  });
-
   // Push all disposables
   context.subscriptions.push(
     treeView,
@@ -515,13 +503,11 @@ export function activate(context: vscode.ExtensionContext) {
     addRuleCmd,
     showCoverageCmd,
     ruleIndex,
-    candidateStore,
     scannerService,
     treeProvider,
     actionsProvider,
     issueDecoProvider,
     decoRegistration,
-    configChangeListener,
     ...watchers,
   );
 
@@ -533,7 +519,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 /**
- * Creates file system watchers for all rule file patterns derived from FORMAT_CONFIGS.
+ * Creates file system watchers for all rule file patterns derived from FORMAT_DEFINITIONS.
  * Triggers a debounced silent rescan on any create/change/delete.
  */
 function createFileWatchers(scannerService: ScannerService): vscode.Disposable[] {
@@ -549,23 +535,27 @@ function createFileWatchers(scannerService: ScannerService): vscode.Disposable[]
     }, 1000);
   };
 
-  // Build unique watcher patterns from FORMAT_CONFIGS
+  // Build unique watcher patterns from FORMAT_DEFINITIONS
   const patterns = new Set<string>();
 
-  for (const config of FORMAT_CONFIGS) {
-    // Directory-based rules: e.g. **/.cursor/rules/**/*.mdc
-    for (const dir of config.directories) {
-      for (const ext of config.extensions) {
-        patterns.add(`**/${dir}/**/*${ext}`);
+  for (const def of FORMAT_DEFINITIONS) {
+    if (def.isHierarchical) {
+      // Hierarchical files (case-insensitive): e.g. **/[aA][gG][eE][nN][tT][sS].[mM][dD]
+      for (const name of def.validNames) {
+        patterns.add(`**/${toCaseInsensitiveGlob(name)}`);
       }
-    }
-    // Hierarchical files (case-insensitive): e.g. **/[aA][gG][eE][nN][tT][sS].[mM][dD]
-    for (const hf of config.hierarchicalFiles) {
-      patterns.add(`**/${toCaseInsensitiveGlob(hf)}`);
-    }
-    // Standalone files: e.g. .windsurfrules
-    for (const sf of config.standaloneFiles) {
-      patterns.add(sf);
+    } else if (def.validPaths.includes('.')) {
+      // Standalone files at workspace root: e.g. .windsurfrules
+      for (const name of def.validNames) {
+        patterns.add(name);
+      }
+    } else {
+      // Directory-based rules: e.g. **/.cursor/rules/**/*.mdc
+      for (const dir of def.validPaths) {
+        for (const ext of def.validExtensions) {
+          patterns.add(`**/${dir}/**/*${ext}`);
+        }
+      }
     }
   }
 

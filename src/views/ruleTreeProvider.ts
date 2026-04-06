@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
+import { LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
+import { ClassifiedFile } from '../scanner/classifiedFile';
+import { getFormatDefinition } from '../scanner/formatRegistry';
 import { AgentId } from '../agents/agentConfig';
 import { RuleIndex } from '../index/ruleIndex';
 import {
@@ -45,7 +47,7 @@ interface LogicalRuleNode {
 
 interface RuleFileNode {
   type: 'file';
-  rule: IndexedRule;
+  rule: ClassifiedFile;
   /** Issues specific to this file (pre-filtered from the logical rule's issues) */
   issues: RuleIssue[];
 }
@@ -162,7 +164,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   private getFormatIconPath(format: RuleFormat): { light: vscode.Uri; dark: vscode.Uri } {
-    const iconFile = format + '.svg';
+    const iconFile = getFormatDefinition(format).icon + '.svg';
     return {
       light: vscode.Uri.file(
         path.join(this.extensionPath, 'resources', 'icons', 'light', iconFile),

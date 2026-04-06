@@ -1,12 +1,13 @@
-import { LintCheck } from '../lintCheck';
+import { CrossFileLintCheck } from '../lintCheck';
 
 /**
  * Checks whether the rule body has diverged across format versions.
  * Only relevant when a logical rule has 2+ files.
  */
-export const divergedContent: LintCheck = {
+export const divergedContent: CrossFileLintCheck = {
   name: 'diverged-content',
   category: 'structural',
+  applicableFormats: '*',
 
   run(lr, config) {
     if (!config.detectDivergence) {

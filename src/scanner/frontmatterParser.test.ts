@@ -20,14 +20,14 @@ Rule body content here`;
     const result = parseFrontmatter(content);
     expect(result.fields).toEqual({});
     expect(result.body).toBe('Just plain markdown content');
-    expect(result.rawYaml).toBe('');
+    expect(result.rawYaml).toBeUndefined();
   });
 
   it('handles empty content', () => {
     const result = parseFrontmatter('');
     expect(result.fields).toEqual({});
     expect(result.body).toBe('');
-    expect(result.rawYaml).toBe('');
+    expect(result.rawYaml).toBeUndefined();
   });
 
   it('returns empty fields on malformed YAML but preserves body', () => {

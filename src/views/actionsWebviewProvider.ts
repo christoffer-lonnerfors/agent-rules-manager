@@ -13,7 +13,7 @@ import { RuleIndex } from '../index/ruleIndex';
 import { computeIssues, LintConfig } from '../lint/lintEngine';
 import { filterIssuesForAgent } from '../lint/agentFilter';
 import { RuleIssue } from '../lint/ruleIssues';
-import { FORMAT_CONFIGS } from '../scanner/formatDetector';
+import { FORMAT_DEFINITIONS } from '../scanner/formatRegistry';
 import { buildNewRuleContent } from '../actions/ruleScaffolder';
 
 /** State object sent to the webview for rendering */
@@ -265,22 +265,22 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     const cfg = vscode.workspace.getConfiguration('agentRules');
     const writeFormatOverride = cfg.get<string>('writeFormat', '') as RuleFormat | '';
     const writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
-    const formatConfig = FORMAT_CONFIGS.find((c) => c.format === writeFormat);
-    if (!formatConfig) {
+    const formatDef = FORMAT_DEFINITIONS.find((d) => d.id === writeFormat);
+    if (!formatDef) {
       return;
     }
 
-    const isHierarchical = formatConfig.hierarchicalFiles.length > 0;
+    const isHierarchical = formatDef.isHierarchical;
 
     let fixedLocation = '';
-    if (!isHierarchical && formatConfig.directories.length > 0) {
-      fixedLocation = formatConfig.directories[0] + '/';
+    if (!isHierarchical && !formatDef.validPaths.includes('.') && formatDef.validPaths.length > 0) {
+      fixedLocation = formatDef.validPaths[0] + '/';
     }
 
     const fileExtension =
-      !isHierarchical && formatConfig.extensions.length > 0 ? formatConfig.extensions[0] : '';
+      !isHierarchical && formatDef.validExtensions.length > 0 ? formatDef.validExtensions[0] : '';
 
-    const fixedFileName = isHierarchical ? formatConfig.hierarchicalFiles[0] : '';
+    const fixedFileName = isHierarchical ? formatDef.validNames[0] : '';
 
     const formState: CreateFormState = {
       isHierarchical,
@@ -346,8 +346,8 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     const cfg = vscode.workspace.getConfiguration('agentRules');
     const writeFormatOverride = cfg.get<string>('writeFormat', '') as RuleFormat | '';
     const writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
-    const formatConfig = FORMAT_CONFIGS.find((c) => c.format === writeFormat);
-    if (!formatConfig) {
+    const formatDef2 = FORMAT_DEFINITIONS.find((d) => d.id === writeFormat);
+    if (!formatDef2) {
       return;
     }
 
@@ -362,15 +362,15 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    const isHierarchical = formatConfig.hierarchicalFiles.length > 0;
+    const isHierarchical2 = formatDef2.isHierarchical;
 
     const content = buildNewRuleContent(writeFormat, trigger, name.trim());
 
     let filePath: string;
 
-    if (isHierarchical) {
+    if (isHierarchical2) {
       const targetDir = location === '/' || !location ? root : path.join(root, location);
-      const fileName = formatConfig.hierarchicalFiles[0];
+      const fileName = formatDef2.validNames[0];
       filePath = path.join(targetDir, fileName);
 
       if (fs.existsSync(filePath)) {
@@ -383,8 +383,8 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
         fs.writeFileSync(filePath, content, 'utf-8');
       }
     } else {
-      const dir = path.join(root, formatConfig.directories[0]);
-      const ext = formatConfig.extensions[0];
+      const dir = path.join(root, formatDef2.validPaths[0]);
+      const ext = formatDef2.validExtensions[0];
       filePath = path.join(dir, slug + ext);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(filePath, content, 'utf-8');
@@ -960,10 +960,12 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
 /**
  * Stricter coverage check: a rule is effectively covered by an agent only if
- * at least one IndexedRule is in a readable format AND has no extension mismatch.
+ * at least one file is in a readable format AND has no extension mismatch diagnostic.
  * (A file with wrong extension won't be read by the agent at runtime.)
  */
 function isEffectivelyCovered(lr: LogicalRule, agentId: AgentId): boolean {
   const readable = getReadableFormats(agentId);
-  return lr.rules.some((r) => readable.includes(r.format) && !r.extensionMismatch);
+  return lr.rules.some(
+    (r) => readable.includes(r.format) && !r.diagnostics.some((d) => d.id === 'extension-mismatch'),
+  );
 }

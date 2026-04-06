@@ -21,7 +21,8 @@ describe('getAgentConfig', () => {
 describe('getReadableFormats', () => {
   it('includes primary formats', () => {
     const formats = getReadableFormats('cursor');
-    expect(formats).toContain('cursor');
+    expect(formats).toContain('cursor-rules');
+    expect(formats).toContain('cursorrules');
   });
 
   it('includes supported cross-agent formats', () => {
@@ -29,24 +30,25 @@ describe('getReadableFormats', () => {
     expect(formats).toContain('agents-md');
   });
 
-  it('claude-code reads claude-md, agents-md, and claude-code', () => {
+  it('claude-code reads claude-md, agents-md, and claude-code formats', () => {
     const formats = getReadableFormats('claude-code');
-    expect(formats).toContain('claude-code');
+    expect(formats).toContain('claude-rules');
+    expect(formats).toContain('claude-local');
     expect(formats).toContain('claude-md');
     expect(formats).toContain('agents-md');
   });
 
-  it('windsurf only reads its own format', () => {
+  it('windsurf only reads its own formats', () => {
     const formats = getReadableFormats('windsurf');
-    expect(formats).toEqual(['windsurf']);
+    expect(formats).toEqual(['windsurf-rules', 'windsurfrules']);
   });
 });
 
 describe('getDefaultWriteFormat', () => {
   it('returns the primary format for each agent', () => {
-    expect(getDefaultWriteFormat('cursor')).toBe('cursor');
-    expect(getDefaultWriteFormat('windsurf')).toBe('windsurf');
-    expect(getDefaultWriteFormat('claude-code')).toBe('claude-code');
+    expect(getDefaultWriteFormat('cursor')).toBe('cursor-rules');
+    expect(getDefaultWriteFormat('windsurf')).toBe('windsurf-rules');
+    expect(getDefaultWriteFormat('claude-code')).toBe('claude-rules');
   });
 });
 
@@ -58,17 +60,17 @@ describe('getEffectiveWriteFormat', () => {
 
   it('falls back to default when override is not readable', () => {
     // windsurf cannot read cursor format
-    expect(getEffectiveWriteFormat('windsurf', 'cursor')).toBe('windsurf');
+    expect(getEffectiveWriteFormat('windsurf', 'cursor-rules')).toBe('windsurf-rules');
   });
 
   it('falls back to default when override is empty', () => {
-    expect(getEffectiveWriteFormat('cursor', '')).toBe('cursor');
+    expect(getEffectiveWriteFormat('cursor', '')).toBe('cursor-rules');
   });
 });
 
 describe('isRuleCoveredByAgent', () => {
   it('returns true when rule has a format the agent reads', () => {
-    expect(isRuleCoveredByAgent(['cursor', 'windsurf'], 'cursor')).toBe(true);
+    expect(isRuleCoveredByAgent(['cursor-rules', 'windsurf-rules'], 'cursor')).toBe(true);
   });
 
   it('returns true for cross-agent format coverage', () => {

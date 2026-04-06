@@ -1,48 +1,48 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { RuleIssue } from '../ruleIssues';
-import { LintCheck } from '../lintCheck';
+import { FileLintCheck } from '../lintCheck';
+import { FileDiagnostic } from '../../scanner/classifiedFile';
 
 /**
  * Checks that file references in rule bodies point to existing files.
  * Only checks references that resolve within the workspace (the
  * outsideWorkspace check handles the boundary check separately).
  */
-export const brokenReference: LintCheck = {
+export const brokenReference: FileLintCheck = {
+  id: 'broken-reference',
   name: 'broken-reference',
   category: 'lint',
+  applicableFormats: '*',
 
-  async run(lr) {
-    const issues: RuleIssue[] = [];
+  async run(file) {
+    const diagnostics: FileDiagnostic[] = [];
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-    for (const rule of lr.rules) {
-      if (rule.references.length === 0) {
+    if (file.links.length === 0) {
+      return diagnostics;
+    }
+
+    const fileDir = path.dirname(file.filePath);
+
+    for (const link of file.links) {
+      const resolved = path.resolve(fileDir, link.target);
+
+      // Skip references outside the workspace — handled by outsideWorkspace check
+      if (workspaceRoot && !resolved.startsWith(workspaceRoot + path.sep)) {
         continue;
       }
-      const ruleDir = path.dirname(rule.filePath);
 
-      for (const ref of rule.references) {
-        const resolved = path.resolve(ruleDir, ref);
-
-        // Skip references outside the workspace — handled by outsideWorkspace check
-        if (workspaceRoot && !resolved.startsWith(workspaceRoot + path.sep)) {
-          continue;
-        }
-
-        const exists = await fileExists(vscode.Uri.file(resolved));
-        if (!exists) {
-          issues.push({
-            id: 'broken-reference',
-            severity: 'warning',
-            message: `Referenced file not found: ${ref}`,
-            ruleId: rule.id,
-          });
-        }
+      const exists = await fileExists(vscode.Uri.file(resolved));
+      if (!exists) {
+        diagnostics.push({
+          id: 'broken-reference',
+          severity: 'warning',
+          message: `Referenced file not found: ${link.target}`,
+        });
       }
     }
 
-    return issues;
+    return diagnostics;
   },
 };
 

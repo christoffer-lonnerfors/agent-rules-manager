@@ -1,4 +1,5 @@
-import { IndexedRule, RuleFormat } from '../types';
+import { ClassifiedFile } from '../scanner/classifiedFile';
+import { RuleFormat } from '../types';
 import { AgentId } from './agentConfig';
 
 /**
@@ -7,12 +8,16 @@ import { AgentId } from './agentConfig';
  * indicate a particular agent.
  */
 const FORMAT_TO_AGENT: Partial<Record<RuleFormat, AgentId>> = {
-  cursor: 'cursor',
-  windsurf: 'windsurf',
+  'cursor-rules': 'cursor',
+  cursorrules: 'cursor',
+  'windsurf-rules': 'windsurf',
+  windsurfrules: 'windsurf',
   kiro: 'kiro',
   antigravity: 'antigravity',
-  augment: 'augment',
-  'claude-code': 'claude-code',
+  'augment-rules': 'augment',
+  'augment-guidelines': 'augment',
+  'claude-rules': 'claude-code',
+  'claude-local': 'claude-code',
 };
 
 /**
@@ -27,7 +32,7 @@ const FORMAT_TO_AGENT: Partial<Record<RuleFormat, AgentId>> = {
  * Cross-agent formats like AGENTS.md and CLAUDE.md are deliberately ignored
  * because they don't imply a particular agent.
  */
-export function detectDominantAgent(rules: IndexedRule[]): AgentId | undefined {
+export function detectDominantAgent(rules: ClassifiedFile[]): AgentId | undefined {
   const counts = new Map<AgentId, number>();
 
   for (const rule of rules) {
