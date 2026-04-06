@@ -262,6 +262,7 @@
     }
   },
   "scripts": {
+    "vscode:prepublish": "npm run build",
     "build": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "lint": "tsc --noEmit"
