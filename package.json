@@ -298,16 +298,16 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^25.5.2",
     "@types/vscode": "~1.85.0",
     "@vscode/vsce": "^3.7.1",
-    "esbuild": "^0.25.0",
-    "typescript": "^5.8.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.45",
     "minimatch": "^10.2.5",
-    "yaml": "^2.7.0"
+    "yaml": "^2.8.3"
   }
 }

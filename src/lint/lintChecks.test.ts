@@ -66,12 +66,12 @@ describe('divergedContent', () => {
     expect(divergedContent.run(lr, defaultConfig)).toEqual([]);
   });
 
-  it('reports divergence when similarity < 1.0', () => {
+  it('reports divergence when similarity < 1.0', async () => {
     const lr = makeLogicalRule({
       rules: [makeIndexedRule({ id: 'a' }), makeIndexedRule({ id: 'b' })],
       minSimilarity: 0.85,
     });
-    const issues = divergedContent.run(lr, defaultConfig);
+    const issues = await divergedContent.run(lr, defaultConfig);
     expect(issues).toHaveLength(1);
     expect(issues[0].id).toBe('diverged-content');
   });
@@ -83,9 +83,9 @@ describe('divergedContent', () => {
 });
 
 describe('emptyBody', () => {
-  it('warns when body is fewer than 10 chars', () => {
+  it('warns when body is fewer than 10 chars', async () => {
     const lr = makeLogicalRule({ rules: [makeIndexedRule({ bodyLength: 5 })] });
-    const issues = emptyBody.run(lr, defaultConfig);
+    const issues = await emptyBody.run(lr, defaultConfig);
     expect(issues).toHaveLength(1);
     expect(issues[0].id).toBe('empty-body');
   });
@@ -97,16 +97,16 @@ describe('emptyBody', () => {
 });
 
 describe('missingDescription', () => {
-  it('warns when agent_requested rule has no description', () => {
+  it('warns when agent_requested rule has no description', async () => {
     const lr = makeLogicalRule({ trigger: 'agent_requested', description: '' });
-    const issues = missingDescription.run(lr, defaultConfig);
+    const issues = await missingDescription.run(lr, defaultConfig);
     expect(issues).toHaveLength(1);
     expect(issues[0].id).toBe('missing-description');
   });
 
-  it('warns when description is too short', () => {
+  it('warns when description is too short', async () => {
     const lr = makeLogicalRule({ trigger: 'agent_requested', description: 'short' });
-    const issues = missingDescription.run(lr, defaultConfig);
+    const issues = await missingDescription.run(lr, defaultConfig);
     expect(issues).toHaveLength(1);
   });
 
@@ -132,18 +132,18 @@ describe('missingPrimary', () => {
     expect(missingPrimary.run(lr, { ...defaultConfig, agent: 'cursor' })).toEqual([]);
   });
 
-  it('warns when rule has no format readable by the agent', () => {
+  it('warns when rule has no format readable by the agent', async () => {
     const lr = makeLogicalRule({ formats: ['kiro'], rules: [makeIndexedRule({ format: 'kiro' })] });
-    const issues = missingPrimary.run(lr, { ...defaultConfig, agent: 'cursor' });
+    const issues = await missingPrimary.run(lr, { ...defaultConfig, agent: 'cursor' });
     expect(issues).toHaveLength(1);
     expect(issues[0].id).toBe('missing-primary');
   });
 });
 
 describe('extensionMismatch', () => {
-  it('warns when extensionMismatch flag is set', () => {
+  it('warns when extensionMismatch flag is set', async () => {
     const lr = makeLogicalRule({ rules: [makeIndexedRule({ extensionMismatch: true })] });
-    const issues = extensionMismatch.run(lr, defaultConfig);
+    const issues = await extensionMismatch.run(lr, defaultConfig);
     expect(issues).toHaveLength(1);
     expect(issues[0].id).toBe('extension-mismatch');
     expect(issues[0].severity).toBe('error');
@@ -156,10 +156,10 @@ describe('extensionMismatch', () => {
 });
 
 describe('ruleTooLarge', () => {
-  it('warns when estimated tokens exceed threshold', () => {
+  it('warns when estimated tokens exceed threshold', async () => {
     // 10000 chars / 3.5 ≈ 2857 tokens > 2000 threshold
     const lr = makeLogicalRule({ rules: [makeIndexedRule({ bodyLength: 10000 })] });
-    const issues = ruleTooLarge.run(lr, defaultConfig);
+    const issues = await ruleTooLarge.run(lr, defaultConfig);
     expect(issues).toHaveLength(1);
     expect(issues[0].id).toBe('rule-too-large');
   });
