@@ -7,13 +7,11 @@ describe('extractCommonDirectory', () => {
   });
 
   it('returns the common ancestor for multiple globs', () => {
-    expect(extractCommonDirectory(['src/api/handlers/*.ts', 'src/api/utils/*.ts']))
-      .toBe('src/api');
+    expect(extractCommonDirectory(['src/api/handlers/*.ts', 'src/api/utils/*.ts'])).toBe('src/api');
   });
 
   it('returns the shallowest common ancestor across different trees', () => {
-    expect(extractCommonDirectory(['src/api/*.ts', 'src/models/*.ts']))
-      .toBe('src');
+    expect(extractCommonDirectory(['src/api/*.ts', 'src/models/*.ts'])).toBe('src');
   });
 
   it('returns empty string for root-level globs', () => {
@@ -41,17 +39,18 @@ describe('extractCommonDirectory', () => {
 
 describe('deriveGlobFromHierarchicalPath', () => {
   it('returns a glob for a subdirectory file', () => {
-    expect(deriveGlobFromHierarchicalPath('/workspace/src/api/AGENTS.md', '/workspace'))
-      .toBe('src/api/**/*');
+    expect(deriveGlobFromHierarchicalPath('/workspace/src/api/AGENTS.md', '/workspace')).toBe(
+      'src/api/**/*',
+    );
   });
 
   it('returns undefined for a root-level file', () => {
-    expect(deriveGlobFromHierarchicalPath('/workspace/CLAUDE.md', '/workspace'))
-      .toBeUndefined();
+    expect(deriveGlobFromHierarchicalPath('/workspace/CLAUDE.md', '/workspace')).toBeUndefined();
   });
 
   it('handles deeply nested paths', () => {
-    expect(deriveGlobFromHierarchicalPath('/workspace/a/b/c/AGENTS.md', '/workspace'))
-      .toBe('a/b/c/**/*');
+    expect(deriveGlobFromHierarchicalPath('/workspace/a/b/c/AGENTS.md', '/workspace')).toBe(
+      'a/b/c/**/*',
+    );
   });
 });

@@ -3,10 +3,20 @@ import * as path from 'path';
 import { IndexedRule, LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
 import { AgentId } from '../agents/agentConfig';
 import { RuleIndex } from '../index/ruleIndex';
-import { RuleIssue, hasIssue, getLogicalIssues, getFileIssues, dedupeFileIssues } from '../lint/ruleIssues';
+import {
+  RuleIssue,
+  hasIssue,
+  getLogicalIssues,
+  getFileIssues,
+  dedupeFileIssues,
+} from '../lint/ruleIssues';
 import { computeIssues, LintConfig } from '../lint/lintEngine';
 import { filterIssuesForAgent } from '../lint/agentFilter';
-import { estimateTokens, estimateLogicalRuleTokens, formatTokenCount } from '../utils/tokenEstimator';
+import {
+  estimateTokens,
+  estimateLogicalRuleTokens,
+  formatTokenCount,
+} from '../utils/tokenEstimator';
 
 /** Custom URI scheme used to attach FileDecorations to tree items with issues */
 const ISSUE_SCHEME = 'ai-rules-issue';
@@ -44,20 +54,18 @@ interface RuleFileNode {
 export { FORMAT_LABELS } from '../types';
 
 const TRIGGER_LABELS: Record<RuleTrigger, string> = {
-  'always': 'Always Active',
-  'glob': 'File-Scoped',
-  'agent_requested': 'Agent Requested',
-  'manual': 'Manual',
+  always: 'Always Active',
+  glob: 'File-Scoped',
+  agent_requested: 'Agent Requested',
+  manual: 'Manual',
 };
 
 const TRIGGER_ICONS: Record<RuleTrigger, string> = {
-  'always': 'circle-filled',
-  'glob': 'file-code',
-  'agent_requested': 'robot',
-  'manual': 'account',
+  always: 'circle-filled',
+  glob: 'file-code',
+  agent_requested: 'robot',
+  manual: 'account',
 };
-
-
 
 export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<TreeElement | undefined>();
@@ -66,7 +74,12 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private logicalRules: LogicalRule[] = [];
   private extensionPath: string = '';
   /** Cached config — recomputed once per tree rebuild */
-  private issueConfig: LintConfig = { agent: '', detectDivergence: true, lintEnabled: true, maxRuleTokens: 2000 };
+  private issueConfig: LintConfig = {
+    agent: '',
+    detectDivergence: true,
+    lintEnabled: true,
+    maxRuleTokens: 2000,
+  };
   private issueDecoProvider?: RuleIssueDecorationProvider;
   private configDisposable: vscode.Disposable;
 
@@ -81,7 +94,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     });
 
     // Rebuild tree when agent or lint settings change
-    this.configDisposable = vscode.workspace.onDidChangeConfiguration(e => {
+    this.configDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
       if (
         e.affectsConfiguration('agentRules.agent') ||
         e.affectsConfiguration('agentRules.detectDivergence') ||
@@ -114,7 +127,11 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     this._onDidChangeTreeData.fire(undefined);
     this.issueDecoProvider?.fire();
     // Set context key so the clear-filter button can conditionally appear
-    vscode.commands.executeCommand('setContext', 'agentRules.filterActive', this.filterText.length > 0);
+    vscode.commands.executeCommand(
+      'setContext',
+      'agentRules.filterActive',
+      this.filterText.length > 0,
+    );
   }
 
   /** Clear the active filter */
@@ -124,14 +141,22 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   /** Check whether a logical rule matches the current filter */
   private matchesFilter(lr: LogicalRule): boolean {
-    if (!this.filterText) { return true; }
+    if (!this.filterText) {
+      return true;
+    }
     // Match against logical rule description
-    if (lr.description.toLowerCase().includes(this.filterText)) { return true; }
+    if (lr.description.toLowerCase().includes(this.filterText)) {
+      return true;
+    }
     // Match against any child file name or relative path
     for (const rule of lr.rules) {
-      if (rule.fileName.toLowerCase().includes(this.filterText)) { return true; }
+      if (rule.fileName.toLowerCase().includes(this.filterText)) {
+        return true;
+      }
       const relPath = vscode.workspace.asRelativePath(rule.filePath, false).toLowerCase();
-      if (relPath.includes(this.filterText)) { return true; }
+      if (relPath.includes(this.filterText)) {
+        return true;
+      }
     }
     return false;
   }
@@ -139,7 +164,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private getFormatIconPath(format: RuleFormat): { light: vscode.Uri; dark: vscode.Uri } {
     const iconFile = format + '.svg';
     return {
-      light: vscode.Uri.file(path.join(this.extensionPath, 'resources', 'icons', 'light', iconFile)),
+      light: vscode.Uri.file(
+        path.join(this.extensionPath, 'resources', 'icons', 'light', iconFile),
+      ),
       dark: vscode.Uri.file(path.join(this.extensionPath, 'resources', 'icons', 'dark', iconFile)),
     };
   }
@@ -186,15 +213,17 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
     // Count only rules that pass the filter
     for (const lr of this.logicalRules) {
-      if (!this.matchesFilter(lr)) { continue; }
+      if (!this.matchesFilter(lr)) {
+        continue;
+      }
       triggers.set(lr.trigger, (triggers.get(lr.trigger) || 0) + 1);
     }
 
     // Fixed order: always, glob, agent_requested, manual
     const order: RuleTrigger[] = ['always', 'glob', 'agent_requested', 'manual'];
     return order
-      .filter(t => triggers.has(t))
-      .map(trigger => ({
+      .filter((t) => triggers.has(t))
+      .map((trigger) => ({
         type: 'trigger' as const,
         trigger,
         count: triggers.get(trigger)!,
@@ -203,11 +232,11 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   private async getLogicalRulesForTrigger(trigger: RuleTrigger): Promise<LogicalRuleNode[]> {
     const filtered = this.logicalRules
-      .filter(lr => lr.trigger === trigger && this.matchesFilter(lr))
+      .filter((lr) => lr.trigger === trigger && this.matchesFilter(lr))
       .sort((a, b) => a.description.localeCompare(b.description));
 
     return Promise.all(
-      filtered.map(async logicalRule => {
+      filtered.map(async (logicalRule) => {
         const issues = await computeIssues(logicalRule, this.issueConfig);
         return {
           type: 'logical' as const,
@@ -221,7 +250,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   private getFilesForLogicalRule(node: LogicalRuleNode): RuleFileNode[] {
     const { logicalRule, issues } = node;
-    return logicalRule.rules.map(rule => ({
+    return logicalRule.rules.map((rule) => ({
       type: 'file' as const,
       rule,
       issues: getFileIssues(issues, rule.id),
@@ -231,7 +260,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private createFilterBannerItem(node: FilterBannerNode): vscode.TreeItem {
     const item = new vscode.TreeItem(
       `Filter: "${node.filterText}"`,
-      vscode.TreeItemCollapsibleState.None
+      vscode.TreeItemCollapsibleState.None,
     );
     item.iconPath = new vscode.ThemeIcon('close');
     item.tooltip = 'Click to clear the filter';
@@ -246,12 +275,15 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private createTriggerItem(node: TriggerGroupNode): vscode.TreeItem {
     const item = new vscode.TreeItem(
       `${TRIGGER_LABELS[node.trigger]} (${node.count})`,
-      vscode.TreeItemCollapsibleState.Expanded
+      vscode.TreeItemCollapsibleState.Expanded,
     );
 
     // Show aggregate token estimate for this trigger group
-    const groupRules = this.logicalRules.filter(lr => lr.trigger === node.trigger);
-    const totalTokens = groupRules.reduce((sum, lr) => sum + estimateLogicalRuleTokens(lr.rules), 0);
+    const groupRules = this.logicalRules.filter((lr) => lr.trigger === node.trigger);
+    const totalTokens = groupRules.reduce(
+      (sum, lr) => sum + estimateLogicalRuleTokens(lr.rules),
+      0,
+    );
     if (totalTokens > 0) {
       item.description = formatTokenCount(totalTokens);
     }
@@ -274,7 +306,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   private createLogicalRuleItem(node: LogicalRuleNode): vscode.TreeItem {
     const { logicalRule, agentIssues } = node;
-    const formatList = logicalRule.formats.map(f => FORMAT_LABELS[f]).join(', ');
+    const formatList = logicalRule.formats.map((f) => FORMAT_LABELS[f]).join(', ');
 
     // Use agent-filtered issues for display (badge, description, tooltip)
     const hasIssues = agentIssues.length > 0;
@@ -333,11 +365,13 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     // Build compound contextValue so multiple when-clause flags can coexist
     // e.g. 'logicalRule.diverged.missing' matches both /diverged/ and /missing/
     const flags: string[] = [];
-    if (isDiverged) { flags.push('diverged'); }
-    if (isMissing) { flags.push('missing'); }
-    item.contextValue = flags.length > 0
-      ? `logicalRule.${flags.join('.')}`
-      : 'logicalRule';
+    if (isDiverged) {
+      flags.push('diverged');
+    }
+    if (isMissing) {
+      flags.push('missing');
+    }
+    item.contextValue = flags.length > 0 ? `logicalRule.${flags.join('.')}` : 'logicalRule';
 
     return item;
   }
@@ -385,7 +419,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   /** Look up a logical rule by its ID (used by compare command) */
   getLogicalRuleById(id: string): LogicalRule | undefined {
-    return this.logicalRules.find(lr => lr.id === id);
+    return this.logicalRules.find((lr) => lr.id === id);
   }
 
   dispose(): void {
@@ -399,7 +433,9 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
  * (divergence, missing format, linter warnings, etc.).
  */
 export class RuleIssueDecorationProvider implements vscode.FileDecorationProvider {
-  private _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
+  private _onDidChangeFileDecorations = new vscode.EventEmitter<
+    vscode.Uri | vscode.Uri[] | undefined
+  >();
   readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
 
   provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
@@ -421,4 +457,3 @@ export class RuleIssueDecorationProvider implements vscode.FileDecorationProvide
     this._onDidChangeFileDecorations.dispose();
   }
 }
-

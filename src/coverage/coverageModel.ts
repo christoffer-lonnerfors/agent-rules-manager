@@ -94,11 +94,11 @@ export class CoverageModel {
     let filtered = rules;
     if (agentId) {
       const readable = getReadableFormats(agentId);
-      filtered = rules.filter(r => readable.includes(r.format));
+      filtered = rules.filter((r) => readable.includes(r.format));
     }
 
     // Exclude document format and manual trigger
-    filtered = filtered.filter(r => r.format !== 'document' && r.trigger !== 'manual');
+    filtered = filtered.filter((r) => r.format !== 'document' && r.trigger !== 'manual');
 
     for (const rule of filtered) {
       const info = toRuleInfo(rule);
@@ -131,8 +131,8 @@ export class CoverageModel {
     const matchedGlobs: CoverageRuleInfo[] = [];
 
     for (const gr of this.globRules) {
-      const matches = gr.patterns.some(pattern =>
-        minimatch(relativePath, pattern, { dot: true })
+      const matches = gr.patterns.some((pattern) =>
+        minimatch(relativePath, pattern, { dot: true }),
       );
       if (matches) {
         matchedGlobs.push({ ...gr.rule, globs: gr.patterns });
@@ -179,7 +179,7 @@ export class CoverageModel {
       // Create/navigate directory nodes
       for (let i = 0; i < parts.length - 1; i++) {
         const dirPath = parts.slice(0, i + 1).join('/');
-        let child = current.children.find(c => c.isDirectory && c.path === dirPath);
+        let child = current.children.find((c) => c.isDirectory && c.path === dirPath);
         if (!child) {
           child = {
             path: dirPath,

@@ -5,8 +5,7 @@ import { RuleIndex } from '../index/ruleIndex';
 import { AgentId, getAgentConfig } from '../agents/agentConfig';
 
 /** Messages sent from webview → extension */
-type CoverageWebviewMessage =
-  | { type: 'openRule'; filePath: string };
+type CoverageWebviewMessage = { type: 'openRule'; filePath: string };
 
 /**
  * Manages a Coverage Analysis webview panel.
@@ -35,7 +34,6 @@ export class CoverageWebviewPanel {
           case 'openRule':
             vscode.commands.executeCommand('vscode.open', vscode.Uri.file(msg.filePath));
             break;
-
         }
       },
       undefined,
@@ -43,7 +41,9 @@ export class CoverageWebviewPanel {
     );
 
     this.panel.onDidDispose(() => {
-      for (const d of this.disposables) { d.dispose(); }
+      for (const d of this.disposables) {
+        d.dispose();
+      }
     });
 
     this.runAnalysis();
@@ -66,7 +66,7 @@ export class CoverageWebviewPanel {
 
     // Build model
     const model = new CoverageModel();
-    model.rebuild(this.ruleIndex.getAll(), agentId ? agentId as AgentId : undefined);
+    model.rebuild(this.ruleIndex.getAll(), agentId ? (agentId as AgentId) : undefined);
 
     // Enumerate workspace files
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -81,11 +81,14 @@ export class CoverageWebviewPanel {
     // Find all files, respecting files.exclude and .gitignore
     const uris = await vscode.workspace.findFiles('**/*', '**/node_modules/**');
     const relativePaths = uris
-      .map(u => {
-        const rel = u.fsPath.substring(rootPath.length + 1).split('\\').join('/');
+      .map((u) => {
+        const rel = u.fsPath
+          .substring(rootPath.length + 1)
+          .split('\\')
+          .join('/');
         return rel;
       })
-      .filter(p => p.length > 0)
+      .filter((p) => p.length > 0)
       .sort();
 
     // Build coverage tree
@@ -93,7 +96,14 @@ export class CoverageWebviewPanel {
 
     // Build codicon CSS URI for the webview
     const codiconCssPath = vscode.Uri.file(
-      path.join(this.extensionUri.fsPath, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css'),
+      path.join(
+        this.extensionUri.fsPath,
+        'node_modules',
+        '@vscode',
+        'codicons',
+        'dist',
+        'codicon.css',
+      ),
     );
     const codiconCssUri = this.panel.webview.asWebviewUri(codiconCssPath);
 
@@ -105,7 +115,7 @@ export class CoverageWebviewPanel {
 // ── HTML Generation ────────────────────────────────────────────────────
 
 function getLoadingHtml(): string {
-  return /* html */`<!DOCTYPE html>
+  return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -134,9 +144,9 @@ function getLoadingHtml(): string {
 function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri): string {
   const s = state.summary;
   const pct = (tokens: number) => ((tokens / s.contextWindowTokens) * 100).toFixed(1);
-  const fmt = (tokens: number) => tokens < 1000 ? `${tokens}` : `${(tokens / 1000).toFixed(1)}k`;
+  const fmt = (tokens: number) => (tokens < 1000 ? `${tokens}` : `${(tokens / 1000).toFixed(1)}k`);
 
-  return /* html */`<!DOCTYPE html>
+  return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -336,8 +346,12 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri): strin
 /** Determine severity class based on token cost as % of context window */
 function severityClass(tokens: number, contextWindow: number): string {
   const ratio = tokens / contextWindow;
-  if (ratio >= 0.15) { return 'severity-error'; }
-  if (ratio >= 0.05) { return 'severity-warning'; }
+  if (ratio >= 0.15) {
+    return 'severity-error';
+  }
+  if (ratio >= 0.05) {
+    return 'severity-warning';
+  }
   return '';
 }
 

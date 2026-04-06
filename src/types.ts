@@ -12,15 +12,15 @@ export type RuleFormat =
 
 /** Human-readable labels for each format (used in UI and lint messages) */
 export const FORMAT_LABELS: Record<RuleFormat, string> = {
-  'cursor': 'Cursor',
-  'windsurf': 'Windsurf',
-  'kiro': 'Kiro',
-  'antigravity': 'Antigravity',
-  'augment': 'Augment',
+  cursor: 'Cursor',
+  windsurf: 'Windsurf',
+  kiro: 'Kiro',
+  antigravity: 'Antigravity',
+  augment: 'Augment',
   'claude-code': 'Claude Code',
   'claude-md': 'CLAUDE.md',
   'agents-md': 'AGENTS.md',
-  'document': 'Document',
+  document: 'Document',
 };
 
 /** Normalized activation trigger */
@@ -28,9 +28,9 @@ export type RuleTrigger = 'always' | 'glob' | 'agent_requested' | 'manual';
 
 /** Source file type — distinguishes directory rules from special standalone files */
 export type RuleSourceType =
-  | 'directory_rule'    // File in a format's rules directory
-  | 'standalone_file'   // Root-level special file (.windsurfrules, .augment-guidelines, CLAUDE.local.md)
-  | 'hierarchical_md';  // AGENTS.md or CLAUDE.md discovered hierarchically
+  | 'directory_rule' // File in a format's rules directory
+  | 'standalone_file' // Root-level special file (.windsurfrules, .augment-guidelines, CLAUDE.local.md)
+  | 'hierarchical_md'; // AGENTS.md or CLAUDE.md discovered hierarchically
 
 /** A single indexed rule with all extracted metadata */
 export interface IndexedRule {

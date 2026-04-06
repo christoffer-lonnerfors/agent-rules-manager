@@ -10,28 +10,39 @@ import { extractCommonDirectory } from '../utils/scopeTranslator';
  * Scaffold a new rule file in the target format, copying body from the best available source.
  * Returns the absolute file path of the created file, or undefined on failure.
  */
-export function scaffoldRuleFile(logicalRule: LogicalRule, targetFormat: RuleFormat): string | undefined {
+export function scaffoldRuleFile(
+  logicalRule: LogicalRule,
+  targetFormat: RuleFormat,
+): string | undefined {
   const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) { return undefined; }
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    return undefined;
+  }
   const root = workspaceFolders[0].uri.fsPath;
 
   // Get the body from the best available source (most recently modified)
-  const sorted = [...logicalRule.rules].sort((a, b) =>
-    new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+  const sorted = [...logicalRule.rules].sort(
+    (a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime(),
   );
   const source = sorted[0];
   const sourceContent = fs.readFileSync(source.filePath, 'utf-8');
   const { body: sourceBody } = parseFrontmatter(sourceContent);
 
   // Determine target directory and extension
-  const config = FORMAT_CONFIGS.find(c => c.format === targetFormat);
-  if (!config || config.directories.length === 0 && config.hierarchicalFiles.length === 0) { return undefined; }
+  const config = FORMAT_CONFIGS.find((c) => c.format === targetFormat);
+  if (!config || (config.directories.length === 0 && config.hierarchicalFiles.length === 0)) {
+    return undefined;
+  }
 
   // claude-md format: place CLAUDE.md in the LCA directory for glob-scoped rules, or workspace root
   if (targetFormat === 'claude-md') {
-    const targetDir = (logicalRule.trigger === 'glob' && logicalRule.globs?.length)
-      ? (() => { const lcaDir = extractCommonDirectory(logicalRule.globs!); return lcaDir ? path.join(root, lcaDir) : root; })()
-      : root;
+    const targetDir =
+      logicalRule.trigger === 'glob' && logicalRule.globs?.length
+        ? (() => {
+            const lcaDir = extractCommonDirectory(logicalRule.globs!);
+            return lcaDir ? path.join(root, lcaDir) : root;
+          })()
+        : root;
     const targetPath = path.join(targetDir, 'CLAUDE.md');
 
     if (fs.existsSync(targetPath)) {
@@ -48,13 +59,19 @@ export function scaffoldRuleFile(logicalRule: LogicalRule, targetFormat: RuleFor
 
   // agents-md format: place AGENTS.md in the LCA directory for glob-scoped rules, or workspace root
   if (targetFormat === 'agents-md') {
-    const targetDir = (logicalRule.trigger === 'glob' && logicalRule.globs?.length)
-      ? (() => { const lcaDir = extractCommonDirectory(logicalRule.globs!); return lcaDir ? path.join(root, lcaDir) : root; })()
-      : root;
+    const targetDir =
+      logicalRule.trigger === 'glob' && logicalRule.globs?.length
+        ? (() => {
+            const lcaDir = extractCommonDirectory(logicalRule.globs!);
+            return lcaDir ? path.join(root, lcaDir) : root;
+          })()
+        : root;
     const targetPath = path.join(targetDir, 'AGENTS.md');
 
     if (fs.existsSync(targetPath)) {
-      vscode.window.showWarningMessage(`AGENTS.md already exists at ${vscode.workspace.asRelativePath(targetPath, false)}`);
+      vscode.window.showWarningMessage(
+        `AGENTS.md already exists at ${vscode.workspace.asRelativePath(targetPath, false)}`,
+      );
       return undefined;
     }
 
@@ -62,8 +79,6 @@ export function scaffoldRuleFile(logicalRule: LogicalRule, targetFormat: RuleFor
     fs.writeFileSync(targetPath, sourceBody + '\n', 'utf-8');
     return targetPath;
   }
-
-
 
   const targetDir = path.join(root, config.directories[0]);
   const targetExt = config.extensions[0];
@@ -86,7 +101,6 @@ export function scaffoldRuleFile(logicalRule: LogicalRule, targetFormat: RuleFor
   return targetPath;
 }
 
-
 /**
  * Build format-specific YAML frontmatter for a logical rule.
  */
@@ -100,9 +114,13 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
       } else if (lr.trigger === 'glob' && lr.globs?.length) {
         lines.push('alwaysApply: false');
         lines.push('globs:');
-        for (const g of lr.globs) { lines.push(`  - "${g}"`); }
+        for (const g of lr.globs) {
+          lines.push(`  - "${g}"`);
+        }
       }
-      if (lr.description) { lines.push(`description: "${lr.description}"`); }
+      if (lr.description) {
+        lines.push(`description: "${lr.description}"`);
+      }
       break;
 
     case 'windsurf':
@@ -112,10 +130,14 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
       } else if (lr.trigger === 'glob' && lr.globs?.length) {
         lines.push('trigger: glob');
         lines.push('globs:');
-        for (const g of lr.globs) { lines.push(`  - "${g}"`); }
+        for (const g of lr.globs) {
+          lines.push(`  - "${g}"`);
+        }
       } else if (lr.trigger === 'agent_requested') {
         lines.push('trigger: model_decision');
-        if (lr.description) { lines.push(`description: "${lr.description}"`); }
+        if (lr.description) {
+          lines.push(`description: "${lr.description}"`);
+        }
       } else {
         lines.push('trigger: manual');
       }
@@ -130,11 +152,15 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
           lines.push(`fileMatchPattern: "${lr.globs[0]}"`);
         } else {
           lines.push('fileMatchPattern:');
-          for (const g of lr.globs) { lines.push(`  - "${g}"`); }
+          for (const g of lr.globs) {
+            lines.push(`  - "${g}"`);
+          }
         }
       } else if (lr.trigger === 'agent_requested') {
         lines.push('inclusion: auto');
-        if (lr.description) { lines.push(`description: "${lr.description}"`); }
+        if (lr.description) {
+          lines.push(`description: "${lr.description}"`);
+        }
       } else {
         lines.push('inclusion: manual');
       }
@@ -145,7 +171,9 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
         lines.push('type: always_apply');
       } else if (lr.trigger === 'agent_requested') {
         lines.push('type: agent_requested');
-        if (lr.description) { lines.push(`description: "${lr.description}"`); }
+        if (lr.description) {
+          lines.push(`description: "${lr.description}"`);
+        }
       } else {
         lines.push('type: manual');
       }
@@ -154,7 +182,9 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
     case 'claude-code':
       if (lr.trigger === 'glob' && lr.globs?.length) {
         lines.push('paths:');
-        for (const g of lr.globs) { lines.push(`  - "${g}"`); }
+        for (const g of lr.globs) {
+          lines.push(`  - "${g}"`);
+        }
       }
       // No frontmatter needed for always-on rules in claude-code
       break;
@@ -167,7 +197,6 @@ export function buildFrontmatter(format: RuleFormat, lr: LogicalRule): string {
 
   return lines.length > 0 ? lines.join('\n') + '\n' : '';
 }
-
 
 /**
  * Build the full file content for a brand-new rule.
@@ -191,7 +220,5 @@ export function buildNewRuleContent(
   const frontmatter = buildFrontmatter(format, syntheticRule);
   const body = `# Rule Title\n\nAdd your rule content here.\n`;
 
-  return frontmatter
-    ? `---\n${frontmatter}---\n\n${body}`
-    : body;
+  return frontmatter ? `---\n${frontmatter}---\n\n${body}` : body;
 }

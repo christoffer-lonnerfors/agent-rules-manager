@@ -3,13 +3,7 @@ import { RuleFormat } from '../types';
 // ── Agent concept ──────────────────────────────────────────────────────
 
 /** Supported AI agent identifiers */
-export type AgentId =
-  | 'cursor'
-  | 'windsurf'
-  | 'kiro'
-  | 'antigravity'
-  | 'augment'
-  | 'claude-code';
+export type AgentId = 'cursor' | 'windsurf' | 'kiro' | 'antigravity' | 'augment' | 'claude-code';
 
 /** Configuration for a single AI agent */
 export interface AgentConfig {
@@ -68,7 +62,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
 
 /** Get the agent config for a given agent ID */
 export function getAgentConfig(agentId: AgentId): AgentConfig {
-  return AGENT_CONFIGS.find(a => a.id === agentId)!;
+  return AGENT_CONFIGS.find((a) => a.id === agentId)!;
 }
 
 /** Get all formats an agent can read (primary + supported) */
@@ -86,7 +80,10 @@ export function getDefaultWriteFormat(agentId: AgentId): RuleFormat {
  * Get the effective write format, validating that it's readable by the agent.
  * Falls back to the agent's default write format if the override is invalid.
  */
-export function getEffectiveWriteFormat(agentId: AgentId, writeFormatOverride: RuleFormat | ''): RuleFormat {
+export function getEffectiveWriteFormat(
+  agentId: AgentId,
+  writeFormatOverride: RuleFormat | '',
+): RuleFormat {
   if (writeFormatOverride) {
     const readable = getReadableFormats(agentId);
     if (readable.includes(writeFormatOverride)) {
@@ -99,5 +96,5 @@ export function getEffectiveWriteFormat(agentId: AgentId, writeFormatOverride: R
 /** Check whether a logical rule is covered by any of the agent's readable formats */
 export function isRuleCoveredByAgent(ruleFormats: RuleFormat[], agentId: AgentId): boolean {
   const readable = getReadableFormats(agentId);
-  return ruleFormats.some(f => readable.includes(f));
+  return ruleFormats.some((f) => readable.includes(f));
 }

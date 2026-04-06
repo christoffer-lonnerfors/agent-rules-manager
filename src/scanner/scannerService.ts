@@ -29,7 +29,7 @@ export class ScannerService {
   constructor(
     private readonly ruleIndex: RuleIndex,
     private readonly candidateStore: CandidateStore,
-  ) { }
+  ) {}
 
   get isScanning(): boolean {
     return this.scanning;
@@ -74,7 +74,13 @@ export class ScannerService {
         discovered,
         async (file) => {
           try {
-            return await this.processFile(file.filePath, file.format, file.sourceType, workspaceRoot, file.extensionMismatch);
+            return await this.processFile(
+              file.filePath,
+              file.format,
+              file.sourceType,
+              workspaceRoot,
+              file.extensionMismatch,
+            );
           } catch (err) {
             console.warn(`Agent Rules Manager: Failed to process ${file.filePath}:`, err);
             return undefined;
@@ -89,8 +95,10 @@ export class ScannerService {
       rules.push(...promoted);
 
       // Store unresolved candidates
-      const resolvedPaths = new Set(rules.map(r => r.filePath));
-      const unresolved = Array.from(candidates.values()).filter(c => !resolvedPaths.has(c.filePath));
+      const resolvedPaths = new Set(rules.map((r) => r.filePath));
+      const unresolved = Array.from(candidates.values()).filter(
+        (c) => !resolvedPaths.has(c.filePath),
+      );
       this.candidateStore.replaceAll(unresolved);
 
       await this.ruleIndex.replaceAll(rules);
@@ -100,7 +108,7 @@ export class ScannerService {
 
       if (!silent) {
         vscode.window.showInformationMessage(
-          `Agent Rules Manager: Found ${rules.length} rule(s) in ${durationMs}ms.`
+          `Agent Rules Manager: Found ${rules.length} rule(s) in ${durationMs}ms.`,
         );
       }
     } catch (err) {
@@ -118,7 +126,7 @@ export class ScannerService {
     format: IndexedRule['format'],
     sourceType: IndexedRule['sourceType'],
     workspaceRoot: string,
-    extensionMismatch?: boolean
+    extensionMismatch?: boolean,
   ): Promise<IndexedRule | undefined> {
     const uri = vscode.Uri.file(filePath);
     const stat = await vscode.workspace.fs.stat(uri);
@@ -126,9 +134,11 @@ export class ScannerService {
     const content = Buffer.from(contentBytes).toString('utf-8');
 
     const { fields, body } = parseFrontmatter(content);
-    const { trigger, globs, description: fmDescription } = normalizeTrigger(
-      format, fields, filePath, sourceType, workspaceRoot
-    );
+    const {
+      trigger,
+      globs,
+      description: fmDescription,
+    } = normalizeTrigger(format, fields, filePath, sourceType, workspaceRoot);
 
     // Fall back to first markdown heading if no frontmatter description
     const description = fmDescription ?? extractFirstHeading(body);
@@ -170,7 +180,7 @@ export class ScannerService {
     candidates: Map<string, CandidateFile>,
     workspaceRoot: string,
   ): Promise<IndexedRule[]> {
-    const resolvedPaths = new Set(resolvedRules.map(r => r.filePath));
+    const resolvedPaths = new Set(resolvedRules.map((r) => r.filePath));
 
     // Track which rules reference each candidate: candidatePath → set of referencing IndexedRules
     const referencedBy = new Map<string, IndexedRule[]>();
@@ -210,12 +220,16 @@ export class ScannerService {
 
     while (queue.length > 0) {
       const [filePath, depth] = queue.shift()!;
-      if (visited.has(filePath)) { continue; }
+      if (visited.has(filePath)) {
+        continue;
+      }
       visited.add(filePath);
       resolvedPaths.add(filePath);
 
       if (depth > MAX_REFERENCE_DEPTH) {
-        console.warn(`Agent Rules Manager: Reference depth limit (${MAX_REFERENCE_DEPTH}) reached at ${filePath}`);
+        console.warn(
+          `Agent Rules Manager: Reference depth limit (${MAX_REFERENCE_DEPTH}) reached at ${filePath}`,
+        );
         continue;
       }
 
@@ -265,34 +279,39 @@ export class ScannerService {
  * If any referrer is 'always', the result is 'always' with no globs.
  * If all referrers are 'glob', all their globs are merged.
  */
-function widenTrigger(referrers: IndexedRule[]): { trigger: RuleTrigger; globs: string[] | undefined } {
+function widenTrigger(referrers: IndexedRule[]): {
+  trigger: RuleTrigger;
+  globs: string[] | undefined;
+} {
   if (referrers.length === 0) {
     return { trigger: 'always', globs: undefined };
   }
 
   // If any referrer is 'always', the document is always active
-  if (referrers.some(r => r.trigger === 'always')) {
+  if (referrers.some((r) => r.trigger === 'always')) {
     return { trigger: 'always', globs: undefined };
   }
 
   // If any referrer is 'glob', merge all globs
-  const globReferrers = referrers.filter(r => r.trigger === 'glob');
+  const globReferrers = referrers.filter((r) => r.trigger === 'glob');
   if (globReferrers.length > 0) {
     const allGlobs = new Set<string>();
     for (const r of globReferrers) {
       if (r.globs) {
-        for (const g of r.globs) { allGlobs.add(g); }
+        for (const g of r.globs) {
+          allGlobs.add(g);
+        }
       }
     }
     // If any non-glob referrer exists too, widen to always
-    if (referrers.some(r => r.trigger !== 'glob')) {
+    if (referrers.some((r) => r.trigger !== 'glob')) {
       return { trigger: 'always', globs: undefined };
     }
     return { trigger: 'glob', globs: allGlobs.size > 0 ? Array.from(allGlobs) : undefined };
   }
 
   // If any referrer is 'agent_requested', use that
-  if (referrers.some(r => r.trigger === 'agent_requested')) {
+  if (referrers.some((r) => r.trigger === 'agent_requested')) {
     return { trigger: 'agent_requested', globs: undefined };
   }
 

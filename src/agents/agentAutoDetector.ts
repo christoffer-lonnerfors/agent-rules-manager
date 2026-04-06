@@ -7,11 +7,11 @@ import { AgentId } from './agentConfig';
  * indicate a particular agent.
  */
 const FORMAT_TO_AGENT: Partial<Record<RuleFormat, AgentId>> = {
-  'cursor': 'cursor',
-  'windsurf': 'windsurf',
-  'kiro': 'kiro',
-  'antigravity': 'antigravity',
-  'augment': 'augment',
+  cursor: 'cursor',
+  windsurf: 'windsurf',
+  kiro: 'kiro',
+  antigravity: 'antigravity',
+  augment: 'augment',
   'claude-code': 'claude-code',
 };
 

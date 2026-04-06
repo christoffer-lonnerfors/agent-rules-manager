@@ -13,22 +13,28 @@ export const missingDescription: LintCheck = {
 
   run(lr) {
     // Only relevant for agent_requested rules
-    if (lr.trigger !== 'agent_requested') { return []; }
+    if (lr.trigger !== 'agent_requested') {
+      return [];
+    }
 
     const desc = lr.description?.trim() ?? '';
     if (desc.length === 0) {
-      return [{
-        id: 'missing-description',
-        severity: 'warning',
-        message: 'Agent-requested rule has no description — agents cannot discover it',
-      }];
+      return [
+        {
+          id: 'missing-description',
+          severity: 'warning',
+          message: 'Agent-requested rule has no description — agents cannot discover it',
+        },
+      ];
     }
     if (desc.length < MIN_DESCRIPTION_LENGTH) {
-      return [{
-        id: 'missing-description',
-        severity: 'warning',
-        message: `Description is too short (${desc.length} chars) — agents need a clear description to decide when to use this rule`,
-      }];
+      return [
+        {
+          id: 'missing-description',
+          severity: 'warning',
+          message: `Description is too short (${desc.length} chars) — agents need a clear description to decide when to use this rule`,
+        },
+      ];
     }
     return [];
   },

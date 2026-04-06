@@ -90,14 +90,14 @@ export function computeSimilarity(sigA: number[], sigB: number[]): number {
 function normalizeText(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')  // Replace punctuation with spaces
-    .replace(/\s+/g, ' ')       // Collapse whitespace
+    .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
+    .replace(/\s+/g, ' ') // Collapse whitespace
     .trim();
 }
 
 /** Generate word-level trigram shingles and return their hashes */
 function generateShingles(text: string): Set<number> {
-  const words = text.split(' ').filter(w => w.length > 0);
+  const words = text.split(' ').filter((w) => w.length > 0);
   const shingles = new Set<number>();
 
   if (words.length < SHINGLE_SIZE) {
@@ -125,4 +125,3 @@ function hashString(str: string): number {
   }
   return hash;
 }
-

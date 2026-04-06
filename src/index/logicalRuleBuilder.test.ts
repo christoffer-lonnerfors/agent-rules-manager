@@ -5,7 +5,9 @@ import { IndexedRule } from '../types';
 import { createHash } from 'crypto';
 
 /** Helper to build a minimal IndexedRule for testing */
-function makeRule(overrides: Partial<IndexedRule> & { id: string; format: IndexedRule['format']; body: string }): IndexedRule {
+function makeRule(
+  overrides: Partial<IndexedRule> & { id: string; format: IndexedRule['format']; body: string },
+): IndexedRule {
   const { body, ...rest } = overrides;
   const bodyHash = createHash('sha256').update(body.trim()).digest('hex');
   return {
@@ -30,15 +32,24 @@ function makeRule(overrides: Partial<IndexedRule> & { id: string; format: Indexe
 describe('buildLogicalRules', () => {
   it('returns one logical rule per input when all formats differ', () => {
     const rules = [
-      makeRule({ id: 'a', format: 'cursor', body: 'Completely unique content about cursor configuration' }),
-      makeRule({ id: 'b', format: 'windsurf', body: 'Totally different content about windsurf setup and deployment' }),
+      makeRule({
+        id: 'a',
+        format: 'cursor',
+        body: 'Completely unique content about cursor configuration',
+      }),
+      makeRule({
+        id: 'b',
+        format: 'windsurf',
+        body: 'Totally different content about windsurf setup and deployment',
+      }),
     ];
     const logical = buildLogicalRules(rules);
     expect(logical).toHaveLength(2);
   });
 
   it('merges near-duplicate rules across different formats', () => {
-    const sharedBody = 'Always use TypeScript strict mode with eslint configured for the project repository';
+    const sharedBody =
+      'Always use TypeScript strict mode with eslint configured for the project repository';
     const rules = [
       makeRule({ id: 'r1', format: 'cursor', body: sharedBody }),
       makeRule({ id: 'r2', format: 'windsurf', body: sharedBody }),
@@ -51,7 +62,8 @@ describe('buildLogicalRules', () => {
   });
 
   it('never merges rules within the same format', () => {
-    const body = 'Always use TypeScript strict mode with eslint configured for the project repository';
+    const body =
+      'Always use TypeScript strict mode with eslint configured for the project repository';
     const rules = [
       makeRule({ id: 'r1', format: 'cursor', body }),
       makeRule({ id: 'r2', format: 'cursor', body }),
@@ -62,8 +74,16 @@ describe('buildLogicalRules', () => {
 
   it('detects divergence when merged rules have different body hashes', () => {
     const rules = [
-      makeRule({ id: 'r1', format: 'cursor', body: 'Use strict TypeScript mode for all files in the project repository always' }),
-      makeRule({ id: 'r2', format: 'windsurf', body: 'Use strict TypeScript mode for all files in the project repository usually' }),
+      makeRule({
+        id: 'r1',
+        format: 'cursor',
+        body: 'Use strict TypeScript mode for all files in the project repository always',
+      }),
+      makeRule({
+        id: 'r2',
+        format: 'windsurf',
+        body: 'Use strict TypeScript mode for all files in the project repository usually',
+      }),
     ];
     const logical = buildLogicalRules(rules);
     // They should merge (high similarity) but have divergence flagged
@@ -96,9 +116,7 @@ describe('buildLogicalRules', () => {
 
   it('falls back to filename without extension when no description', () => {
     const body = 'Some unique content that nobody else has for testing filename fallback behavior';
-    const rules = [
-      makeRule({ id: 'my-rule', format: 'cursor', body }),
-    ];
+    const rules = [makeRule({ id: 'my-rule', format: 'cursor', body })];
     const logical = buildLogicalRules(rules);
     expect(logical[0].description).toBe('my-rule');
   });

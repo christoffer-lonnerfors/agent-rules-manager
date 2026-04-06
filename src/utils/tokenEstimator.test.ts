@@ -36,11 +36,7 @@ describe('estimateLogicalRuleTokens', () => {
   });
 
   it('uses the maximum bodyLength across rules', () => {
-    const rules = [
-      { bodyLength: 100 },
-      { bodyLength: 500 },
-      { bodyLength: 200 },
-    ];
+    const rules = [{ bodyLength: 100 }, { bodyLength: 500 }, { bodyLength: 200 }];
     const result = estimateLogicalRuleTokens(rules);
     expect(result).toBe(estimateTokens(500));
   });

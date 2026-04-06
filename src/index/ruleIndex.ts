@@ -14,7 +14,7 @@ export class RuleIndex {
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
-  constructor(private readonly context: vscode.ExtensionContext) { }
+  constructor(private readonly context: vscode.ExtensionContext) {}
 
   /** Load persisted index from workspaceState */
   load(): void {
@@ -56,12 +56,12 @@ export class RuleIndex {
 
   /** Get rules filtered by format */
   getByFormat(format: string): IndexedRule[] {
-    return this.getAll().filter(r => r.format === format);
+    return this.getAll().filter((r) => r.format === format);
   }
 
   /** Get rules filtered by trigger */
   getByTrigger(trigger: string): IndexedRule[] {
-    return this.getAll().filter(r => r.trigger === trigger);
+    return this.getAll().filter((r) => r.trigger === trigger);
   }
 
   /** Number of indexed rules */
@@ -102,4 +102,3 @@ export class RuleIndex {
 export function generateRuleId(filePath: string): string {
   return crypto.createHash('sha256').update(filePath).digest('hex').substring(0, 16);
 }
-

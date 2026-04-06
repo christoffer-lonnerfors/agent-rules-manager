@@ -77,7 +77,10 @@ describe('divergedContent', () => {
   });
 
   it('respects detectDivergence=false config', () => {
-    const lr = makeLogicalRule({ minSimilarity: 0.5, rules: [makeIndexedRule({ id: 'a' }), makeIndexedRule({ id: 'b' })] });
+    const lr = makeLogicalRule({
+      minSimilarity: 0.5,
+      rules: [makeIndexedRule({ id: 'a' }), makeIndexedRule({ id: 'b' })],
+    });
     expect(divergedContent.run(lr, { ...defaultConfig, detectDivergence: false })).toEqual([]);
   });
 });
@@ -116,7 +119,10 @@ describe('missingDescription', () => {
   });
 
   it('does not warn when description is adequate', () => {
-    const lr = makeLogicalRule({ trigger: 'agent_requested', description: 'A sufficiently long description for agent discovery' });
+    const lr = makeLogicalRule({
+      trigger: 'agent_requested',
+      description: 'A sufficiently long description for agent discovery',
+    });
     expect(missingDescription.run(lr, defaultConfig)).toEqual([]);
   });
 });
@@ -128,7 +134,10 @@ describe('missingPrimary', () => {
   });
 
   it('does not warn when rule has a format readable by the agent', () => {
-    const lr = makeLogicalRule({ formats: ['cursor'], rules: [makeIndexedRule({ format: 'cursor' })] });
+    const lr = makeLogicalRule({
+      formats: ['cursor'],
+      rules: [makeIndexedRule({ format: 'cursor' })],
+    });
     expect(missingPrimary.run(lr, { ...defaultConfig, agent: 'cursor' })).toEqual([]);
   });
 
@@ -177,18 +186,18 @@ describe('computeIssues (lintEngine)', () => {
       rules: [makeIndexedRule({ id: 'a' }), makeIndexedRule({ id: 'b' })],
     });
     const issues = await computeIssues(lr, { ...defaultConfig, lintEnabled: false });
-    expect(issues.some(i => i.id === 'diverged-content')).toBe(true);
+    expect(issues.some((i) => i.id === 'diverged-content')).toBe(true);
   });
 
   it('skips lint checks when lintEnabled is false', async () => {
     const lr = makeLogicalRule({ rules: [makeIndexedRule({ bodyLength: 0 })] });
     const issues = await computeIssues(lr, { ...defaultConfig, lintEnabled: false });
-    expect(issues.some(i => i.id === 'empty-body')).toBe(false);
+    expect(issues.some((i) => i.id === 'empty-body')).toBe(false);
   });
 
   it('runs all checks when lintEnabled is true', async () => {
     const lr = makeLogicalRule({ rules: [makeIndexedRule({ bodyLength: 0 })] });
     const issues = await computeIssues(lr, defaultConfig);
-    expect(issues.some(i => i.id === 'empty-body')).toBe(true);
+    expect(issues.some((i) => i.id === 'empty-body')).toBe(true);
   });
 });

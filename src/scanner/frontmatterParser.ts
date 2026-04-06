@@ -43,4 +43,3 @@ export function extractFirstHeading(body: string): string | undefined {
   const match = body.match(/^#{1,6}\s+(.+)$/m);
   return match ? match[1].trim() : undefined;
 }
-

@@ -17,7 +17,9 @@ export const brokenReference: LintCheck = {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
     for (const rule of lr.rules) {
-      if (rule.references.length === 0) { continue; }
+      if (rule.references.length === 0) {
+        continue;
+      }
       const ruleDir = path.dirname(rule.filePath);
 
       for (const ref of rule.references) {

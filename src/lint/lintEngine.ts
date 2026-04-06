@@ -43,7 +43,9 @@ export async function computeIssues(
   const issues: RuleIssue[] = [];
 
   for (const check of ALL_CHECKS) {
-    if (check.category === 'lint' && !config.lintEnabled) { continue; }
+    if (check.category === 'lint' && !config.lintEnabled) {
+      continue;
+    }
     const result = await check.run(logicalRule, config);
     issues.push(...result);
   }

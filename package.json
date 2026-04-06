@@ -294,6 +294,8 @@
     "build": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "lint": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -302,6 +304,7 @@
     "@types/vscode": "~1.85.0",
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.28.0",
+    "prettier": "^3.8.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   },

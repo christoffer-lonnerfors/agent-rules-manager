@@ -32,7 +32,7 @@ function makeLR(rules: IndexedRule[]): LogicalRule {
     description: 'Test',
     trigger: 'always',
     globs: undefined,
-    formats: [...new Set(rules.map(r => r.format))],
+    formats: [...new Set(rules.map((r) => r.format))],
     rules,
     minSimilarity: 1.0,
   };

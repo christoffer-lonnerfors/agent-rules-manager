@@ -3,9 +3,7 @@
  * Only stubs the surface area actually used by the source code under test.
  */
 export const workspace = {
-  workspaceFolders: undefined as
-    | Array<{ uri: { fsPath: string } }>
-    | undefined,
+  workspaceFolders: undefined as Array<{ uri: { fsPath: string } }> | undefined,
   fs: {
     stat: async (_uri: unknown) => {
       throw new Error('file not found (mock)');

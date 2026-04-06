@@ -6,16 +6,16 @@ Every AI coding agent has its own rule format, stored in different directories w
 
 ## Supported Agents & Formats
 
-| Agent | Rule Format | Directory |
-|---|---|---|
-| Cursor | `.mdc` / `.md` + YAML frontmatter | `.cursor/rules/` |
-| Windsurf | `.md` + YAML frontmatter | `.windsurf/rules/` |
-| Kiro | `.md` + YAML frontmatter | `.kiro/steering/`, `.kiro/specs/` |
-| Antigravity | `.md` + YAML frontmatter | `.agents/rules/` |
-| Augment | `.md` + YAML frontmatter | `.augment/rules/` |
-| Claude Code | `.md` + YAML frontmatter | `.claude/rules/` |
-| CLAUDE.md | Plain Markdown (cross-agent) | Any directory |
-| AGENTS.md | Plain Markdown (cross-agent) | Any directory |
+| Agent       | Rule Format                       | Directory                         |
+| ----------- | --------------------------------- | --------------------------------- |
+| Cursor      | `.mdc` / `.md` + YAML frontmatter | `.cursor/rules/`                  |
+| Windsurf    | `.md` + YAML frontmatter          | `.windsurf/rules/`                |
+| Kiro        | `.md` + YAML frontmatter          | `.kiro/steering/`, `.kiro/specs/` |
+| Antigravity | `.md` + YAML frontmatter          | `.agents/rules/`                  |
+| Augment     | `.md` + YAML frontmatter          | `.augment/rules/`                 |
+| Claude Code | `.md` + YAML frontmatter          | `.claude/rules/`                  |
+| CLAUDE.md   | Plain Markdown (cross-agent)      | Any directory                     |
+| AGENTS.md   | Plain Markdown (cross-agent)      | Any directory                     |
 
 ## Features
 
@@ -88,14 +88,14 @@ Rules are discovered automatically. No configuration required to get started.
 
 ## Settings
 
-| Setting | Default | Description |
-|---|---|---|
-| `agentRules.agent` | *(none)* | Your AI agent. Determines which formats are relevant and where new rules are written. |
-| `agentRules.writeFormat` | *(agent default)* | Override the format used when creating new rules. |
-| `agentRules.detectDivergence` | `true` | Show warning badges on rules that have diverged across formats. |
-| `agentRules.lint.enabled` | `true` | Enable rule quality checks. |
-| `agentRules.lint.maxRuleTokens` | `2000` | Warn when a single rule exceeds this estimated token count. |
-| `agentRules.coverage.contextWindowTokens` | `128000` | Context window size used for coverage severity thresholds. |
+| Setting                                   | Default           | Description                                                                           |
+| ----------------------------------------- | ----------------- | ------------------------------------------------------------------------------------- |
+| `agentRules.agent`                        | _(none)_          | Your AI agent. Determines which formats are relevant and where new rules are written. |
+| `agentRules.writeFormat`                  | _(agent default)_ | Override the format used when creating new rules.                                     |
+| `agentRules.detectDivergence`             | `true`            | Show warning badges on rules that have diverged across formats.                       |
+| `agentRules.lint.enabled`                 | `true`            | Enable rule quality checks.                                                           |
+| `agentRules.lint.maxRuleTokens`           | `2000`            | Warn when a single rule exceeds this estimated token count.                           |
+| `agentRules.coverage.contextWindowTokens` | `128000`          | Context window size used for coverage severity thresholds.                            |
 
 ## Known Limitations
 

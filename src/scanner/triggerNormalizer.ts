@@ -16,7 +16,7 @@ export function normalizeTrigger(
   fields: Record<string, unknown>,
   filePath: string,
   sourceType: RuleSourceType,
-  workspaceRoot: string
+  workspaceRoot: string,
 ): { trigger: RuleTrigger; globs: string[] | undefined; description: string | undefined } {
   // Standalone files are always-on by nature
   if (sourceType === 'standalone_file') {
@@ -70,7 +70,9 @@ function normalizeCursor(fields: Record<string, unknown>): ReturnType<typeof nor
   return { trigger: 'manual', globs: undefined, description };
 }
 
-function normalizeWindsurfAntigravity(fields: Record<string, unknown>): ReturnType<typeof normalizeTrigger> {
+function normalizeWindsurfAntigravity(
+  fields: Record<string, unknown>,
+): ReturnType<typeof normalizeTrigger> {
   const description = typeof fields.description === 'string' ? fields.description : undefined;
   const globs = normalizeGlobsField(fields.globs);
 
@@ -91,7 +93,7 @@ function normalizeWindsurfAntigravity(fields: Record<string, unknown>): ReturnTy
 function normalizeKiro(
   fields: Record<string, unknown>,
   filePath: string,
-  workspaceRoot: string
+  workspaceRoot: string,
 ): ReturnType<typeof normalizeTrigger> {
   const description = typeof fields.description === 'string' ? fields.description : undefined;
   const relativePath = path.relative(workspaceRoot, filePath).split(path.sep).join('/');
@@ -150,11 +152,14 @@ function normalizeClaudeCode(fields: Record<string, unknown>): ReturnType<typeof
 
 /** Normalize a glob field to string[] regardless of input shape */
 function normalizeGlobsField(value: unknown): string[] | undefined {
-  if (!value) { return undefined; }
-  if (typeof value === 'string') { return [value]; }
+  if (!value) {
+    return undefined;
+  }
+  if (typeof value === 'string') {
+    return [value];
+  }
   if (Array.isArray(value)) {
     return value.filter((v): v is string => typeof v === 'string');
   }
   return undefined;
 }
-

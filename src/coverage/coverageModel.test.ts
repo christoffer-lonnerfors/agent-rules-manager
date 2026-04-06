@@ -95,9 +95,7 @@ describe('CoverageModel', () => {
     });
 
     it('lists agent_requested rules but does not add their tokens', () => {
-      model.rebuild([
-        makeRule({ id: 'ar', trigger: 'agent_requested', bodyLength: 500 }),
-      ]);
+      model.rebuild([makeRule({ id: 'ar', trigger: 'agent_requested', bodyLength: 500 })]);
       const cov = model.getFileCoverage('src/index.ts');
       expect(cov.tokens).toBe(0);
       expect(cov.agentRequestedRules).toHaveLength(1);
@@ -111,7 +109,7 @@ describe('CoverageModel', () => {
 
       expect(state.tree.isDirectory).toBe(true);
       // Should have two directory children: src and lib
-      const dirNames = state.tree.children.filter(c => c.isDirectory).map(c => c.name);
+      const dirNames = state.tree.children.filter((c) => c.isDirectory).map((c) => c.name);
       expect(dirNames).toContain('src');
       expect(dirNames).toContain('lib');
     });
@@ -119,25 +117,21 @@ describe('CoverageModel', () => {
     it('sorts directories before files', () => {
       model.rebuild([]);
       const state = model.buildTree(['a.ts', 'sub/b.ts'], 128000, '');
-      const types = state.tree.children.map(c => c.isDirectory);
+      const types = state.tree.children.map((c) => c.isDirectory);
       // directory first, file second
       expect(types).toEqual([true, false]);
     });
 
     it('identifies the hottest file in summary', () => {
-      model.rebuild([
-        makeRule({ trigger: 'glob', globs: ['hot/**'], bodyLength: 1000 }),
-      ]);
+      model.rebuild([makeRule({ trigger: 'glob', globs: ['hot/**'], bodyLength: 1000 })]);
       const state = model.buildTree(['hot/a.ts', 'cold/b.ts'], 128000, '');
       expect(state.summary.hottestFile?.path).toBe('hot/a.ts');
     });
 
     it('propagates max token cost to parent directories', () => {
-      model.rebuild([
-        makeRule({ trigger: 'glob', globs: ['src/**'], bodyLength: 700 }),
-      ]);
+      model.rebuild([makeRule({ trigger: 'glob', globs: ['src/**'], bodyLength: 700 })]);
       const state = model.buildTree(['src/a.ts', 'src/b.ts'], 128000, '');
-      const srcDir = state.tree.children.find(c => c.name === 'src');
+      const srcDir = state.tree.children.find((c) => c.name === 'src');
       expect(srcDir?.tokens).toBeGreaterThan(0);
     });
   });

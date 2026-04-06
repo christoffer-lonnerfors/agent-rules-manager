@@ -39,7 +39,7 @@ const TEXT_LIKE_EXTENSIONS = ['.md', '.mdc', '.mdx', '.txt', '.yaml', '.yml'];
 
 async function discoverDirectoryRules(
   rootUri: vscode.Uri,
-  config: FormatScanConfig
+  config: FormatScanConfig,
 ): Promise<DiscoveredFile[]> {
   const results: DiscoveredFile[] = [];
 
@@ -57,7 +57,7 @@ async function discoverDirectoryRules(
     }
 
     // Also discover text-like files with WRONG extensions (extension mismatch)
-    const mismatchExts = TEXT_LIKE_EXTENSIONS.filter(ext => !config.extensions.includes(ext));
+    const mismatchExts = TEXT_LIKE_EXTENSIONS.filter((ext) => !config.extensions.includes(ext));
     if (mismatchExts.length > 0) {
       const mismatchFiles = await findFilesRecursive(dirUri, mismatchExts);
       for (const filePath of mismatchFiles) {
@@ -76,7 +76,7 @@ async function discoverDirectoryRules(
 
 async function discoverStandaloneFiles(
   rootUri: vscode.Uri,
-  config: FormatScanConfig
+  config: FormatScanConfig,
 ): Promise<DiscoveredFile[]> {
   const results: DiscoveredFile[] = [];
 
@@ -96,7 +96,7 @@ async function discoverStandaloneFiles(
 
 async function discoverHierarchicalFiles(
   rootUri: vscode.Uri,
-  config: FormatScanConfig
+  config: FormatScanConfig,
 ): Promise<DiscoveredFile[]> {
   if (config.hierarchicalFiles.length === 0) {
     return [];
@@ -130,7 +130,7 @@ async function discoverHierarchicalFiles(
 export function toCaseInsensitiveGlob(fileName: string): string {
   return fileName
     .split('')
-    .map(ch => {
+    .map((ch) => {
       const lower = ch.toLowerCase();
       const upper = ch.toUpperCase();
       if (lower !== upper) {
@@ -142,16 +142,11 @@ export function toCaseInsensitiveGlob(fileName: string): string {
 }
 
 /** Recursively find files with given extensions under a directory */
-async function findFilesRecursive(
-  dirUri: vscode.Uri,
-  extensions: string[]
-): Promise<string[]> {
+async function findFilesRecursive(dirUri: vscode.Uri, extensions: string[]): Promise<string[]> {
   const results: string[] = [];
 
   // Build a glob pattern for vscode.workspace.findFiles
-  const extGlob = extensions.length === 1
-    ? `*${extensions[0]}`
-    : `*{${extensions.join(',')}}`;
+  const extGlob = extensions.length === 1 ? `*${extensions[0]}` : `*{${extensions.join(',')}}`;
   const pattern = new vscode.RelativePattern(dirUri, `**/${extGlob}`);
 
   const uris = await vscode.workspace.findFiles(pattern);
@@ -161,7 +156,6 @@ async function findFilesRecursive(
 
   return results;
 }
-
 
 async function fileExists(uri: vscode.Uri): Promise<boolean> {
   try {
@@ -177,10 +171,16 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
  * Returns a Map of absolute file path → CandidateFile for quick lookup during
  * reference resolution (Phase 3).
  */
-export async function discoverCandidates(workspaceRoot: string): Promise<Map<string, CandidateFile>> {
+export async function discoverCandidates(
+  workspaceRoot: string,
+): Promise<Map<string, CandidateFile>> {
   const cfg = vscode.workspace.getConfiguration('agentRules');
   const patterns: string[] = cfg.get('candidatePatterns', ['**/*.md', '**/*.mdc', '**/*.mdx']);
-  const excludes: string[] = cfg.get('candidateExclude', ['**/node_modules/**', '**/dist/**', '**/.git/**']);
+  const excludes: string[] = cfg.get('candidateExclude', [
+    '**/node_modules/**',
+    '**/dist/**',
+    '**/.git/**',
+  ]);
 
   const rootUri = vscode.Uri.file(workspaceRoot);
   const excludePattern = excludes.length > 0 ? `{${excludes.join(',')}}` : undefined;
@@ -193,7 +193,9 @@ export async function discoverCandidates(workspaceRoot: string): Promise<Map<str
 
     for (const uri of uris) {
       const filePath = uri.fsPath;
-      if (candidates.has(filePath)) { continue; }
+      if (candidates.has(filePath)) {
+        continue;
+      }
 
       try {
         const stat = await vscode.workspace.fs.stat(uri);
@@ -210,4 +212,3 @@ export async function discoverCandidates(workspaceRoot: string): Promise<Map<str
 
   return candidates;
 }
-

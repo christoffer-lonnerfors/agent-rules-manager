@@ -16,7 +16,9 @@ export function buildLogicalRules(rules: IndexedRule[]): LogicalRule[] {
   const parent = new Map<string, string>();
 
   function find(x: string): string {
-    if (!parent.has(x)) { parent.set(x, x); }
+    if (!parent.has(x)) {
+      parent.set(x, x);
+    }
     let root = x;
     while (parent.get(root) !== root) {
       root = parent.get(root)!;
@@ -42,12 +44,11 @@ export function buildLogicalRules(rules: IndexedRule[]): LogicalRule[] {
   for (let i = 0; i < rules.length; i++) {
     for (let j = i + 1; j < rules.length; j++) {
       // Only merge across different formats
-      if (rules[i].format === rules[j].format) { continue; }
+      if (rules[i].format === rules[j].format) {
+        continue;
+      }
 
-      const similarity = computeSimilarity(
-        rules[i].contentHash,
-        rules[j].contentHash
-      );
+      const similarity = computeSimilarity(rules[i].contentHash, rules[j].contentHash);
 
       if (similarity >= DUPLICATE_THRESHOLD) {
         union(rules[i].id, rules[j].id);
@@ -83,11 +84,10 @@ function createLogicalRule(rules: IndexedRule[]): LogicalRule {
   const primary = pickPrimaryRule(rules);
 
   // Collect unique formats, sorted
-  const formats = [...new Set(rules.map(r => r.format))].sort() as RuleFormat[];
+  const formats = [...new Set(rules.map((r) => r.format))].sort() as RuleFormat[];
 
   // Best description: prefer frontmatter description, then heading-derived
-  const description = primary.description
-    ?? primary.fileName.replace(/\.[^.]+$/, ''); // fallback to filename without extension
+  const description = primary.description ?? primary.fileName.replace(/\.[^.]+$/, ''); // fallback to filename without extension
 
   // Detect divergence using exact body hash (SHA-256).
   // If any two rules have different body hashes, the group has diverged.
@@ -96,7 +96,7 @@ function createLogicalRule(rules: IndexedRule[]): LogicalRule {
   if (rules.length > 1) {
     // Check exact divergence first
     const firstHash = rules[0].bodyHash;
-    const allIdentical = rules.every(r => r.bodyHash === firstHash);
+    const allIdentical = rules.every((r) => r.bodyHash === firstHash);
     if (!allIdentical) {
       // Compute approximate similarity for display purposes
       for (let i = 0; i < rules.length; i++) {
@@ -134,13 +134,13 @@ function createLogicalRule(rules: IndexedRule[]): LogicalRule {
 /** Pick the most informative rule as the primary representative */
 function pickPrimaryRule(rules: IndexedRule[]): IndexedRule {
   // Prefer rules with a description
-  const withDescription = rules.filter(r => r.description);
+  const withDescription = rules.filter((r) => r.description);
   if (withDescription.length > 0) {
     return withDescription[0];
   }
 
   // Prefer directory rules over standalone/hierarchical
-  const directoryRules = rules.filter(r => r.sourceType === 'directory_rule');
+  const directoryRules = rules.filter((r) => r.sourceType === 'directory_rule');
   if (directoryRules.length > 0) {
     return directoryRules[0];
   }
@@ -156,17 +156,16 @@ function pickPrimaryRule(rules: IndexedRule[]): IndexedRule {
  */
 function pickBestGlobs(rules: IndexedRule[]): string[] | undefined {
   // First: prefer directory rules with explicit globs
-  const dirWithGlobs = rules.filter(r => r.sourceType === 'directory_rule' && r.globs?.length);
+  const dirWithGlobs = rules.filter((r) => r.sourceType === 'directory_rule' && r.globs?.length);
   if (dirWithGlobs.length > 0) {
     return dirWithGlobs[0].globs;
   }
 
   // Then: any rule with globs (including implicit from hierarchical)
-  const anyWithGlobs = rules.filter(r => r.globs?.length);
+  const anyWithGlobs = rules.filter((r) => r.globs?.length);
   if (anyWithGlobs.length > 0) {
     return anyWithGlobs[0].globs;
   }
 
   return undefined;
 }
-

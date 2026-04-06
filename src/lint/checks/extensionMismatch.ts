@@ -5,7 +5,7 @@ import { LintCheck } from '../lintCheck';
 
 /** Lookup: format → expected extensions (derived from FORMAT_CONFIGS) */
 const FORMAT_EXTENSIONS = new Map<RuleFormat, string[]>(
-  FORMAT_CONFIGS.map(c => [c.format, c.extensions]),
+  FORMAT_CONFIGS.map((c) => [c.format, c.extensions]),
 );
 
 /**

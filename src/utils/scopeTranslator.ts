@@ -12,13 +12,17 @@ import * as path from 'path';
  *   ["*.ts"]                                  => ""
  */
 export function extractCommonDirectory(globs: string[]): string {
-  if (!globs || globs.length === 0) { return ''; }
+  if (!globs || globs.length === 0) {
+    return '';
+  }
 
   // Extract the directory prefix from each glob (everything before the first wildcard segment)
-  const prefixes = globs.map(g => extractDirectoryPrefix(g));
+  const prefixes = globs.map((g) => extractDirectoryPrefix(g));
 
   // Find the common prefix across all
-  if (prefixes.length === 1) { return prefixes[0]; }
+  if (prefixes.length === 1) {
+    return prefixes[0];
+  }
 
   const segments0 = prefixes[0].split('/').filter(Boolean);
   let commonLength = segments0.length;
@@ -68,7 +72,7 @@ function extractDirectoryPrefix(glob: string): string {
  */
 export function deriveGlobFromHierarchicalPath(
   filePath: string,
-  workspaceRoot: string
+  workspaceRoot: string,
 ): string | undefined {
   const dir = path.dirname(filePath);
   const relative = path.relative(workspaceRoot, dir).split(path.sep).join('/');

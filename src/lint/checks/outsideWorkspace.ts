@@ -15,10 +15,14 @@ export const outsideWorkspace: LintCheck = {
   run(lr) {
     const issues: RuleIssue[] = [];
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) { return []; }
+    if (!workspaceRoot) {
+      return [];
+    }
 
     for (const rule of lr.rules) {
-      if (rule.references.length === 0) { continue; }
+      if (rule.references.length === 0) {
+        continue;
+      }
       const ruleDir = path.dirname(rule.filePath);
 
       for (const ref of rule.references) {

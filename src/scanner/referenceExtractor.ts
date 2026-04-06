@@ -51,15 +51,25 @@ export function extractDiscoveryReferences(body: string): string[] {
 function addIfRelativePath(raw: string, refs: Set<string>): void {
   const trimmed = raw.trim();
   // Skip URLs
-  if (/^https?:\/\/|^ftp:\/\//i.test(trimmed)) { return; }
+  if (/^https?:\/\/|^ftp:\/\//i.test(trimmed)) {
+    return;
+  }
   // Skip anchors
-  if (trimmed.startsWith('#')) { return; }
+  if (trimmed.startsWith('#')) {
+    return;
+  }
   // Skip absolute paths
-  if (trimmed.startsWith('/')) { return; }
+  if (trimmed.startsWith('/')) {
+    return;
+  }
   // Must contain a dot (file extension) and a slash or start with ./ to look like a path
   // This avoids matching inline code like `const x = 1` or `package.json`
-  if (!trimmed.includes('/')) { return; }
-  if (!/\.[a-zA-Z0-9]+$/.test(trimmed)) { return; }
+  if (!trimmed.includes('/')) {
+    return;
+  }
+  if (!/\.[a-zA-Z0-9]+$/.test(trimmed)) {
+    return;
+  }
   // Strip leading ./ for consistency
   const cleaned = trimmed.replace(/^\.\//, '');
   refs.add(cleaned);
@@ -68,14 +78,22 @@ function addIfRelativePath(raw: string, refs: Set<string>): void {
 function addIfDiscoveryPath(raw: string, refs: Set<string>): void {
   const trimmed = raw.trim();
   // Skip URLs
-  if (/^https?:\/\/|^ftp:\/\//i.test(trimmed)) { return; }
+  if (/^https?:\/\/|^ftp:\/\//i.test(trimmed)) {
+    return;
+  }
   // Skip anchors
-  if (trimmed.startsWith('#')) { return; }
+  if (trimmed.startsWith('#')) {
+    return;
+  }
   // Skip absolute paths
-  if (trimmed.startsWith('/')) { return; }
+  if (trimmed.startsWith('/')) {
+    return;
+  }
   // Must end with a discovery-eligible extension
   const extMatch = trimmed.match(/(\.[a-zA-Z0-9]+)$/);
-  if (!extMatch || !DISCOVERY_EXTENSIONS.has(extMatch[1].toLowerCase())) { return; }
+  if (!extMatch || !DISCOVERY_EXTENSIONS.has(extMatch[1].toLowerCase())) {
+    return;
+  }
   // Strip leading ./ for consistency
   const cleaned = trimmed.replace(/^\.\//, '');
   refs.add(cleaned);

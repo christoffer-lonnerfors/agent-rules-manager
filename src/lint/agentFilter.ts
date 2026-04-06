@@ -21,13 +21,17 @@ export function filterIssuesForAgent(
   lr: LogicalRule,
   agentId: AgentId | '',
 ): RuleIssue[] {
-  if (!agentId) { return issues; }
+  if (!agentId) {
+    return issues;
+  }
 
   const readable = getReadableFormats(agentId as AgentId);
-  const agentRuleIds = new Set(lr.rules.filter(r => readable.includes(r.format)).map(r => r.id));
+  const agentRuleIds = new Set(
+    lr.rules.filter((r) => readable.includes(r.format)).map((r) => r.id),
+  );
   const hasAgentFiles = agentRuleIds.size > 0;
 
-  return issues.filter(issue => {
+  return issues.filter((issue) => {
     // File-level issue: keep only if the file belongs to an agent-readable format
     if (issue.ruleId) {
       return agentRuleIds.has(issue.ruleId);

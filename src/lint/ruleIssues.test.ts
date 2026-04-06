@@ -9,7 +9,12 @@ import {
 } from './ruleIssues';
 
 const warning: RuleIssue = { id: 'empty-body', severity: 'warning', message: 'empty' };
-const error: RuleIssue = { id: 'extension-mismatch', severity: 'error', message: 'mismatch', ruleId: 'r1' };
+const error: RuleIssue = {
+  id: 'extension-mismatch',
+  severity: 'error',
+  message: 'mismatch',
+  ruleId: 'r1',
+};
 const info: RuleIssue = { id: 'missing-description', severity: 'info', message: 'desc' };
 
 describe('hasIssue', () => {
@@ -69,8 +74,18 @@ describe('dedupeFileIssues', () => {
   });
 
   it('preserves issues with different messages under same id', () => {
-    const a: RuleIssue = { id: 'broken-reference', severity: 'warning', message: 'file A not found', ruleId: 'r1' };
-    const b: RuleIssue = { id: 'broken-reference', severity: 'warning', message: 'file B not found', ruleId: 'r1' };
+    const a: RuleIssue = {
+      id: 'broken-reference',
+      severity: 'warning',
+      message: 'file A not found',
+      ruleId: 'r1',
+    };
+    const b: RuleIssue = {
+      id: 'broken-reference',
+      severity: 'warning',
+      message: 'file B not found',
+      ruleId: 'r1',
+    };
     const result = dedupeFileIssues([a, b]);
     expect(result).toHaveLength(2);
   });

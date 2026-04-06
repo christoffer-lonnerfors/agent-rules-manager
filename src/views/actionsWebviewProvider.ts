@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
 import {
-  LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS,
-} from '../types';
-import {
-  AgentId, AGENT_CONFIGS,
-  getReadableFormats, getDefaultWriteFormat, getEffectiveWriteFormat,
+  AgentId,
+  AGENT_CONFIGS,
+  getReadableFormats,
+  getDefaultWriteFormat,
+  getEffectiveWriteFormat,
 } from '../agents/agentConfig';
 import { RuleIndex } from '../index/ruleIndex';
 import { computeIssues, LintConfig } from '../lint/lintEngine';
@@ -55,8 +56,6 @@ type WebviewMessage =
   | { type: 'createRule'; name: string; trigger: string; location: string }
   | { type: 'browseFolderForRule' };
 
-
-
 export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'agentRules.actionsView';
 
@@ -72,7 +71,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
         this.logicalRules = this.ruleIndex.getLogicalRules();
         this.postState();
       }),
-      vscode.workspace.onDidChangeConfiguration(e => {
+      vscode.workspace.onDidChangeConfiguration((e) => {
         if (
           e.affectsConfiguration('agentRules.agent') ||
           e.affectsConfiguration('agentRules.writeFormat') ||
@@ -97,11 +96,13 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async (msg: WebviewMessage) => {
       switch (msg.type) {
         case 'agentChanged':
-          vscode.workspace.getConfiguration('agentRules')
+          vscode.workspace
+            .getConfiguration('agentRules')
             .update('agent', msg.value, vscode.ConfigurationTarget.Workspace);
           break;
         case 'writeFormatChanged':
-          vscode.workspace.getConfiguration('agentRules')
+          vscode.workspace
+            .getConfiguration('agentRules')
             .update('writeFormat', msg.value, vscode.ConfigurationTarget.Workspace);
           break;
         case 'addRule':
@@ -145,7 +146,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
   /** Get logical rules not effectively readable by the agent (accounts for extensionMismatch) */
   getMissingRules(agent: AgentId): LogicalRule[] {
-    return this.logicalRules.filter(lr => !isEffectivelyCovered(lr, agent));
+    return this.logicalRules.filter((lr) => !isEffectivelyCovered(lr, agent));
   }
 
   /** Trigger the create-rule form from an external command (e.g. tree view + button) */
@@ -156,14 +157,19 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
   /** Get diverged logical rules */
   getDivergedRules(): LogicalRule[] {
-    const detectDivergence = vscode.workspace.getConfiguration('agentRules')
+    const detectDivergence = vscode.workspace
+      .getConfiguration('agentRules')
       .get<boolean>('detectDivergence', true);
-    if (!detectDivergence) { return []; }
-    return this.logicalRules.filter(lr => lr.rules.length > 1 && lr.minSimilarity < 1.0);
+    if (!detectDivergence) {
+      return [];
+    }
+    return this.logicalRules.filter((lr) => lr.rules.length > 1 && lr.minSimilarity < 1.0);
   }
 
   dispose(): void {
-    for (const d of this.disposables) { d.dispose(); }
+    for (const d of this.disposables) {
+      d.dispose();
+    }
   }
 
   // ── Private helpers ──────────────────────────────────────────────────
@@ -180,7 +186,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     const detectDivergence = cfg.get<boolean>('detectDivergence', true);
     const maxRuleTokens = cfg.get<number>('lint.maxRuleTokens', 2000);
 
-    const agents = AGENT_CONFIGS.map(a => ({ id: a.id, label: a.label }));
+    const agents = AGENT_CONFIGS.map((a) => ({ id: a.id, label: a.label }));
 
     let availableFormats: ActionsViewState['availableFormats'] = [];
     let writeFormat = '';
@@ -190,7 +196,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
       const defaultFmt = getDefaultWriteFormat(agent as AgentId);
       writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
 
-      availableFormats = readable.map(f => ({
+      availableFormats = readable.map((f) => ({
         id: f,
         label: FORMAT_LABELS[f],
         isDefault: f === defaultFmt,
@@ -199,9 +205,9 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
     const divergedCount = this.getDivergedRules().length;
     const missingCount = agent
-      ? this.logicalRules.filter(lr => !isEffectivelyCovered(lr, agent as AgentId)).length
+      ? this.logicalRules.filter((lr) => !isEffectivelyCovered(lr, agent as AgentId)).length
       : 0;
-    const multiFormatCount = this.logicalRules.filter(lr => lr.rules.length > 1).length;
+    const multiFormatCount = this.logicalRules.filter((lr) => lr.rules.length > 1).length;
 
     // Compute issues across all logical rules
     const issueConfig: LintConfig = { agent, lintEnabled, detectDivergence, maxRuleTokens };
@@ -212,9 +218,9 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
       allIssues.push(...filtered);
     }
 
-    const errors = allIssues.filter(i => i.severity === 'error');
-    const warnings = allIssues.filter(i => i.severity === 'warning');
-    const infos = allIssues.filter(i => i.severity === 'info');
+    const errors = allIssues.filter((i) => i.severity === 'error');
+    const warnings = allIssues.filter((i) => i.severity === 'warning');
+    const infos = allIssues.filter((i) => i.severity === 'info');
 
     return {
       agent,
@@ -227,15 +233,17 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
       missingCount,
       issueCounts: { errors: errors.length, warnings: warnings.length, infos: infos.length },
       issueMessages: {
-        errors: [...new Set(errors.map(i => i.message))],
-        warnings: [...new Set(warnings.map(i => i.message))],
-        infos: [...new Set(infos.map(i => i.message))],
+        errors: [...new Set(errors.map((i) => i.message))],
+        warnings: [...new Set(warnings.map((i) => i.message))],
+        infos: [...new Set(infos.map((i) => i.message))],
       },
     };
   }
 
   private async postState(): Promise<void> {
-    if (!this.view) { return; }
+    if (!this.view) {
+      return;
+    }
     const state = await this.computeState();
     this.view.webview.postMessage({ type: 'updateState', state });
   }
@@ -245,16 +253,22 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
    * Sends format metadata and workspace directories to the webview.
    */
   private showCreateForm(): void {
-    if (!this.view) { return; }
+    if (!this.view) {
+      return;
+    }
 
     const agent = this.getAgent();
-    if (!agent) { return; }
+    if (!agent) {
+      return;
+    }
 
     const cfg = vscode.workspace.getConfiguration('agentRules');
     const writeFormatOverride = cfg.get<string>('writeFormat', '') as RuleFormat | '';
     const writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
-    const formatConfig = FORMAT_CONFIGS.find(c => c.format === writeFormat);
-    if (!formatConfig) { return; }
+    const formatConfig = FORMAT_CONFIGS.find((c) => c.format === writeFormat);
+    if (!formatConfig) {
+      return;
+    }
 
     const isHierarchical = formatConfig.hierarchicalFiles.length > 0;
 
@@ -263,9 +277,8 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
       fixedLocation = formatConfig.directories[0] + '/';
     }
 
-    const fileExtension = (!isHierarchical && formatConfig.extensions.length > 0)
-      ? formatConfig.extensions[0]
-      : '';
+    const fileExtension =
+      !isHierarchical && formatConfig.extensions.length > 0 ? formatConfig.extensions[0] : '';
 
     const fixedFileName = isHierarchical ? formatConfig.hierarchicalFiles[0] : '';
 
@@ -285,10 +298,14 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
    * Opens a native folder dialog and sends the selected path back to the webview.
    */
   private async handleBrowseFolder(): Promise<void> {
-    if (!this.view) { return; }
+    if (!this.view) {
+      return;
+    }
 
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) { return; }
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      return;
+    }
 
     const result = await vscode.window.showOpenDialog({
       canSelectFolders: true,
@@ -316,21 +333,35 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   /**
    * Handle creation of a new rule file from the form inputs.
    */
-  private async handleCreateRule(name: string, trigger: RuleTrigger, location: string): Promise<void> {
+  private async handleCreateRule(
+    name: string,
+    trigger: RuleTrigger,
+    location: string,
+  ): Promise<void> {
     const agent = this.getAgent();
-    if (!agent) { return; }
+    if (!agent) {
+      return;
+    }
 
     const cfg = vscode.workspace.getConfiguration('agentRules');
     const writeFormatOverride = cfg.get<string>('writeFormat', '') as RuleFormat | '';
     const writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
-    const formatConfig = FORMAT_CONFIGS.find(c => c.format === writeFormat);
-    if (!formatConfig) { return; }
+    const formatConfig = FORMAT_CONFIGS.find((c) => c.format === writeFormat);
+    if (!formatConfig) {
+      return;
+    }
 
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) { return; }
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      return;
+    }
     const root = workspaceFolders[0].uri.fsPath;
 
-    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const slug = name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
     const isHierarchical = formatConfig.hierarchicalFiles.length > 0;
 
     const content = buildNewRuleContent(writeFormat, trigger, name.trim());
@@ -338,9 +369,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     let filePath: string;
 
     if (isHierarchical) {
-      const targetDir = (location === '/' || !location)
-        ? root
-        : path.join(root, location);
+      const targetDir = location === '/' || !location ? root : path.join(root, location);
       const fileName = formatConfig.hierarchicalFiles[0];
       filePath = path.join(targetDir, fileName);
 
@@ -371,7 +400,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtml(): string {
-    return /* html */`<!DOCTYPE html>
+    return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -936,5 +965,5 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
  */
 function isEffectivelyCovered(lr: LogicalRule, agentId: AgentId): boolean {
   const readable = getReadableFormats(agentId);
-  return lr.rules.some(r => readable.includes(r.format) && !r.extensionMismatch);
+  return lr.rules.some((r) => readable.includes(r.format) && !r.extensionMismatch);
 }

@@ -23,7 +23,9 @@ const CHARS_PER_TOKEN = 3.5;
  * Returns an integer ≥ 0.
  */
 export function estimateTokens(charCount: number): number {
-  if (charCount <= 0) { return 0; }
+  if (charCount <= 0) {
+    return 0;
+  }
   return Math.ceil(charCount / CHARS_PER_TOKEN);
 }
 
@@ -33,8 +35,10 @@ export function estimateTokens(charCount: number): number {
  * near-duplicates and we want the representative (worst-case) size.
  */
 export function estimateLogicalRuleTokens(rules: { bodyLength: number }[]): number {
-  if (rules.length === 0) { return 0; }
-  const maxBody = Math.max(...rules.map(r => r.bodyLength));
+  if (rules.length === 0) {
+    return 0;
+  }
+  const maxBody = Math.max(...rules.map((r) => r.bodyLength));
   return estimateTokens(maxBody);
 }
 
