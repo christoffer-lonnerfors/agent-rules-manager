@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LogicalRule } from '../types';
+import { LogicalRule } from '../logical/logicalRule';
 import { computeMinHash } from '../hashing/minHasher';
 import { LintConfig } from './lintCheck';
 import { ClassifiedFile } from '../scanner/classifiedFile';

@@ -1,5 +1,5 @@
 import { FormatDefinition } from '../formats/formatDefinition';
-import { RuleTrigger } from '../types';
+import { RuleTrigger } from '../formats/formatRegistry';
 import { deriveGlobFromHierarchicalPath } from '../utils/scopeTranslator';
 
 // ── Glob normalization ────────────────────────────────────────────────

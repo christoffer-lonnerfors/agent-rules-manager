@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { filterIssuesForAgent } from './agentFilter';
-import { LogicalRule } from '../types';
+import { LogicalRule } from '../logical/logicalRule';
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { RuleIssue } from './ruleIssues';
 import { computeMinHash } from '../hashing/minHasher';

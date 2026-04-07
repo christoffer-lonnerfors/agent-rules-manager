@@ -1,4 +1,4 @@
-import { FORMAT_LABELS } from '../../types';
+import { FORMAT_LABELS } from '../../formats/formatRegistry';
 import { FORMAT_DEFINITIONS } from '../../formats/formatRegistry';
 import { FileLintCheck } from '../lintCheck';
 import { FileDiagnostic } from '../../scanner/classifiedFile';

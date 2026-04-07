@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
+import { LogicalRule } from '../logical/logicalRule';
+import { RuleFormat, RuleTrigger, FORMAT_LABELS } from '../formats/formatRegistry';
 import {
   AgentId,
   AGENT_CONFIGS,

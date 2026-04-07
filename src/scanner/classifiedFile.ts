@@ -1,4 +1,4 @@
-import { RuleFormat, RuleTrigger } from '../formats';
+import { RuleFormat, RuleTrigger } from '../formats/formatRegistry';
 import { ExtractedLink } from '../formats/formatDefinition';
 
 // ── File-level diagnostic ────────────────────────────────────────────

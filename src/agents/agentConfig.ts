@@ -1,4 +1,4 @@
-import { RuleFormat } from '../types';
+import { RuleFormat } from '../formats/formatRegistry';
 
 // ── Agent concept ──────────────────────────────────────────────────────
 

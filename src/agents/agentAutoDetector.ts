@@ -1,5 +1,5 @@
 import { ClassifiedFile } from '../scanner/classifiedFile';
-import { RuleFormat } from '../types';
+import { RuleFormat } from '../formats/formatRegistry';
 import { AgentId } from './agentConfig';
 
 /**

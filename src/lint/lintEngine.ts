@@ -1,4 +1,4 @@
-import { LogicalRule } from '../types';
+import { LogicalRule } from '../logical/logicalRule';
 import { RuleIssue } from './ruleIssues';
 import { FileLintCheck, CrossFileLintCheck, LintConfig } from './lintCheck';
 import { ClassifiedFile, FileDiagnostic } from '../scanner/classifiedFile';

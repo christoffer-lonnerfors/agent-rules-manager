@@ -4,7 +4,8 @@ import { RuleStore } from './logical/ruleStore';
 import { ScannerService } from './scanner/scannerService';
 import { RuleTreeProvider, RuleIssueDecorationProvider } from './views/ruleTreeProvider';
 import { ActionsWebviewProvider } from './views/actionsWebviewProvider';
-import { LogicalRule, RuleFormat, FORMAT_LABELS } from './types';
+import { LogicalRule } from './logical/logicalRule';
+import { RuleFormat, FORMAT_LABELS } from './formats/formatRegistry';
 import {
   AgentId,
   AGENT_CONFIGS,

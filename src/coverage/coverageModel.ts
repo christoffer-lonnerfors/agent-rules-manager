@@ -1,6 +1,6 @@
 import { minimatch } from 'minimatch';
 import { ClassifiedFile } from '../scanner/classifiedFile';
-import { RuleFormat } from '../types';
+import { RuleFormat } from '../formats/formatRegistry';
 import { AgentId, getReadableFormats } from '../agents/agentConfig';
 import { estimateTokens } from '../utils/tokenEstimator';
 

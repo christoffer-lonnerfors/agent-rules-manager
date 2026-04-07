@@ -1,5 +1,5 @@
 import { ClassifiedFile } from '../scanner/classifiedFile';
-import { RuleFormat, RuleTrigger } from '../formats';
+import { RuleFormat, RuleTrigger } from '../formats/formatRegistry';
 
 /**
  * A logical rule that merges near-duplicate ClassifiedFiles across formats.

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
+import { LogicalRule } from '../logical/logicalRule';
+import { RuleFormat, RuleTrigger, FORMAT_LABELS } from '../formats/formatRegistry';
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { getFormatDefinition } from '../formats/formatRegistry';
 import { AgentId } from '../agents/agentConfig';
@@ -53,7 +54,7 @@ interface RuleFileNode {
 }
 
 // Re-export for backward compatibility
-export { FORMAT_LABELS } from '../types';
+export { FORMAT_LABELS } from '../formats/formatRegistry';
 
 const TRIGGER_LABELS: Record<RuleTrigger, string> = {
   always: 'Always Active',

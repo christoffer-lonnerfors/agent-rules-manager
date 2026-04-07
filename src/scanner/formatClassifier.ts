@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { FormatDefinition } from '../formats/formatDefinition';
 import { FORMAT_DEFINITIONS, getFormatDefinition } from '../formats/formatRegistry';
-import { RuleFormat } from '../formats';
+import { RuleFormat } from '../formats/formatRegistry';
 import { ClassifiedFile } from './classifiedFile';
 import { parseFrontmatter, extractFirstHeading } from './frontmatterParser';
 import { computeMinHash } from '../hashing/minHasher';

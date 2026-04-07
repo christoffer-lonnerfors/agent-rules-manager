@@ -1,4 +1,4 @@
-import { LogicalRule } from '../types';
+import { LogicalRule } from '../logical/logicalRule';
 import { AgentId, getReadableFormats } from '../agents/agentConfig';
 import { RuleIssue } from './ruleIssues';
 

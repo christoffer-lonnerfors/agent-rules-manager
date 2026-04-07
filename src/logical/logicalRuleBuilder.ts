@@ -1,6 +1,6 @@
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { LogicalRule } from './logicalRule';
-import { RuleFormat } from '../formats';
+import { RuleFormat } from '../formats/formatRegistry';
 import { computeSimilarity } from '../hashing/minHasher';
 
 /** Threshold for flagging as "near duplicate" */

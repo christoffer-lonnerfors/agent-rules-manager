@@ -1,4 +1,5 @@
-import { LogicalRule, RuleFormat } from '../types';
+import { LogicalRule } from '../logical/logicalRule';
+import { RuleFormat } from '../formats/formatRegistry';
 import { AgentId } from '../agents/agentConfig';
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { FileDiagnostic } from '../scanner/classifiedFile';

@@ -1,4 +1,5 @@
 import { FormatDefinition, AT_IMPORT, STANDARD_LINKS } from './formatDefinition';
+export type { RuleTrigger } from './formatDefinition';
 
 // ── Format definitions ───────────────────────────────────────────────
 
@@ -258,10 +259,15 @@ const _definitions = [
 ] satisfies FormatDefinition[];
 
 /** Union of all registered format IDs — derived from the registry, single source of truth */
-export type RegisteredFormat = (typeof _definitions)[number]['id'];
+export type RuleFormat = (typeof _definitions)[number]['id'];
 
 /** All format definitions, typed as FormatDefinition[] for general use */
 export const FORMAT_DEFINITIONS: FormatDefinition[] = _definitions;
+
+/** Human-readable labels for each format */
+export const FORMAT_LABELS = Object.fromEntries(
+  FORMAT_DEFINITIONS.map((d) => [d.id, d.label]),
+) as Record<RuleFormat, string>;
 
 /**
  * Look up a format definition by ID.
