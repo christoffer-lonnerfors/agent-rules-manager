@@ -37,22 +37,33 @@ export type FieldType = 'string' | 'boolean' | 'string[]';
 /**
  * Declares a known frontmatter field for a format.
  *
- * The classifier uses these to map raw frontmatter into classified
- * rule properties. Lint rules can use these to detect unsupported
- * or incorrectly-typed fields.
+ * Each field entry drives both directions of the format pipeline:
+ * - Read (classification): `valueMap` maps raw YAML values → normalized rule properties
+ * - Write (composition): `writeValueMap` maps normalized rule properties → raw YAML values
  */
 export interface FrontmatterFieldDef {
   /** Field name as it appears in YAML frontmatter (e.g. 'trigger', 'alwaysApply') */
   name: string;
-  /** Expected value type */
+  /** Expected value type — used for both validation (read) and serialization (write) */
   type: FieldType;
   /** Which classified rule property this field populates */
   mapsTo: FieldMapping;
   /**
-   * For trigger fields: maps raw string values to normalized triggers.
+   * Read direction: maps raw format-specific values to normalized triggers.
    * e.g. { 'always_on': 'always', 'model_decision': 'agent_requested' }
    */
   valueMap?: Record<string, RuleTrigger>;
+  /**
+   * Write direction: maps normalized trigger values to format-specific YAML values.
+   * Omit an entry to suppress the field for that trigger (e.g. cursor-rules omits
+   * alwaysApply entirely for agent_requested).
+   */
+  writeValueMap?: Partial<Record<RuleTrigger, string>>;
+  /**
+   * Only emit this field when the rule's trigger is one of these values.
+   * Omit to always emit the field (when a value is available).
+   */
+  emitWhen?: RuleTrigger[];
 }
 
 /**
@@ -143,6 +154,13 @@ export interface FormatDefinition {
    * from frontmatter fields.
    */
   isHierarchical: boolean;
+
+  /**
+   * For named-file formats: when the target file already exists, append
+   * the new content (separated by `---`) instead of warning and aborting.
+   * Defaults to false (warn on conflict).
+   */
+  appendOnConflict?: boolean;
 
   // ── Parsing (parser) ───────────────────────────────────────────────
 

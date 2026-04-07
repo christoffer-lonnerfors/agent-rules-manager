@@ -1,4 +1,4 @@
-import { FormatDefinition } from './formatDefinition';
+import { FormatDefinition } from '../formats/formatDefinition';
 import { RuleTrigger } from '../types';
 import { deriveGlobFromHierarchicalPath } from '../utils/scopeTranslator';
 

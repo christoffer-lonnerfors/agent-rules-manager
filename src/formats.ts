@@ -1,8 +1,8 @@
-export type { RuleTrigger } from './scanner/formatDefinition';
-export type { RegisteredFormat as RuleFormat } from './scanner/formatRegistry';
+export type { RuleTrigger } from './formats/formatDefinition';
+export type { RegisteredFormat as RuleFormat } from './formats/formatRegistry';
 
-import { FORMAT_DEFINITIONS } from './scanner/formatRegistry';
-import type { RegisteredFormat } from './scanner/formatRegistry';
+import { FORMAT_DEFINITIONS } from './formats/formatRegistry';
+import type { RegisteredFormat } from './formats/formatRegistry';
 
 /** Human-readable labels for each format (derived from format definitions) */
 export const FORMAT_LABELS = Object.fromEntries(

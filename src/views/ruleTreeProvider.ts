@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
 import { ClassifiedFile } from '../scanner/classifiedFile';
-import { getFormatDefinition } from '../scanner/formatRegistry';
+import { getFormatDefinition } from '../formats/formatRegistry';
 import { AgentId } from '../agents/agentConfig';
 import { RuleStore } from '../logical/ruleStore';
 import {

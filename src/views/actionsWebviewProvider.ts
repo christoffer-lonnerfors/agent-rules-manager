@@ -13,8 +13,8 @@ import { RuleStore } from '../logical/ruleStore';
 import { computeIssues, LintConfig } from '../lint/lintEngine';
 import { filterIssuesForAgent } from '../lint/agentFilter';
 import { RuleIssue } from '../lint/ruleIssues';
-import { FORMAT_DEFINITIONS } from '../scanner/formatRegistry';
-import { buildNewRuleContent } from '../actions/ruleScaffolder';
+import { FORMAT_DEFINITIONS } from '../formats/formatRegistry';
+import { createRuleFile } from '../actions/ruleWriter';
 
 /** State object sent to the webview for rendering */
 interface ActionsViewState {
@@ -339,62 +339,16 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     location: string,
   ): Promise<void> {
     const agent = this.getAgent();
-    if (!agent) {
-      return;
-    }
+    if (!agent) return;
 
     const cfg = vscode.workspace.getConfiguration('agentRules');
     const writeFormatOverride = cfg.get<string>('writeFormat', '') as RuleFormat | '';
     const writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
-    const formatDef2 = FORMAT_DEFINITIONS.find((d) => d.id === writeFormat);
-    if (!formatDef2) {
-      return;
-    }
 
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      return;
-    }
-    const root = workspaceFolders[0].uri.fsPath;
+    const filePath = createRuleFile(writeFormat, trigger, name.trim(), location);
+    if (!filePath) return;
 
-    const slug = name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    const isHierarchical2 = formatDef2.isHierarchical;
-
-    const content = buildNewRuleContent(writeFormat, trigger, name.trim());
-
-    let filePath: string;
-
-    if (isHierarchical2) {
-      const targetDir = location === '/' || !location ? root : path.join(root, location);
-      const fileName = formatDef2.validNames[0];
-      filePath = path.join(targetDir, fileName);
-
-      if (fs.existsSync(filePath)) {
-        // Append a new section to existing file
-        const existing = fs.readFileSync(filePath, 'utf-8');
-        const appendContent = existing.trimEnd() + '\n\n---\n\n' + content;
-        fs.writeFileSync(filePath, appendContent, 'utf-8');
-      } else {
-        fs.mkdirSync(targetDir, { recursive: true });
-        fs.writeFileSync(filePath, content, 'utf-8');
-      }
-    } else {
-      const dir = path.join(root, formatDef2.validPaths[0]);
-      const ext = formatDef2.validExtensions[0];
-      filePath = path.join(dir, slug + ext);
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(filePath, content, 'utf-8');
-    }
-
-    // Open the created file in the editor
-    const uri = vscode.Uri.file(filePath);
-    await vscode.window.showTextDocument(uri);
-
-    // Rescan and restore the normal view
+    await vscode.window.showTextDocument(vscode.Uri.file(filePath));
     vscode.commands.executeCommand('agentRules.rescan');
     this.postState();
   }

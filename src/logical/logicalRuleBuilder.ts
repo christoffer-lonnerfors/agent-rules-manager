@@ -151,9 +151,7 @@ function pickPrimaryRule(rules: ClassifiedFile[]): ClassifiedFile {
  */
 function pickBestGlobs(rules: ClassifiedFile[]): string[] | undefined {
   // First: prefer directory rules with explicit globs
-  const dirWithGlobs = rules.filter(
-    (r) => !r.isHierarchical && !r.isStandalone && r.globs?.length,
-  );
+  const dirWithGlobs = rules.filter((r) => !r.isHierarchical && !r.isStandalone && r.globs?.length);
   if (dirWithGlobs.length > 0) {
     return dirWithGlobs[0].globs;
   }

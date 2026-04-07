@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { FormatDefinition } from './formatDefinition';
-import { FORMAT_DEFINITIONS, getFormatDefinition } from './formatRegistry';
+import { FormatDefinition } from '../formats/formatDefinition';
+import { FORMAT_DEFINITIONS, getFormatDefinition } from '../formats/formatRegistry';
 import { RuleFormat } from '../formats';
 import { ClassifiedFile } from './classifiedFile';
 import { parseFrontmatter, extractFirstHeading } from './frontmatterParser';
@@ -32,7 +32,7 @@ export function matchFormat(
     // Check path match
     const pathMatch =
       def.validPaths.includes('**') ||
-      def.validPaths.includes('.') && dir === '.' ||
+      (def.validPaths.includes('.') && dir === '.') ||
       def.validPaths.some((p) => dir === p || dir.startsWith(p + '/'));
 
     if (!pathMatch) {
@@ -40,8 +40,7 @@ export function matchFormat(
     }
 
     // Check name match
-    const nameMatch =
-      def.validNames.includes('*') || def.validNames.includes(fileName);
+    const nameMatch = def.validNames.includes('*') || def.validNames.includes(fileName);
 
     if (!nameMatch) {
       continue;
@@ -49,8 +48,7 @@ export function matchFormat(
 
     // Check extension match (empty validExtensions means extensionless files like .cursorrules)
     const extMatch =
-      def.validExtensions.length === 0 ||
-      def.validExtensions.includes(fileExtension);
+      def.validExtensions.length === 0 || def.validExtensions.includes(fileExtension);
 
     if (!extMatch) {
       continue;
@@ -97,7 +95,11 @@ export function classify(
   }
 
   const { fields, body, rawYaml } = parseFrontmatter(content);
-  const { trigger, globs, description: fmDescription } = mapTrigger(def, fields, filePath, workspaceRoot);
+  const {
+    trigger,
+    globs,
+    description: fmDescription,
+  } = mapTrigger(def, fields, filePath, workspaceRoot);
   const description = fmDescription ?? extractFirstHeading(body);
   const contentHash = computeMinHash(body);
   const bodyHash = crypto.createHash('sha256').update(body).digest('hex');

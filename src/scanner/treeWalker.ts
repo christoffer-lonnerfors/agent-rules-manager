@@ -1,6 +1,6 @@
 import * as path from 'path';
-import { FormatDefinition } from './formatDefinition';
-import { FORMAT_DEFINITIONS } from './formatRegistry';
+import { FormatDefinition } from '../formats/formatDefinition';
+import { FORMAT_DEFINITIONS } from '../formats/formatRegistry';
 import { classify } from './formatClassifier';
 import { ClassifiedFile } from './classifiedFile';
 
@@ -129,10 +129,7 @@ export class TreeWalker {
   /**
    * Discover files matching a single format definition.
    */
-  private async discoverForFormat(
-    workspaceRoot: string,
-    def: FormatDefinition,
-  ): Promise<string[]> {
+  private async discoverForFormat(workspaceRoot: string, def: FormatDefinition): Promise<string[]> {
     if (def.isHierarchical) {
       return this.discoverHierarchical(workspaceRoot, def);
     } else if (def.validPaths.includes('.')) {
@@ -169,10 +166,7 @@ export class TreeWalker {
     return paths;
   }
 
-  private async discoverDirectory(
-    workspaceRoot: string,
-    def: FormatDefinition,
-  ): Promise<string[]> {
+  private async discoverDirectory(workspaceRoot: string, def: FormatDefinition): Promise<string[]> {
     const paths: string[] = [];
     for (const dir of def.validPaths) {
       const dirPath = path.join(workspaceRoot, dir);

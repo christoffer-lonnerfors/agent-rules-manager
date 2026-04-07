@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { extractLinks } from './linkExtractor';
-import { getFormatDefinition } from './formatRegistry';
+import { getFormatDefinition } from '../formats/formatRegistry';
 
 const claudeMd = getFormatDefinition('claude-md');
 const cursorRules = getFormatDefinition('cursor-rules');

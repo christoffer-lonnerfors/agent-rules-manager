@@ -13,10 +13,10 @@ import {
   getEffectiveWriteFormat,
 } from './agents/agentConfig';
 import { parseFrontmatter } from './scanner/frontmatterParser';
-import { FORMAT_DEFINITIONS } from './scanner/formatRegistry';
+import { FORMAT_DEFINITIONS } from './formats/formatRegistry';
 import { toCaseInsensitiveGlob } from './scanner/treeWalker';
 import { detectDominantAgent } from './agents/agentAutoDetector';
-import { scaffoldRuleFile } from './actions/ruleScaffolder';
+import { writeRuleFile } from './actions/ruleWriter';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
@@ -227,9 +227,15 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Only overwrite directory rules and cross-agent hierarchical files — other standalone/hierarchical files are read-only sources
       const allOthers = rules.filter((r) => r.id !== selected.rule.id);
-      const isWritable = (r: { isHierarchical: boolean; isStandalone: boolean; format: RuleFormat }) =>
+      const isWritable = (r: {
+        isHierarchical: boolean;
+        isStandalone: boolean;
+        format: RuleFormat;
+      }) =>
         r.format !== 'document' &&
-        (!r.isHierarchical && !r.isStandalone || r.format === 'agents-md' || r.format === 'claude-md');
+        ((!r.isHierarchical && !r.isStandalone) ||
+          r.format === 'agents-md' ||
+          r.format === 'claude-md');
       const targets = allOthers.filter(isWritable);
       const skipped = allOthers.filter((r) => !isWritable(r));
 
@@ -351,9 +357,15 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // Only count writable targets (directory rules + cross-agent hierarchical files)
-    const isSyncWritable = (r: { isHierarchical: boolean; isStandalone: boolean; format: RuleFormat }) =>
+    const isSyncWritable = (r: {
+      isHierarchical: boolean;
+      isStandalone: boolean;
+      format: RuleFormat;
+    }) =>
       r.format !== 'document' &&
-      (!r.isHierarchical && !r.isStandalone || r.format === 'agents-md' || r.format === 'claude-md');
+      ((!r.isHierarchical && !r.isStandalone) ||
+        r.format === 'agents-md' ||
+        r.format === 'claude-md');
     const totalTargets = syncable.reduce((sum, lr) => {
       const source = findSource(lr)!;
       return sum + lr.rules.filter((r) => r.id !== source.id && isSyncWritable(r)).length;
@@ -424,7 +436,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const created: string[] = [];
     for (const lr of missing) {
-      const filePath = scaffoldRuleFile(lr, writeFormat);
+      const filePath = writeRuleFile(lr, writeFormat);
       if (filePath) {
         created.push(filePath);
       }
@@ -456,7 +468,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const filePath = scaffoldRuleFile(logicalRule, writeFormat);
+      const filePath = writeRuleFile(logicalRule, writeFormat);
       if (filePath) {
         const uri = vscode.Uri.file(filePath);
         await vscode.window.showTextDocument(uri);

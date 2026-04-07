@@ -6,7 +6,11 @@ import { createHash } from 'crypto';
 
 /** Helper to build a minimal ClassifiedFile for testing */
 function makeRule(
-  overrides: Partial<ClassifiedFile> & { id: string; format: ClassifiedFile['format']; body: string },
+  overrides: Partial<ClassifiedFile> & {
+    id: string;
+    format: ClassifiedFile['format'];
+    body: string;
+  },
 ): ClassifiedFile {
   const { body, ...rest } = overrides;
   const bodyHash = createHash('sha256').update(body.trim()).digest('hex');

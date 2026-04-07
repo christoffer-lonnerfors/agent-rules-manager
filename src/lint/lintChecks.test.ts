@@ -152,7 +152,10 @@ describe('missingPrimary', () => {
   });
 
   it('warns when rule has no format readable by the agent', async () => {
-    const lr = makeLogicalRule({ formats: ['kiro'], rules: [makeClassifiedFile({ format: 'kiro' })] });
+    const lr = makeLogicalRule({
+      formats: ['kiro'],
+      rules: [makeClassifiedFile({ format: 'kiro' })],
+    });
     const issues = await missingPrimary.run(lr, { ...defaultConfig, agent: 'cursor' });
     expect(issues).toHaveLength(1);
     expect(issues[0].id).toBe('missing-primary');

@@ -1,4 +1,4 @@
-import { FormatDefinition, ExtractedLink } from './formatDefinition';
+import { FormatDefinition, ExtractedLink } from '../formats/formatDefinition';
 
 // ── Link target validation ────────────────────────────────────────────
 

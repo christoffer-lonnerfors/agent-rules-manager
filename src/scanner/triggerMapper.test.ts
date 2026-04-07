@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mapTrigger } from './triggerMapper';
-import { getFormatDefinition } from './formatRegistry';
+import { getFormatDefinition } from '../formats/formatRegistry';
 
 const WS = '/workspace';
 
@@ -164,7 +164,12 @@ describe('mapTrigger — glob normalization', () => {
   });
 
   it('array glob → filtered to strings', () => {
-    const result = mapTrigger(def, { globs: ['*.ts', 42, '*.tsx'] }, `${WS}/.cursor/rules/r.mdc`, WS);
+    const result = mapTrigger(
+      def,
+      { globs: ['*.ts', 42, '*.tsx'] },
+      `${WS}/.cursor/rules/r.mdc`,
+      WS,
+    );
     expect(result.globs).toEqual(['*.ts', '*.tsx']);
   });
 });
