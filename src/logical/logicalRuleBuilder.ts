@@ -1,12 +1,12 @@
 import { ClassifiedFile } from '../scanner/classifiedFile';
-import { LogicalRule, RuleFormat } from '../types';
+import { LogicalRule, RuleFormat } from './logicalRule';
 import { computeSimilarity } from '../hashing/minHasher';
 
 /** Threshold for flagging as "near duplicate" */
 const DUPLICATE_THRESHOLD = 0.9;
 
 /**
- * Groups IndexedRules into LogicalRules by merging near-duplicates
+ * Groups ClassifiedFiles into LogicalRules by merging near-duplicates
  * across different formats using MinHash similarity.
  *
  * Rules within the same format are never merged — only cross-format
@@ -24,6 +24,7 @@ export function buildLogicalRules(rules: ClassifiedFile[]): LogicalRule[] {
     while (parent.get(root) !== root) {
       root = parent.get(root)!;
     }
+    // Path compression
     let current = x;
     while (current !== root) {
       const next = parent.get(current)!;
@@ -67,68 +68,60 @@ export function buildLogicalRules(rules: ClassifiedFile[]): LogicalRule[] {
     groups.get(root)!.push(rule);
   }
 
-  // Convert groups to LogicalRules
-  const logicalRules: LogicalRule[] = [];
-  for (const groupRules of groups.values()) {
-    logicalRules.push(createLogicalRule(groupRules));
-  }
-
-  return logicalRules;
+  return Array.from(groups.values()).map(createLogicalRule);
 }
 
 /**
- * Create a LogicalRule from a group of IndexedRules.
+ * Create a LogicalRule from a group of ClassifiedFiles.
  * Picks the best description and merges format lists.
  */
 function createLogicalRule(rules: ClassifiedFile[]): LogicalRule {
-  // Pick the "primary" rule — prefer one with a description, then by format priority
   const primary = pickPrimaryRule(rules);
 
-  // Collect unique formats, sorted
+  // Stable ID: sorted join of constituent IDs, independent of which file is primary.
+  // Remains stable even if descriptions are added/changed across constituent files.
+  const id = rules
+    .map((r) => r.id)
+    .sort()
+    .join(':');
+
   const formats = [...new Set(rules.map((r) => r.format))].sort() as RuleFormat[];
 
-  // Best description: prefer frontmatter description, then heading-derived
-  const description = primary.description ?? primary.fileName.replace(/\.[^.]+$/, ''); // fallback to filename without extension
+  const description = primary.description ?? primary.fileName.replace(/\.[^.]+$/, '');
 
-  // Detect divergence using exact body hash (SHA-256).
-  // If any two rules have different body hashes, the group has diverged.
-  // MinHash similarity is still reported for the tooltip (approximate %).
-  let minSimilarity = 1.0;
-  if (rules.length > 1) {
-    // Check exact divergence first
-    const firstHash = rules[0].bodyHash;
-    const allIdentical = rules.every((r) => r.bodyHash === firstHash);
-    if (!allIdentical) {
-      // Compute approximate similarity for display purposes
-      for (let i = 0; i < rules.length; i++) {
-        for (let j = i + 1; j < rules.length; j++) {
-          const sim = computeSimilarity(rules[i].contentHash, rules[j].contentHash);
-          if (sim < minSimilarity) {
-            minSimilarity = sim;
-          }
+  // Divergence: authoritative exact-hash check
+  const isDiverged = rules.length > 1 && !rules.every((r) => r.bodyHash === rules[0].bodyHash);
+
+  // Approximate similarity for display — only computed when content has diverged.
+  // MinHash can return 1.0 even for non-identical content; cap at 0.99 so the
+  // percentage display never says "100% similar" for a rule we know has diverged.
+  let similarity = 1.0;
+  if (isDiverged) {
+    for (let i = 0; i < rules.length; i++) {
+      for (let j = i + 1; j < rules.length; j++) {
+        const sim = computeSimilarity(rules[i].contentHash, rules[j].contentHash);
+        if (sim < similarity) {
+          similarity = sim;
         }
       }
-      // Ensure we always flag divergence even if MinHash says 1.0
-      if (minSimilarity >= 1.0) {
-        minSimilarity = 0.99;
-      }
+    }
+    if (similarity >= 1.0) {
+      similarity = 0.99;
     }
   }
 
-  // Merge globs: prefer the most specific/explicit globs from any member.
-  // Directory rules with explicit frontmatter globs are more informative than
-  // implicit globs derived from hierarchical file placement.
   const bestGlobs = pickBestGlobs(rules);
   const trigger = bestGlobs ? 'glob' : primary.trigger;
 
   return {
-    id: primary.id,
+    id,
     description,
     trigger,
     globs: bestGlobs ?? primary.globs,
     formats,
     rules: rules.sort((a, b) => a.format.localeCompare(b.format)),
-    minSimilarity,
+    isDiverged,
+    similarity,
   };
 }
 

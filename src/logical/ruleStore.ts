@@ -1,14 +1,15 @@
 import * as vscode from 'vscode';
 import { ClassifiedFile, generateRuleId } from '../scanner/classifiedFile';
-import { LogicalRule } from '../types';
+import { LogicalRule } from './logicalRule';
 import { buildLogicalRules } from './logicalRuleBuilder';
 
 const STORAGE_KEY = 'agentRules.ruleIndex.v2';
 
 /**
- * In-memory rule index with persistence to workspaceState.
+ * In-memory store of ClassifiedFiles with persistence to workspaceState.
+ * Produces a derived logical-rule view by grouping near-duplicate files across formats.
  */
-export class RuleIndex {
+export class RuleStore {
   private rules = new Map<string, ClassifiedFile>();
   private logicalRulesCache: LogicalRule[] | null = null;
   private _onDidChange = new vscode.EventEmitter<void>();
@@ -16,7 +17,7 @@ export class RuleIndex {
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
-  /** Load persisted index from workspaceState */
+  /** Load persisted store from workspaceState */
   load(): void {
     const stored = this.context.workspaceState.get<ClassifiedFile[]>(STORAGE_KEY);
     this.rules.clear();
@@ -27,13 +28,13 @@ export class RuleIndex {
     }
   }
 
-  /** Persist current index to workspaceState */
+  /** Persist current store to workspaceState */
   async save(): Promise<void> {
     const allRules = Array.from(this.rules.values());
     await this.context.workspaceState.update(STORAGE_KEY, allRules);
   }
 
-  /** Replace the entire index with new rules (used on full scan) */
+  /** Replace the entire store with new rules (used on full scan) */
   async replaceAll(rules: ClassifiedFile[]): Promise<void> {
     this.rules.clear();
     for (const rule of rules) {
@@ -49,7 +50,7 @@ export class RuleIndex {
     return this.rules.get(id);
   }
 
-  /** Get all indexed rules */
+  /** Get all stored rules */
   getAll(): ClassifiedFile[] {
     return Array.from(this.rules.values());
   }
@@ -64,18 +65,18 @@ export class RuleIndex {
     return this.getAll().filter((r) => r.trigger === trigger);
   }
 
-  /** Number of indexed rules */
+  /** Number of stored rules */
   get size(): number {
     return this.rules.size;
   }
 
-  /** Whether the index has any rules */
+  /** Whether the store has any rules */
   get isEmpty(): boolean {
     return this.rules.size === 0;
   }
 
   /**
-   * Get logical rules (grouped from indexed rules via MinHash similarity).
+   * Get logical rules (grouped from stored rules via MinHash similarity).
    * Result is lazily computed and cached — invalidated on replaceAll() / clear().
    */
   getLogicalRules(): LogicalRule[] {
@@ -85,7 +86,7 @@ export class RuleIndex {
     return this.logicalRulesCache;
   }
 
-  /** Clear the index entirely */
+  /** Clear the store entirely */
   async clear(): Promise<void> {
     this.rules.clear();
     this.logicalRulesCache = null;

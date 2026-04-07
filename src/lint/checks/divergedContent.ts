@@ -16,11 +16,11 @@ export const divergedContent: CrossFileLintCheck = {
     if (lr.rules.length < 2) {
       return [];
     }
-    if (lr.minSimilarity >= 1.0) {
+    if (!lr.isDiverged) {
       return [];
     }
 
-    const pct = (lr.minSimilarity * 100).toFixed(0);
+    const pct = (lr.similarity * 100).toFixed(0);
     return [
       {
         id: 'diverged-content',

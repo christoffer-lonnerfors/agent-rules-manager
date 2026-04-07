@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { RuleIndex } from '../index/ruleIndex';
+import { RuleStore } from '../logical/ruleStore';
 import { TreeWalker } from './treeWalker';
 
 /**
@@ -15,7 +15,7 @@ export class ScannerService {
   private scanning = false;
   private readonly walker = new TreeWalker();
 
-  constructor(private readonly ruleIndex: RuleIndex) {}
+  constructor(private readonly ruleIndex: RuleStore) {}
 
   get isScanning(): boolean {
     return this.scanning;

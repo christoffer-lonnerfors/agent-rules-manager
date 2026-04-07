@@ -40,7 +40,8 @@ function makeLR(rules: ClassifiedFile[]): LogicalRule {
     globs: undefined,
     formats: [...new Set(rules.map((r) => r.format))],
     rules,
-    minSimilarity: 1.0,
+    isDiverged: false,
+    similarity: 1.0,
   };
 }
 

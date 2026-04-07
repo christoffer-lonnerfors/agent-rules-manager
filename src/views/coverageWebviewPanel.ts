@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { CoverageState, CoverageModel, CoverageTreeNode } from '../coverage/coverageModel';
-import { RuleIndex } from '../index/ruleIndex';
+import { RuleStore } from '../logical/ruleStore';
 import { AgentId, getAgentConfig } from '../agents/agentConfig';
 
 /** Messages sent from webview → extension */
@@ -16,7 +16,7 @@ export class CoverageWebviewPanel {
   private disposables: vscode.Disposable[] = [];
 
   private constructor(
-    private readonly ruleIndex: RuleIndex,
+    private readonly ruleIndex: RuleStore,
     private readonly extensionUri: vscode.Uri,
   ) {
     this.panel = vscode.window.createWebviewPanel(
@@ -50,7 +50,7 @@ export class CoverageWebviewPanel {
   }
 
   /** Open a new coverage report panel */
-  static show(ruleIndex: RuleIndex, extensionUri: vscode.Uri): void {
+  static show(ruleIndex: RuleStore, extensionUri: vscode.Uri): void {
     new CoverageWebviewPanel(ruleIndex, extensionUri);
   }
 

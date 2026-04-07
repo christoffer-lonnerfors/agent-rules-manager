@@ -218,7 +218,8 @@ export function buildNewRuleContent(
     globs: trigger === 'glob' ? ['**/*'] : undefined,
     formats: [format],
     rules: [],
-    minSimilarity: 1,
+    isDiverged: false,
+    similarity: 1,
   };
 
   const frontmatter = buildFrontmatter(format, syntheticRule);

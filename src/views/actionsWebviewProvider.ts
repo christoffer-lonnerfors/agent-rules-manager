@@ -9,7 +9,7 @@ import {
   getDefaultWriteFormat,
   getEffectiveWriteFormat,
 } from '../agents/agentConfig';
-import { RuleIndex } from '../index/ruleIndex';
+import { RuleStore } from '../logical/ruleStore';
 import { computeIssues, LintConfig } from '../lint/lintEngine';
 import { filterIssuesForAgent } from '../lint/agentFilter';
 import { RuleIssue } from '../lint/ruleIssues';
@@ -63,7 +63,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   private logicalRules: LogicalRule[] = [];
   private disposables: vscode.Disposable[] = [];
 
-  constructor(private readonly ruleIndex: RuleIndex) {
+  constructor(private readonly ruleIndex: RuleStore) {
     this.logicalRules = ruleIndex.getLogicalRules();
 
     this.disposables.push(
@@ -163,7 +163,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     if (!detectDivergence) {
       return [];
     }
-    return this.logicalRules.filter((lr) => lr.rules.length > 1 && lr.minSimilarity < 1.0);
+    return this.logicalRules.filter((lr) => lr.isDiverged);
   }
 
   dispose(): void {

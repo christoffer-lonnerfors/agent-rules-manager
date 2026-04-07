@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { RuleIndex } from './index/ruleIndex';
+import { RuleStore } from './logical/ruleStore';
 import { ScannerService } from './scanner/scannerService';
 import { RuleTreeProvider, RuleIssueDecorationProvider } from './views/ruleTreeProvider';
 import { ActionsWebviewProvider } from './views/actionsWebviewProvider';
@@ -24,7 +24,7 @@ const RULE_BODY_SCHEME = 'ai-rules-body';
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize core services
-  const ruleIndex = new RuleIndex(context);
+  const ruleIndex = new RuleStore(context);
   const scannerService = new ScannerService(ruleIndex);
   const treeProvider = new RuleTreeProvider(ruleIndex);
   treeProvider.setExtensionPath(context.extensionPath);
@@ -586,7 +586,7 @@ function createFileWatchers(scannerService: ScannerService): vscode.Disposable[]
  *   - No agent-specific rule files were found.
  *   - There is an exact tie between agents.
  */
-async function autoSelectAgentIfNeeded(ruleIndex: RuleIndex): Promise<void> {
+async function autoSelectAgentIfNeeded(ruleIndex: RuleStore): Promise<void> {
   const cfg = vscode.workspace.getConfiguration('agentRules');
   const currentAgent = cfg.get<string>('agent', '');
   if (currentAgent) {

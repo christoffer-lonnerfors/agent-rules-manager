@@ -4,7 +4,7 @@ import { LogicalRule, RuleFormat, RuleTrigger, FORMAT_LABELS } from '../types';
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { getFormatDefinition } from '../scanner/formatRegistry';
 import { AgentId } from '../agents/agentConfig';
-import { RuleIndex } from '../index/ruleIndex';
+import { RuleStore } from '../logical/ruleStore';
 import {
   RuleIssue,
   hasIssue,
@@ -88,7 +88,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   /** Current filter text (empty = no filter) */
   private filterText: string = '';
 
-  constructor(private readonly ruleIndex: RuleIndex) {
+  constructor(private readonly ruleIndex: RuleStore) {
     ruleIndex.onDidChange(() => {
       this.rebuildLogicalRules();
       this._onDidChangeTreeData.fire(undefined);

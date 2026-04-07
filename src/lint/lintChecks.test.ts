@@ -46,7 +46,8 @@ function makeLogicalRule(overrides: Partial<LogicalRule> = {}): LogicalRule {
     globs: undefined,
     formats: ['cursor-rules'],
     rules: [makeClassifiedFile()],
-    minSimilarity: 1.0,
+    isDiverged: false,
+    similarity: 1.0,
     ...overrides,
   };
 }
@@ -67,7 +68,8 @@ describe('divergedContent', () => {
   it('reports no issue when similarity is 1.0', () => {
     const lr = makeLogicalRule({
       rules: [makeClassifiedFile({ id: 'a' }), makeClassifiedFile({ id: 'b' })],
-      minSimilarity: 1.0,
+      isDiverged: false,
+      similarity: 1.0,
     });
     expect(divergedContent.run(lr, defaultConfig)).toEqual([]);
   });
@@ -75,7 +77,8 @@ describe('divergedContent', () => {
   it('reports divergence when similarity < 1.0', async () => {
     const lr = makeLogicalRule({
       rules: [makeClassifiedFile({ id: 'a' }), makeClassifiedFile({ id: 'b' })],
-      minSimilarity: 0.85,
+      isDiverged: true,
+      similarity: 0.85,
     });
     const issues = await divergedContent.run(lr, defaultConfig);
     expect(issues).toHaveLength(1);
@@ -84,7 +87,8 @@ describe('divergedContent', () => {
 
   it('respects detectDivergence=false config', () => {
     const lr = makeLogicalRule({
-      minSimilarity: 0.5,
+      isDiverged: true,
+      similarity: 0.5,
       rules: [makeClassifiedFile({ id: 'a' }), makeClassifiedFile({ id: 'b' })],
     });
     expect(divergedContent.run(lr, { ...defaultConfig, detectDivergence: false })).toEqual([]);
@@ -188,7 +192,8 @@ describe('ruleTooLarge', () => {
 describe('computeIssues (cross-file lintEngine)', () => {
   it('runs structural checks even when lintEnabled is false', async () => {
     const lr = makeLogicalRule({
-      minSimilarity: 0.5,
+      isDiverged: true,
+      similarity: 0.5,
       rules: [makeClassifiedFile({ id: 'a' }), makeClassifiedFile({ id: 'b' })],
     });
     const issues = await computeIssues(lr, { ...defaultConfig, lintEnabled: false });

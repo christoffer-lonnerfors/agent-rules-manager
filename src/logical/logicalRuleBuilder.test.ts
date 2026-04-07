@@ -93,11 +93,11 @@ describe('buildLogicalRules', () => {
     const logical = buildLogicalRules(rules);
     // They should merge (high similarity) but have divergence flagged
     if (logical.length === 1) {
-      expect(logical[0].minSimilarity).toBeLessThan(1.0);
+      expect(logical[0].isDiverged).toBe(true);
     }
   });
 
-  it('reports minSimilarity of 1.0 for identical content across formats', () => {
+  it('reports isDiverged false for identical content across formats', () => {
     const body = 'Exactly the same content in every format for testing purposes here';
     const rules = [
       makeRule({ id: 'r1', format: 'cursor-rules', body }),
@@ -105,7 +105,8 @@ describe('buildLogicalRules', () => {
     ];
     const logical = buildLogicalRules(rules);
     expect(logical).toHaveLength(1);
-    expect(logical[0].minSimilarity).toBe(1.0);
+    expect(logical[0].isDiverged).toBe(false);
+    expect(logical[0].similarity).toBe(1.0);
   });
 
   it('uses description from a rule that has one', () => {
@@ -140,5 +141,20 @@ describe('buildLogicalRules', () => {
     const logical = buildLogicalRules(rules);
     expect(logical).toHaveLength(1);
     expect(logical[0].formats).toEqual(['augment-rules', 'cursor-rules', 'windsurf-rules']);
+  });
+
+  it('produces a stable ID independent of which rule has a description', () => {
+    const body = 'Shared content for stable ID testing across cursor and windsurf formats here';
+    const r1 = makeRule({ id: 'r1', format: 'cursor-rules', body });
+    const r2 = makeRule({ id: 'r2', format: 'windsurf-rules', body });
+
+    // Without descriptions
+    const [withoutDesc] = buildLogicalRules([r1, r2]);
+    const idBefore = withoutDesc.id;
+
+    // Add a description to r1 — the primary changes, but the ID must not
+    const r1WithDesc = { ...r1, description: 'Now has a description' };
+    const [withDesc] = buildLogicalRules([r1WithDesc, r2]);
+    expect(withDesc.id).toBe(idBefore);
   });
 });
