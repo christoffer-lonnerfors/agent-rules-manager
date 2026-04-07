@@ -815,7 +815,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
   function render(s) {
     // Agent dropdown
-    agentSelect.innerHTML = '<option value="">Select an agent…</option>';
+    agentSelect.innerHTML = '<option value=""' + (s.agent ? ' disabled' : '') + '>Select an agent\u2026</option>';
     for (const a of s.agents) {
       const opt = document.createElement('option');
       opt.value = a.id;
