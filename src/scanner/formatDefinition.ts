@@ -68,6 +68,28 @@ export interface FormatDefaults {
   descriptionImpliesAgentRequested?: boolean;
 }
 
+// ── Shared link patterns ─────────────────────────────────────────────
+
+/** Markdown links: [text](./path/to/file.md) */
+export const MARKDOWN_LINK: LinkPattern = {
+  id: 'markdown-link',
+  regex: /\[[^\]]*\]\(([^)]+)\)/g,
+};
+
+/** Backtick-quoted paths: `some/path.ext` */
+export const BACKTICK_PATH: LinkPattern = {
+  id: 'backtick-path',
+  regex: /`([^`\n]+)`/g,
+};
+
+/** Claude Code @-import: @AGENTS.md or @./path/to/file.md */
+export const AT_IMPORT: LinkPattern = {
+  id: 'at-import',
+  regex: /(?:^|\n)\s*@([^\s@]+\.[a-zA-Z0-9]+)\s*(?:\n|$)/g,
+};
+
+export const STANDARD_LINKS: LinkPattern[] = [MARKDOWN_LINK, BACKTICK_PATH];
+
 // ── Format definition ────────────────────────────────────────────────
 
 /**

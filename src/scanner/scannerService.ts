@@ -1,10 +1,42 @@
 import * as vscode from 'vscode';
 import { RuleStore } from '../logical/ruleStore';
-import { TreeWalker } from './treeWalker';
+import { ScannerFileSystem, TreeWalker } from './treeWalker';
+
+// ── VS Code file system adapter ───────────────────────────────────────
+
+class VsCodeFileSystem implements ScannerFileSystem {
+  async readFile(filePath: string): Promise<{ content: string; size: number; mtime: Date }> {
+    const uri = vscode.Uri.file(filePath);
+    const stat = await vscode.workspace.fs.stat(uri);
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    return {
+      content: Buffer.from(bytes).toString('utf-8'),
+      size: stat.size,
+      mtime: new Date(stat.mtime),
+    };
+  }
+
+  async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async findFiles(baseDir: string, include: string, exclude?: string): Promise<string[]> {
+    const pattern = new vscode.RelativePattern(vscode.Uri.file(baseDir), include);
+    const uris = await vscode.workspace.findFiles(pattern, exclude);
+    return uris.map((u) => u.fsPath);
+  }
+}
+
+// ── Scanner service ───────────────────────────────────────────────────
 
 /**
  * Orchestrates workspace scanning using the tree-walking pipeline.
- * Discovers → classifies → follows references → converts to IndexedRule.
+ * Discovers → classifies → follows references → stores as ClassifiedFile[].
  */
 export class ScannerService {
   private _onScanStarted = new vscode.EventEmitter<void>();
@@ -13,7 +45,7 @@ export class ScannerService {
   readonly onScanCompleted = this._onScanCompleted.event;
 
   private scanning = false;
-  private readonly walker = new TreeWalker();
+  private readonly walker = new TreeWalker(new VsCodeFileSystem());
 
   constructor(private readonly ruleIndex: RuleStore) {}
 

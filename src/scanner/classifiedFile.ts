@@ -1,4 +1,3 @@
-import * as crypto from 'crypto';
 import { RuleFormat, RuleTrigger } from '../formats';
 import { ExtractedLink } from './formatDefinition';
 
@@ -16,13 +15,6 @@ export interface FileDiagnostic {
   severity: 'error' | 'warning' | 'info';
   /** Human-readable message */
   message: string;
-}
-
-// ── Identity helpers ─────────────────────────────────────────────────
-
-/** Generate a deterministic ID for a rule file based on its absolute path */
-export function generateRuleId(filePath: string): string {
-  return crypto.createHash('sha256').update(filePath).digest('hex').substring(0, 16);
 }
 
 // ── Classified file ──────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import {
 } from './agents/agentConfig';
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_DEFINITIONS } from './scanner/formatRegistry';
-import { toCaseInsensitiveGlob } from './scanner/fileDiscovery';
+import { toCaseInsensitiveGlob } from './scanner/treeWalker';
 import { detectDominantAgent } from './agents/agentAutoDetector';
 import { scaffoldRuleFile } from './actions/ruleScaffolder';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';

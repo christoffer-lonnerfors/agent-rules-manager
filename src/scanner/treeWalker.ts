@@ -1,13 +1,45 @@
-import * as vscode from 'vscode';
 import * as path from 'path';
 import { FormatDefinition } from './formatDefinition';
 import { FORMAT_DEFINITIONS } from './formatRegistry';
 import { classify } from './formatClassifier';
 import { ClassifiedFile } from './classifiedFile';
-import { toCaseInsensitiveGlob } from './fileDiscovery';
 
 /** Maximum depth for recursive reference resolution */
 const MAX_REFERENCE_DEPTH = 10;
+
+// ── File system abstraction ───────────────────────────────────────────
+
+/**
+ * Minimal file system interface required by TreeWalker.
+ * Inject a VS Code implementation in production; a stub in tests.
+ */
+export interface ScannerFileSystem {
+  /** Read a file, returning its text content and metadata. */
+  readFile(filePath: string): Promise<{ content: string; size: number; mtime: Date }>;
+  /** Return true if the file exists at the given absolute path. */
+  fileExists(filePath: string): Promise<boolean>;
+  /**
+   * Find files matching a glob pattern relative to a base directory.
+   * Returns absolute file paths.
+   */
+  findFiles(baseDir: string, include: string, exclude?: string): Promise<string[]>;
+}
+
+// ── Case-insensitive glob helper ──────────────────────────────────────
+
+/** Converts a filename to a case-insensitive glob, e.g. "AGENTS.md" → "[aA][gG]..." */
+export function toCaseInsensitiveGlob(fileName: string): string {
+  return fileName
+    .split('')
+    .map((ch) => {
+      const lower = ch.toLowerCase();
+      const upper = ch.toUpperCase();
+      return lower !== upper ? `[${lower}${upper}]` : ch;
+    })
+    .join('');
+}
+
+// ── Tree walker ───────────────────────────────────────────────────────
 
 /**
  * Tree-walking scanner that discovers, classifies, and follows references
@@ -19,23 +51,21 @@ const MAX_REFERENCE_DEPTH = 10;
  *   3. Resolve link targets against the filesystem
  *   4. Enqueue any unvisited targets for classification
  *   5. Repeat until no new files are discovered
- *
- * Returns ClassifiedFile[] which can be converted to IndexedRule[] for
- * downstream consumption.
  */
 export class TreeWalker {
+  constructor(private readonly fs: ScannerFileSystem) {}
+
   /**
    * Walk the workspace, discovering and classifying all rule files.
    */
   async walk(workspaceRoot: string): Promise<ClassifiedFile[]> {
-    const rootUri = vscode.Uri.file(workspaceRoot);
     const visited = new Set<string>();
     const classified: ClassifiedFile[] = [];
 
     // Step 1: Discover seed files from all format definitions
-    const seedPaths = await this.discoverSeeds(rootUri);
+    const seedPaths = await this.discoverSeeds(workspaceRoot);
 
-    // Step 2-5: BFS — classify each file and follow references
+    // Steps 2-5: BFS — classify each file and follow references
     const queue: Array<{ filePath: string; depth: number }> = seedPaths.map((p) => ({
       filePath: p,
       depth: 0,
@@ -68,7 +98,7 @@ export class TreeWalker {
         const fileDir = path.dirname(filePath);
         for (const link of result.links) {
           const resolved = path.resolve(fileDir, link.target);
-          if (!visited.has(resolved) && (await this.fileExists(resolved))) {
+          if (!visited.has(resolved) && (await this.fs.fileExists(resolved))) {
             queue.push({ filePath: resolved, depth: depth + 1 });
           }
         }
@@ -83,12 +113,12 @@ export class TreeWalker {
   /**
    * Discover seed file paths from all format definitions.
    */
-  private async discoverSeeds(rootUri: vscode.Uri): Promise<string[]> {
+  private async discoverSeeds(workspaceRoot: string): Promise<string[]> {
     const paths: string[] = [];
 
     for (const def of FORMAT_DEFINITIONS) {
       if (def.discoverable === false) continue;
-      const discovered = await this.discoverForFormat(rootUri, def);
+      const discovered = await this.discoverForFormat(workspaceRoot, def);
       paths.push(...discovered);
     }
 
@@ -100,66 +130,60 @@ export class TreeWalker {
    * Discover files matching a single format definition.
    */
   private async discoverForFormat(
-    rootUri: vscode.Uri,
+    workspaceRoot: string,
     def: FormatDefinition,
   ): Promise<string[]> {
     if (def.isHierarchical) {
-      return this.discoverHierarchical(rootUri, def);
+      return this.discoverHierarchical(workspaceRoot, def);
     } else if (def.validPaths.includes('.')) {
-      return this.discoverStandalone(rootUri, def);
+      return this.discoverStandalone(workspaceRoot, def);
     } else {
-      return this.discoverDirectory(rootUri, def);
+      return this.discoverDirectory(workspaceRoot, def);
     }
   }
 
   private async discoverHierarchical(
-    rootUri: vscode.Uri,
+    workspaceRoot: string,
     def: FormatDefinition,
   ): Promise<string[]> {
     const paths: string[] = [];
     for (const fileName of def.validNames) {
       const ciGlob = toCaseInsensitiveGlob(fileName);
-      const pattern = new vscode.RelativePattern(rootUri, `**/${ciGlob}`);
-      const uris = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
-      for (const uri of uris) {
-        paths.push(uri.fsPath);
-      }
+      const found = await this.fs.findFiles(workspaceRoot, `**/${ciGlob}`, '**/node_modules/**');
+      paths.push(...found);
     }
     return paths;
   }
 
   private async discoverStandalone(
-    rootUri: vscode.Uri,
+    workspaceRoot: string,
     def: FormatDefinition,
   ): Promise<string[]> {
     const paths: string[] = [];
     for (const fileName of def.validNames) {
-      const fileUri = vscode.Uri.joinPath(rootUri, fileName);
-      if (await this.fileExists(fileUri.fsPath)) {
-        paths.push(fileUri.fsPath);
+      const filePath = path.join(workspaceRoot, fileName);
+      if (await this.fs.fileExists(filePath)) {
+        paths.push(filePath);
       }
     }
     return paths;
   }
 
   private async discoverDirectory(
-    rootUri: vscode.Uri,
+    workspaceRoot: string,
     def: FormatDefinition,
   ): Promise<string[]> {
     const paths: string[] = [];
     for (const dir of def.validPaths) {
-      const dirUri = vscode.Uri.joinPath(rootUri, dir);
+      const dirPath = path.join(workspaceRoot, dir);
       const exts = def.validExtensions;
       if (exts.length === 0) {
         continue;
       }
       const extGlob = exts.length === 1 ? `*${exts[0]}` : `*{${exts.join(',')}}`;
-      const pattern = new vscode.RelativePattern(dirUri, `**/${extGlob}`);
       try {
-        const uris = await vscode.workspace.findFiles(pattern);
-        for (const uri of uris) {
-          paths.push(uri.fsPath);
-        }
+        const found = await this.fs.findFiles(dirPath, `**/${extGlob}`);
+        paths.push(...found);
       } catch {
         // Directory may not exist — skip
       }
@@ -174,21 +198,7 @@ export class TreeWalker {
     filePath: string,
     workspaceRoot: string,
   ): Promise<ClassifiedFile | undefined> {
-    const uri = vscode.Uri.file(filePath);
-    const stat = await vscode.workspace.fs.stat(uri);
-    const contentBytes = await vscode.workspace.fs.readFile(uri);
-    const content = Buffer.from(contentBytes).toString('utf-8');
-
-    return classify(filePath, content, stat.size, new Date(stat.mtime), workspaceRoot);
-  }
-
-  private async fileExists(filePath: string): Promise<boolean> {
-    try {
-      await vscode.workspace.fs.stat(vscode.Uri.file(filePath));
-      return true;
-    } catch {
-      return false;
-    }
+    const { content, size, mtime } = await this.fs.readFile(filePath);
+    return classify(filePath, content, size, mtime, workspaceRoot);
   }
 }
-

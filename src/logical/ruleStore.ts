@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { ClassifiedFile, generateRuleId } from '../scanner/classifiedFile';
+import { ClassifiedFile } from '../scanner/classifiedFile';
+import { generateRuleId } from '../scanner/formatClassifier';
 import { LogicalRule } from './logicalRule';
 import { buildLogicalRules } from './logicalRuleBuilder';
 
@@ -100,4 +101,4 @@ export class RuleStore {
 }
 
 // Re-export for callers that imported generateRuleId from here
-export { generateRuleId } from '../scanner/classifiedFile';
+export { generateRuleId } from '../scanner/formatClassifier';

@@ -1,26 +1,4 @@
-import { FormatDefinition, LinkPattern } from './formatDefinition';
-
-// ── Shared link patterns ─────────────────────────────────────────────
-
-/** Markdown links: [text](./path/to/file.md) */
-const MARKDOWN_LINK: LinkPattern = {
-  id: 'markdown-link',
-  regex: /\[[^\]]*\]\(([^)]+)\)/g,
-};
-
-/** Backtick-quoted paths: `some/path.ext` */
-const BACKTICK_PATH: LinkPattern = {
-  id: 'backtick-path',
-  regex: /`([^`\n]+)`/g,
-};
-
-/** Claude Code @-import: @AGENTS.md or @./path/to/file.md */
-const AT_IMPORT: LinkPattern = {
-  id: 'at-import',
-  regex: /(?:^|\n)\s*@([^\s@]+\.[a-zA-Z0-9]+)\s*(?:\n|$)/g,
-};
-
-const STANDARD_LINKS: LinkPattern[] = [MARKDOWN_LINK, BACKTICK_PATH];
+import { FormatDefinition, AT_IMPORT, STANDARD_LINKS } from './formatDefinition';
 
 // ── Format definitions ───────────────────────────────────────────────
 
