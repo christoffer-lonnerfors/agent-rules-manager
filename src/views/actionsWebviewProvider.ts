@@ -417,6 +417,11 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     text-align: center;
   }
   .btn-primary:hover { background: var(--vscode-button-hoverBackground); }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-primary:disabled:hover { background: var(--vscode-button-background); }
 
   /* Secondary button (Show Coverage) — outline / ghost style */
   .btn-secondary {
@@ -433,6 +438,13 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     text-align: center;
   }
   .btn-secondary:hover { background: color-mix(in srgb, var(--vscode-button-background) 12%, transparent); }
+  .btn-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: var(--vscode-disabledForeground, rgba(128,128,128,0.5));
+    color: var(--vscode-disabledForeground, rgba(128,128,128,0.5));
+  }
+  .btn-secondary:disabled:hover { background: transparent; }
 
   /* Contextual banners */
   .banner {
@@ -587,21 +599,20 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     </select>
   </div>
 
-  <div id="formatSection" class="section" style="display:none">
+  <div class="section">
     <div class="section-label" title="The format used when creating or syncing rule files.">Target Format</div>
     <select id="formatSelect" title="Choose the format to write rule files in"></select>
   </div>
 
-  <div id="addRuleSection" class="section" style="display:none">
+  <div class="section">
     <button class="btn-primary" id="addRuleBtn" title="Create a new rule file in the target format">+ Add Rule</button>
-    <button class="btn-secondary" id="showCoverageBtn" title="Analyse token cost of rules across workspace files" style="margin-top:6px">Generate Coverage Report</button>
+  </div>
+
+  <div class="section">
+    <button class="btn-secondary" id="showCoverageBtn" title="Analyse token cost of rules across workspace files">Generate Coverage Report</button>
   </div>
 
   <div id="bannersSection"></div>
-
-  <div id="emptySection" class="empty-state" style="display:none">
-    Select an agent to enable rule creation and coverage checks.
-  </div>
 
   <hr class="divider">
   <div id="footer" class="footer"></div>
@@ -654,12 +665,9 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   // ── Main view elements ──
   const mainView = document.getElementById('mainView');
   const agentSelect = document.getElementById('agentSelect');
-  const formatSection = document.getElementById('formatSection');
   const formatSelect = document.getElementById('formatSelect');
-  const addRuleSection = document.getElementById('addRuleSection');
   const addRuleBtn = document.getElementById('addRuleBtn');
   const bannersSection = document.getElementById('bannersSection');
-  const emptySection = document.getElementById('emptySection');
   const footer = document.getElementById('footer');
 
   // ── Create form elements ──
@@ -818,10 +826,10 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
     const hasAgent = !!s.agent;
 
-    // Format dropdown
+    // Format dropdown — always visible, placeholder + disabled when no agent
+    formatSelect.innerHTML = '';
     if (hasAgent) {
-      formatSection.style.display = '';
-      formatSelect.innerHTML = '';
+      formatSelect.disabled = false;
       for (const f of s.availableFormats) {
         const opt = document.createElement('option');
         opt.value = f.id;
@@ -830,11 +838,25 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
         formatSelect.appendChild(opt);
       }
     } else {
-      formatSection.style.display = 'none';
+      formatSelect.disabled = true;
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Select an agent first…';
+      formatSelect.appendChild(placeholder);
     }
 
-    // Add Rule button
-    addRuleSection.style.display = hasAgent ? '' : 'none';
+    // Add Rule button — always visible, disabled until an agent is selected
+    addRuleBtn.disabled = !hasAgent;
+    addRuleBtn.title = hasAgent
+      ? 'Create a new rule file in the target format'
+      : 'Select an agent to add a rule';
+
+    // Coverage button — always visible, disabled until an agent is selected
+    const showCoverageBtn = document.getElementById('showCoverageBtn');
+    showCoverageBtn.disabled = !hasAgent;
+    showCoverageBtn.title = hasAgent
+      ? 'Analyse token cost of rules across workspace files'
+      : 'Select an agent to generate a coverage report';
 
     // Contextual banners (only shown when there's work to do)
     bannersSection.innerHTML = '';
@@ -857,9 +879,6 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
         );
       }
     }
-
-    // Empty state
-    emptySection.style.display = hasAgent ? 'none' : '';
 
     // Footer
     if (s.totalRules > 0) {
