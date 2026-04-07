@@ -1,4 +1,7 @@
-import { RuleFormat, RuleTrigger } from '../formats';
+// ── Trigger ──────────────────────────────────────────────────────────
+
+/** Normalized activation trigger for a rule file */
+export type RuleTrigger = 'always' | 'glob' | 'agent_requested' | 'manual';
 
 // ── Link patterns ────────────────────────────────────────────────────
 
@@ -76,13 +79,21 @@ export interface FormatDefaults {
  */
 export interface FormatDefinition {
   /** Format identifier */
-  id: RuleFormat;
+  id: string;
 
   /** Human-readable label (for UI display) */
   label: string;
 
   /** Icon file stem (without extension) used to load resources/icons/{light,dark}/<icon>.svg */
   icon: string;
+
+  /**
+   * Whether this format participates in initial seed discovery.
+   * When false, files are only classified into this format when followed via
+   * a reference link from another rule — never as discovery entry points.
+   * Defaults to true.
+   */
+  discoverable?: boolean;
 
   // ── File matching (lexer) ──────────────────────────────────────────
 

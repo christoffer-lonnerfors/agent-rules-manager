@@ -240,8 +240,15 @@ describe('classify — links', () => {
 // ── classify: no match ───────────────────────────────────────────────
 
 describe('classify — no match', () => {
-    it('returns undefined for unrecognized files', () => {
-        expect(classify(`${WS}/README.md`, '# Readme content here', 100, NOW, WS)).toBeUndefined();
+    it('returns undefined for non-.md unrecognized files', () => {
+        expect(classify(`${WS}/config.json`, '{}', 10, NOW, WS)).toBeUndefined();
+    });
+
+    it('classifies unrecognized .md files as document format', () => {
+        const result = classify(`${WS}/README.md`, '# Readme content here', 100, NOW, WS);
+        expect(result).toBeDefined();
+        expect(result!.format).toBe('document');
+        expect(result!.trigger).toBe('always');
     });
 });
 

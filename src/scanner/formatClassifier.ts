@@ -2,7 +2,8 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { RuleTrigger } from '../types';
 import { FormatDefinition, ExtractedLink } from './formatDefinition';
-import { FORMAT_DEFINITIONS } from './formatRegistry';
+import { FORMAT_DEFINITIONS, getFormatDefinition } from './formatRegistry';
+import { RuleFormat } from '../formats';
 import { ClassifiedFile, generateRuleId } from './classifiedFile';
 import { parseFrontmatter, extractFirstHeading } from './frontmatterParser';
 import { computeMinHash } from '../hashing/minHasher';
@@ -215,9 +216,14 @@ export function classify(
   const fileName = path.basename(filePath);
   const fileExtension = path.extname(filePath);
 
-  const def = matchFormat(relativePath, fileName, fileExtension);
+  let def = matchFormat(relativePath, fileName, fileExtension);
   if (!def) {
-    return undefined;
+    const documentDef = getFormatDefinition('document');
+    if (documentDef.validExtensions.includes(fileExtension)) {
+      def = documentDef;
+    } else {
+      return undefined;
+    }
   }
 
   const { fields, body, rawYaml } = parseFrontmatter(content);
@@ -236,7 +242,7 @@ export function classify(
     relativePath,
     fileName,
     fileExtension,
-    format: def.id,
+    format: def.id as RuleFormat,
     isHierarchical: def.isHierarchical,
     isStandalone: def.validPaths.includes('.'),
     body,

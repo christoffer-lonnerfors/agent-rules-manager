@@ -87,6 +87,7 @@ export class TreeWalker {
     const paths: string[] = [];
 
     for (const def of FORMAT_DEFINITIONS) {
+      if (def.discoverable === false) continue;
       const discovered = await this.discoverForFormat(rootUri, def);
       paths.push(...discovered);
     }

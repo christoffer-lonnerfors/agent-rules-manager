@@ -24,10 +24,10 @@ const STANDARD_LINKS: LinkPattern[] = [MARKDOWN_LINK, BACKTICK_PATH];
 
 // ── Format definitions ───────────────────────────────────────────────
 
-export const FORMAT_DEFINITIONS: FormatDefinition[] = [
+const _definitions = [
   // ── Cursor ──
   {
-    id: 'cursor-rules',
+    id: 'cursor-rules' as const,
     label: 'Cursor Rules',
     icon: 'cursor',
     validPaths: ['.cursor/rules'],
@@ -43,7 +43,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
     linkPatterns: STANDARD_LINKS,
   },
   {
-    id: 'cursorrules',
+    id: 'cursorrules' as const,
     label: '.cursorrules',
     icon: 'cursor',
     validPaths: ['.'],
@@ -56,7 +56,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
   },
   // ── Windsurf ──
   {
-    id: 'windsurf-rules',
+    id: 'windsurf-rules' as const,
     label: 'Windsurf Rules',
     icon: 'windsurf',
     validPaths: ['.windsurf/rules'],
@@ -72,7 +72,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
     linkPatterns: STANDARD_LINKS,
   },
   {
-    id: 'windsurfrules',
+    id: 'windsurfrules' as const,
     label: '.windsurfrules',
     icon: 'windsurf',
     validPaths: ['.'],
@@ -85,7 +85,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
   },
   // ── Kiro ──
   {
-    id: 'kiro',
+    id: 'kiro' as const,
     label: 'Kiro',
     icon: 'kiro',
     validPaths: ['.kiro/steering', '.kiro/specs'],
@@ -102,7 +102,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
   },
   // ── Antigravity ──
   {
-    id: 'antigravity',
+    id: 'antigravity' as const,
     label: 'Antigravity',
     icon: 'antigravity',
     validPaths: ['.agents/rules', '.agent/rules'],
@@ -119,7 +119,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
   },
   // ── Augment ──
   {
-    id: 'augment-rules',
+    id: 'augment-rules' as const,
     label: 'Augment Rules',
     icon: 'augment',
     validPaths: ['.augment/rules'],
@@ -134,7 +134,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
     linkPatterns: STANDARD_LINKS,
   },
   {
-    id: 'augment-guidelines',
+    id: 'augment-guidelines' as const,
     label: '.augment-guidelines',
     icon: 'augment',
     validPaths: ['.'],
@@ -147,7 +147,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
   },
   // ── Claude Code ──
   {
-    id: 'claude-rules',
+    id: 'claude-rules' as const,
     label: 'Claude Code Rules',
     icon: 'claude-code',
     validPaths: ['.claude/rules'],
@@ -161,7 +161,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
     linkPatterns: STANDARD_LINKS,
   },
   {
-    id: 'claude-local',
+    id: 'claude-local' as const,
     label: 'CLAUDE.local.md',
     icon: 'claude-code',
     validPaths: ['.'],
@@ -174,7 +174,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
   },
   // ── CLAUDE.md (cross-agent hierarchical) ──
   {
-    id: 'claude-md',
+    id: 'claude-md' as const,
     label: 'CLAUDE.md',
     icon: 'claude-code',
     validPaths: ['**'],
@@ -187,7 +187,7 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
   },
   // ── AGENTS.md (cross-agent hierarchical) ──
   {
-    id: 'agents-md',
+    id: 'agents-md' as const,
     label: 'AGENTS.md',
     icon: 'agents-md',
     validPaths: ['**'],
@@ -198,7 +198,27 @@ export const FORMAT_DEFINITIONS: FormatDefinition[] = [
     defaults: { trigger: 'always' },
     linkPatterns: STANDARD_LINKS,
   },
-];
+  // ── Document (promoted via reference, never discovered) ──
+  {
+    id: 'document' as const,
+    label: 'Document',
+    icon: 'document',
+    discoverable: false,
+    validPaths: [],
+    validNames: [],
+    validExtensions: ['.md'],
+    isHierarchical: false,
+    frontmatterFields: [],
+    defaults: { trigger: 'always' },
+    linkPatterns: STANDARD_LINKS,
+  },
+] satisfies FormatDefinition[];
+
+/** Union of all registered format IDs — derived from the registry, single source of truth */
+export type RegisteredFormat = (typeof _definitions)[number]['id'];
+
+/** All format definitions, typed as FormatDefinition[] for general use */
+export const FORMAT_DEFINITIONS: FormatDefinition[] = _definitions;
 
 /**
  * Look up a format definition by ID.
