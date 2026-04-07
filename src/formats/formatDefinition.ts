@@ -162,6 +162,19 @@ export interface FormatDefinition {
    */
   appendOnConflict?: boolean;
 
+  /**
+   * Whether rules can be written to this format.
+   * Defaults to true. Set to false for legacy formats that are read for
+   * backward compatibility but should never be written to.
+   */
+  writable?: boolean;
+
+  /**
+   * URL of the official documentation for this format.
+   * Used for help links in the UI.
+   */
+  docsUrl?: string;
+
   // ── Parsing (parser) ───────────────────────────────────────────────
 
   /** Frontmatter fields supported by this format and how they map to classified rule properties */

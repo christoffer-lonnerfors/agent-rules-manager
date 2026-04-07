@@ -3,6 +3,7 @@ import {
   AgentId,
   getAgentDefinition,
   getReadableFormats,
+  getWritableFormats,
   getDefaultWriteFormat,
   getEffectiveWriteFormat,
   isRuleCoveredByAgent,
@@ -20,14 +21,25 @@ describe('getAgentDefinition', () => {
 });
 
 describe('getReadableFormats', () => {
-  it('includes primary formats', () => {
+  it('includes the primary format', () => {
     const formats = getReadableFormats('cursor');
     expect(formats).toContain('cursor-rules');
+  });
+
+  it('includes legacy formats', () => {
+    const formats = getReadableFormats('cursor');
     expect(formats).toContain('cursorrules');
   });
 
   it('includes supported cross-agent formats', () => {
     const formats = getReadableFormats('cursor');
+    expect(formats).toContain('agents-md');
+  });
+
+  it('windsurf reads its own formats and agents-md', () => {
+    const formats = getReadableFormats('windsurf');
+    expect(formats).toContain('windsurf-rules');
+    expect(formats).toContain('windsurfrules');
     expect(formats).toContain('agents-md');
   });
 
@@ -38,10 +50,24 @@ describe('getReadableFormats', () => {
     expect(formats).toContain('claude-md');
     expect(formats).toContain('agents-md');
   });
+});
 
-  it('windsurf only reads its own formats', () => {
-    const formats = getReadableFormats('windsurf');
-    expect(formats).toEqual(['windsurf-rules', 'windsurfrules']);
+describe('getWritableFormats', () => {
+  it('excludes legacy formats', () => {
+    expect(getWritableFormats('cursor')).not.toContain('cursorrules');
+    expect(getWritableFormats('windsurf')).not.toContain('windsurfrules');
+    expect(getWritableFormats('augment')).not.toContain('augment-guidelines');
+  });
+
+  it('includes the primary format', () => {
+    expect(getWritableFormats('cursor')).toContain('cursor-rules');
+    expect(getWritableFormats('windsurf')).toContain('windsurf-rules');
+  });
+
+  it('includes agents-md as a writable cross-agent format', () => {
+    expect(getWritableFormats('cursor')).toContain('agents-md');
+    expect(getWritableFormats('windsurf')).toContain('agents-md');
+    expect(getWritableFormats('claude-code')).toContain('agents-md');
   });
 });
 
@@ -54,14 +80,16 @@ describe('getDefaultWriteFormat', () => {
 });
 
 describe('getEffectiveWriteFormat', () => {
-  it('uses the override when it is readable by the agent', () => {
-    // claude-code can read agents-md
+  it('uses the override when it is writable by the agent', () => {
     expect(getEffectiveWriteFormat('claude-code', 'agents-md')).toBe('agents-md');
   });
 
   it('falls back to default when override is not readable', () => {
-    // windsurf cannot read cursor format
     expect(getEffectiveWriteFormat('windsurf', 'cursor-rules')).toBe('windsurf-rules');
+  });
+
+  it('falls back to default when override is a legacy (non-writable) format', () => {
+    expect(getEffectiveWriteFormat('cursor', 'cursorrules')).toBe('cursor-rules');
   });
 
   it('falls back to default when override is empty', () => {
@@ -75,7 +103,6 @@ describe('isRuleCoveredByAgent', () => {
   });
 
   it('returns true for cross-agent format coverage', () => {
-    // Cursor reads agents-md
     expect(isRuleCoveredByAgent(['agents-md'], 'cursor')).toBe(true);
   });
 

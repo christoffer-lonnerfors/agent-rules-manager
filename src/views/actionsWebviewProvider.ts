@@ -7,6 +7,7 @@ import {
   AgentId,
   AGENT_DEFINITIONS,
   getReadableFormats,
+  getWritableFormats,
   getDefaultWriteFormat,
   getEffectiveWriteFormat,
 } from '../agents/agentRegistry';
@@ -193,11 +194,11 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     let writeFormat = '';
 
     if (agent) {
-      const readable = getReadableFormats(agent as AgentId);
+      const writable = getWritableFormats(agent as AgentId);
       const defaultFmt = getDefaultWriteFormat(agent as AgentId);
       writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
 
-      availableFormats = readable.map((f) => ({
+      availableFormats = writable.map((f) => ({
         id: f,
         label: FORMAT_LABELS[f],
         isDefault: f === defaultFmt,

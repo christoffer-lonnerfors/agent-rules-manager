@@ -8,8 +8,8 @@ export interface AgentDefinition {
   id: string;
   /** Human-readable label (used in UI) */
   label: string;
-  /** Agent-specific format(s) where new rules are written by default */
-  primaryFormats: RuleFormat[];
-  /** Cross-agent formats this agent also reads at runtime */
+  /** The agent's native format — the default write target */
+  primaryFormat: RuleFormat;
+  /** Additional formats this agent reads: legacy backward-compat and cross-agent */
   supportedFormats: RuleFormat[];
 }
