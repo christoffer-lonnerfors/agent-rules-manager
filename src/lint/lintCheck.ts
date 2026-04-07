@@ -1,6 +1,6 @@
 import { LogicalRule } from '../logical/logicalRule';
 import { RuleFormat } from '../formats/formatRegistry';
-import { AgentId } from '../agents/agentConfig';
+import { AgentId } from '../agents/agentRegistry';
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { FileDiagnostic } from '../scanner/classifiedFile';
 import { RuleIssue } from './ruleIssues';

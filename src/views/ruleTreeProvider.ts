@@ -4,7 +4,7 @@ import { LogicalRule } from '../logical/logicalRule';
 import { RuleFormat, RuleTrigger, FORMAT_LABELS } from '../formats/formatRegistry';
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { getFormatDefinition } from '../formats/formatRegistry';
-import { AgentId } from '../agents/agentConfig';
+import { AgentId } from '../agents/agentRegistry';
 import { RuleStore } from '../logical/ruleStore';
 import {
   RuleIssue,

@@ -1,18 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import {
-  getAgentConfig,
+  AgentId,
+  getAgentDefinition,
   getReadableFormats,
   getDefaultWriteFormat,
   getEffectiveWriteFormat,
   isRuleCoveredByAgent,
-  AGENT_CONFIGS,
-} from './agentConfig';
+  AGENT_DEFINITIONS,
+} from './agentRegistry';
 
-describe('getAgentConfig', () => {
-  it('returns config for each known agent', () => {
-    for (const config of AGENT_CONFIGS) {
-      const result = getAgentConfig(config.id);
-      expect(result.id).toBe(config.id);
+describe('getAgentDefinition', () => {
+  it('returns definition for each known agent', () => {
+    for (const def of AGENT_DEFINITIONS) {
+      const result = getAgentDefinition(def.id as AgentId);
+      expect(result.id).toBe(def.id);
       expect(result.label).toBeTruthy();
     }
   });

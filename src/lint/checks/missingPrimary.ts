@@ -1,4 +1,4 @@
-import { AgentId, getAgentConfig, getReadableFormats } from '../../agents/agentConfig';
+import { AgentId, getAgentDefinition, getReadableFormats } from '../../agents/agentRegistry';
 import { CrossFileLintCheck } from '../lintCheck';
 
 /**
@@ -24,7 +24,7 @@ export const missingPrimary: CrossFileLintCheck = {
       return [];
     }
 
-    const label = getAgentConfig(config.agent as AgentId).label;
+    const label = getAgentDefinition(config.agent as AgentId).label;
     return [
       {
         id: 'missing-primary',

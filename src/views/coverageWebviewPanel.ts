@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { CoverageState, CoverageModel, CoverageTreeNode } from '../coverage/coverageModel';
 import { RuleStore } from '../logical/ruleStore';
-import { AgentId, getAgentConfig } from '../agents/agentConfig';
+import { AgentId, getAgentDefinition } from '../agents/agentRegistry';
 
 /** Messages sent from webview → extension */
 type CoverageWebviewMessage = { type: 'openRule'; filePath: string };
@@ -62,7 +62,7 @@ export class CoverageWebviewPanel {
     const agentId = cfg.get<string>('agent', '') as AgentId | '';
     const contextWindowTokens = cfg.get<number>('coverage.contextWindowTokens', 128000);
 
-    const agentLabel = agentId ? getAgentConfig(agentId as AgentId).label : '(all agents)';
+    const agentLabel = agentId ? getAgentDefinition(agentId as AgentId).label : '(all agents)';
 
     // Build model
     const model = new CoverageModel();

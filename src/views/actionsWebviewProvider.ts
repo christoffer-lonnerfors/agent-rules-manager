@@ -5,11 +5,11 @@ import { LogicalRule } from '../logical/logicalRule';
 import { RuleFormat, RuleTrigger, FORMAT_LABELS } from '../formats/formatRegistry';
 import {
   AgentId,
-  AGENT_CONFIGS,
+  AGENT_DEFINITIONS,
   getReadableFormats,
   getDefaultWriteFormat,
   getEffectiveWriteFormat,
-} from '../agents/agentConfig';
+} from '../agents/agentRegistry';
 import { RuleStore } from '../logical/ruleStore';
 import { computeIssues, LintConfig } from '../lint/lintEngine';
 import { filterIssuesForAgent } from '../lint/agentFilter';
@@ -187,7 +187,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     const detectDivergence = cfg.get<boolean>('detectDivergence', true);
     const maxRuleTokens = cfg.get<number>('lint.maxRuleTokens', 2000);
 
-    const agents = AGENT_CONFIGS.map((a) => ({ id: a.id, label: a.label }));
+    const agents = AGENT_DEFINITIONS.map((a) => ({ id: a.id, label: a.label }));
 
     let availableFormats: ActionsViewState['availableFormats'] = [];
     let writeFormat = '';

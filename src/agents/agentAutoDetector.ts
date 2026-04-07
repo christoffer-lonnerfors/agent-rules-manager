@@ -1,6 +1,6 @@
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { RuleFormat } from '../formats/formatRegistry';
-import { AgentId } from './agentConfig';
+import { AgentId } from './agentRegistry';
 
 /**
  * Maps an agent-specific rule format to its owning agent.

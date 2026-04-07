@@ -1,7 +1,7 @@
 import { minimatch } from 'minimatch';
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { RuleFormat } from '../formats/formatRegistry';
-import { AgentId, getReadableFormats } from '../agents/agentConfig';
+import { AgentId, getReadableFormats } from '../agents/agentRegistry';
 import { estimateTokens } from '../utils/tokenEstimator';
 
 /** Coverage data for a single file */

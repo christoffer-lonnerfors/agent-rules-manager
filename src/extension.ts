@@ -8,11 +8,11 @@ import { LogicalRule } from './logical/logicalRule';
 import { RuleFormat, FORMAT_LABELS } from './formats/formatRegistry';
 import {
   AgentId,
-  AGENT_CONFIGS,
-  getAgentConfig,
+  AGENT_DEFINITIONS,
+  getAgentDefinition,
   getReadableFormats,
   getEffectiveWriteFormat,
-} from './agents/agentConfig';
+} from './agents/agentRegistry';
 import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_DEFINITIONS } from './formats/formatRegistry';
 import { toCaseInsensitiveGlob } from './scanner/treeWalker';
@@ -304,7 +304,7 @@ export function activate(context: vscode.ExtensionContext) {
   const setAgentCmd = vscode.commands.registerCommand('agentRules.setAgent', async () => {
     const items = [
       { label: '(none)', description: 'No agent selected', value: '' },
-      ...AGENT_CONFIGS.map((a) => ({
+      ...AGENT_DEFINITIONS.map((a) => ({
         label: a.label,
         description:
           a.supportedFormats.length > 0
@@ -352,7 +352,7 @@ export function activate(context: vscode.ExtensionContext) {
     const syncable = diverged.filter((lr) => findSource(lr) !== undefined);
     if (syncable.length === 0) {
       vscode.window.showWarningMessage(
-        `No diverged rules have a version readable by ${getAgentConfig(agentId as AgentId).label} to sync from.`,
+        `No diverged rules have a version readable by ${getAgentDefinition(agentId as AgentId).label} to sync from.`,
       );
       return;
     }
@@ -379,7 +379,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     const sourceLabel =
-      FORMAT_LABELS[writeFormat as RuleFormat] || getAgentConfig(agentId as AgentId).label;
+      FORMAT_LABELS[writeFormat as RuleFormat] || getAgentDefinition(agentId as AgentId).label;
     const confirm = await vscode.window.showWarningMessage(
       `Align ${syncable.length} diverged rule${syncable.length > 1 ? 's' : ''} — overwrite ${totalTargets} file${totalTargets > 1 ? 's' : ''} to match their ${sourceLabel} versions? Frontmatter will be preserved.`,
       { modal: true },
@@ -421,7 +421,7 @@ export function activate(context: vscode.ExtensionContext) {
     const missing = actionsProvider.getMissingRules(agentId as AgentId);
     if (missing.length === 0) {
       vscode.window.showInformationMessage(
-        `Full coverage — all rules are readable by ${getAgentConfig(agentId as AgentId).label}.`,
+        `Full coverage — all rules are readable by ${getAgentDefinition(agentId as AgentId).label}.`,
       );
       return;
     }

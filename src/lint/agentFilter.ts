@@ -1,5 +1,5 @@
 import { LogicalRule } from '../logical/logicalRule';
-import { AgentId, getReadableFormats } from '../agents/agentConfig';
+import { AgentId, getReadableFormats } from '../agents/agentRegistry';
 import { RuleIssue } from './ruleIssues';
 
 /**
