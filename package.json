@@ -138,6 +138,12 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "agentRules.rulesView",
+        "contents": "No rules found in this workspace.\nSelect your favorite agent and [create a rule](command:agentRules.addRule)."
+      }
+    ],
     "menus": {
       "view/title": [
         {
