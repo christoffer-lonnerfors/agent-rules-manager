@@ -569,6 +569,12 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       const icon = issue.severity === 'error' ? '🔴' : issue.severity === 'warning' ? '⚠️' : 'ℹ️';
       tooltipLines.push(`${icon} ${issue.message}`);
     }
+    const referencedBy = this.ruleIndex.getReferencedBy(rule.id);
+    if (referencedBy.length > 0) {
+      tooltipLines.push(
+        `Referenced by: ${referencedBy.map((r) => vscode.workspace.asRelativePath(r.filePath, false)).join(', ')}`,
+      );
+    }
     item.tooltip = new vscode.MarkdownString(tooltipLines.join('\n\n'));
 
     item.command = {
@@ -606,15 +612,20 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     item.contextValue = 'ruleFile';
     const relativePath = vscode.workspace.asRelativePath(rule.filePath, false);
     const fileTokens = estimateTokens(rule.bodyLength);
-    item.tooltip = new vscode.MarkdownString(
-      [
-        `**${rule.fileName}**`,
-        `Format: ${FORMAT_LABELS[rule.format]}`,
-        `Path: ${relativePath}`,
-        `Size: ${rule.fileSize} bytes | ${formatTokenCount(fileTokens)}`,
-        `Modified: ${rule.lastModified}`,
-      ].join('\n\n'),
-    );
+    const fileTreeTooltipLines = [
+      `**${rule.fileName}**`,
+      `Format: ${FORMAT_LABELS[rule.format]}`,
+      `Path: ${relativePath}`,
+      `Size: ${rule.fileSize} bytes | ${formatTokenCount(fileTokens)}`,
+      `Modified: ${rule.lastModified}`,
+    ];
+    const fileTreeReferencedBy = this.ruleIndex.getReferencedBy(rule.id);
+    if (fileTreeReferencedBy.length > 0) {
+      fileTreeTooltipLines.push(
+        `Referenced by: ${fileTreeReferencedBy.map((r) => vscode.workspace.asRelativePath(r.filePath, false)).join(', ')}`,
+      );
+    }
+    item.tooltip = new vscode.MarkdownString(fileTreeTooltipLines.join('\n\n'));
     return item;
   }
 
