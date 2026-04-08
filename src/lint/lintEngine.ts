@@ -5,7 +5,6 @@ import { ClassifiedFile, FileDiagnostic } from '../scanner/classifiedFile';
 
 // ── Built-in file-level checks ──────────────────────────────────────
 
-import { extensionMismatch } from './checks/extensionMismatch';
 import { emptyBody } from './checks/emptyBody';
 import { missingDescription } from './checks/missingDescription';
 import { ruleTooLarge } from './checks/ruleTooLarge';
@@ -19,8 +18,6 @@ import { missingPrimary } from './checks/missingPrimary';
 
 /** All registered file-level lint checks */
 const FILE_CHECKS: FileLintCheck[] = [
-  // Structural (always run)
-  extensionMismatch,
   // Lint (gated by config.lintEnabled)
   emptyBody,
   missingDescription,

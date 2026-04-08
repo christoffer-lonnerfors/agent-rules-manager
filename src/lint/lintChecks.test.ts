@@ -7,7 +7,6 @@ import { divergedContent } from './checks/divergedContent';
 import { emptyBody } from './checks/emptyBody';
 import { missingDescription } from './checks/missingDescription';
 import { missingPrimary } from './checks/missingPrimary';
-import { extensionMismatch } from './checks/extensionMismatch';
 import { ruleTooLarge } from './checks/ruleTooLarge';
 import { computeIssues, computeFileDiagnostics } from './lintEngine';
 
@@ -162,20 +161,6 @@ describe('missingPrimary', () => {
   });
 });
 
-describe('extensionMismatch', () => {
-  it('warns when file has wrong extension for its format', async () => {
-    const file = makeClassifiedFile({ format: 'cursor-rules', fileExtension: '.txt' });
-    const issues = await extensionMismatch.run(file, defaultConfig);
-    expect(issues).toHaveLength(1);
-    expect(issues[0].id).toBe('extension-mismatch');
-    expect(issues[0].severity).toBe('error');
-  });
-
-  it('does not warn for correct extensions', () => {
-    const file = makeClassifiedFile({ format: 'cursor-rules', fileExtension: '.mdc' });
-    expect(extensionMismatch.run(file, defaultConfig)).toEqual([]);
-  });
-});
 
 describe('ruleTooLarge', () => {
   it('warns when estimated tokens exceed threshold', async () => {
@@ -217,9 +202,4 @@ describe('computeFileDiagnostics (file-level lintEngine)', () => {
     expect(diags.some((d) => d.id === 'empty-body')).toBe(true);
   });
 
-  it('runs structural checks even when lintEnabled is false', async () => {
-    const file = makeClassifiedFile({ format: 'cursor-rules', fileExtension: '.txt' });
-    const diags = await computeFileDiagnostics(file, { ...defaultConfig, lintEnabled: false });
-    expect(diags.some((d) => d.id === 'extension-mismatch')).toBe(true);
-  });
 });
