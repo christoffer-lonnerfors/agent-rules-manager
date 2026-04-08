@@ -84,7 +84,7 @@ const TRIGGER_LABELS: Record<RuleTrigger, string> = {
 };
 
 const TRIGGER_ICONS: Record<RuleTrigger, string> = {
-  always: 'circle-filled',
+  always: 'globe',
   glob: 'file-code',
   agent_requested: 'robot',
   manual: 'account',
