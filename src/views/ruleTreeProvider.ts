@@ -24,7 +24,14 @@ import {
 /** Custom URI scheme used to attach FileDecorations to tree items with issues */
 const ISSUE_SCHEME = 'ai-rules-issue';
 
-type TreeElement = FilterBannerNode | TriggerGroupNode | LogicalRuleNode | RuleFileNode;
+type ViewMode = 'logical' | 'fileTree';
+
+type TreeElement =
+  | FilterBannerNode
+  | TriggerGroupNode
+  | LogicalRuleNode
+  | RuleFileNode
+  | DirectoryNode;
 
 interface FilterBannerNode {
   type: 'filterBanner';
@@ -51,6 +58,19 @@ interface RuleFileNode {
   rule: ClassifiedFile;
   /** Issues specific to this file (pre-filtered from the logical rule's issues) */
   issues: RuleIssue[];
+}
+
+interface DirectoryNode {
+  type: 'directory';
+  name: string;
+  absolutePath: string;
+}
+
+/** Internal node for building the virtual file system tree */
+interface FsNode {
+  subdirs: Map<string, FsNode>;
+  files: ClassifiedFile[];
+  absolutePath: string;
 }
 
 // Re-export for backward compatibility
@@ -89,7 +109,18 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   /** Current filter text (empty = no filter) */
   private filterText: string = '';
 
+  /** Whether to show rules by logical category or by file system structure */
+  private viewMode: ViewMode = 'logical';
+
+  /** Root node of the virtual file system tree (for fileTree mode) */
+  private fsRootNode: FsNode | null = null;
+  /** Map from absolute directory path to FsNode for O(1) child lookup */
+  private fsNodeByPath = new Map<string, FsNode>();
+
   constructor(private readonly ruleIndex: RuleStore) {
+    // Set initial context key so menu when-conditions work from the start
+    vscode.commands.executeCommand('setContext', 'agentRules.viewMode', this.viewMode);
+
     ruleIndex.onDidChange(() => {
       this.rebuildLogicalRules();
       this._onDidChangeTreeData.fire(undefined);
@@ -108,6 +139,19 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
         this.issueDecoProvider?.fire();
       }
     });
+  }
+
+  getViewMode(): ViewMode {
+    return this.viewMode;
+  }
+
+  setViewMode(mode: ViewMode): void {
+    if (this.viewMode === mode) {
+      return;
+    }
+    this.viewMode = mode;
+    vscode.commands.executeCommand('setContext', 'agentRules.viewMode', mode);
+    this._onDidChangeTreeData.fire(undefined);
   }
 
   /** Link the decoration provider so it can be refreshed when issues change */
@@ -177,6 +221,34 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private rebuildLogicalRules(): void {
     this.logicalRules = this.ruleIndex.getLogicalRules();
     this.issueConfig = this.readIssueConfig();
+    this.rebuildFsTree();
+  }
+
+  private rebuildFsTree(): void {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+    const rootNode: FsNode = { subdirs: new Map(), files: [], absolutePath: workspaceRoot };
+    const nodeByPath = new Map<string, FsNode>([[workspaceRoot, rootNode]]);
+
+    for (const file of this.ruleIndex.getAll()) {
+      const relPath = path.relative(workspaceRoot, file.filePath);
+      const parts = relPath.split(/[/\\]/);
+
+      let node = rootNode;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const segment = parts[i];
+        if (!node.subdirs.has(segment)) {
+          const childPath = path.join(node.absolutePath, segment);
+          const child: FsNode = { subdirs: new Map(), files: [], absolutePath: childPath };
+          node.subdirs.set(segment, child);
+          nodeByPath.set(childPath, child);
+        }
+        node = node.subdirs.get(segment)!;
+      }
+      node.files.push(file);
+    }
+
+    this.fsRootNode = rootNode;
+    this.fsNodeByPath = nodeByPath;
   }
 
   getTreeItem(element: TreeElement): vscode.TreeItem {
@@ -188,11 +260,30 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       case 'logical':
         return this.createLogicalRuleItem(element);
       case 'file':
-        return this.createFileItem(element);
+        return this.viewMode === 'fileTree'
+          ? this.createFileTreeFileItem(element)
+          : this.createFileItem(element);
+      case 'directory':
+        return this.createDirectoryItem(element);
     }
   }
 
   getChildren(element?: TreeElement): TreeElement[] | Promise<TreeElement[]> {
+    if (this.viewMode === 'fileTree') {
+      if (!element) {
+        const roots = this.getFileTreeRoots();
+        if (this.filterText) {
+          return [{ type: 'filterBanner', filterText: this.filterText }, ...roots];
+        }
+        return roots;
+      }
+      if (element.type === 'directory') {
+        return this.getFileTreeDirectoryChildren(element);
+      }
+      return [];
+    }
+
+    // Logical view
     if (!element) {
       const children: TreeElement[] = [];
       // Show a dismissable filter banner when a filter is active
@@ -209,6 +300,76 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       return this.getFilesForLogicalRule(element);
     }
     return [];
+  }
+
+  private getFileTreeRoots(): TreeElement[] {
+    if (!this.fsRootNode) {
+      return [];
+    }
+    return this.fsNodeToChildren(this.fsRootNode);
+  }
+
+  private getFileTreeDirectoryChildren(node: DirectoryNode): TreeElement[] {
+    const fsNode = this.fsNodeByPath.get(node.absolutePath);
+    return fsNode ? this.fsNodeToChildren(fsNode) : [];
+  }
+
+  private fileMatchesFilter(file: ClassifiedFile): boolean {
+    if (!this.filterText) {
+      return true;
+    }
+    if (file.fileName.toLowerCase().includes(this.filterText)) {
+      return true;
+    }
+    if (file.relativePath.toLowerCase().includes(this.filterText)) {
+      return true;
+    }
+    if (file.description?.toLowerCase().includes(this.filterText)) {
+      return true;
+    }
+    return false;
+  }
+
+  private fsNodeHasMatch(node: FsNode): boolean {
+    if (node.files.some((f) => this.fileMatchesFilter(f))) {
+      return true;
+    }
+    for (const child of node.subdirs.values()) {
+      if (this.fsNodeHasMatch(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private fsNodeToChildren(fsNode: FsNode): TreeElement[] {
+    const children: TreeElement[] = [];
+
+    // Directories first, sorted alphabetically — skip if no files match filter
+    const sortedDirs = [...fsNode.subdirs.entries()].sort(([a], [b]) => a.localeCompare(b));
+    for (const [name, child] of sortedDirs) {
+      if (this.fsNodeHasMatch(child)) {
+        children.push({ type: 'directory', name, absolutePath: child.absolutePath });
+      }
+    }
+
+    // Then files, sorted alphabetically by file name — skip if no match
+    const sortedFiles = [...fsNode.files].sort((a, b) => a.fileName.localeCompare(b.fileName));
+    for (const file of sortedFiles) {
+      if (this.fileMatchesFilter(file)) {
+        children.push({ type: 'file', rule: file, issues: [] });
+      }
+    }
+
+    return children;
+  }
+
+  private countFsFiles(node: FsNode): number {
+    let count = node.files.length;
+    for (const child of node.subdirs.values()) {
+      count += this.countFsFiles(child);
+    }
+    return count;
   }
 
   private getTriggerGroups(): TriggerGroupNode[] {
@@ -417,6 +578,43 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     };
 
     item.contextValue = hasFileIssues ? 'ruleFile.issues' : 'ruleFile';
+    return item;
+  }
+
+  private createDirectoryItem(node: DirectoryNode): vscode.TreeItem {
+    const fsNode = this.fsNodeByPath.get(node.absolutePath);
+    const item = new vscode.TreeItem(node.name, vscode.TreeItemCollapsibleState.Collapsed);
+    item.iconPath = new vscode.ThemeIcon('folder');
+    item.contextValue = 'directory';
+    if (fsNode) {
+      const count = this.countFsFiles(fsNode);
+      item.description = count === 1 ? '1 rule' : `${count} rules`;
+    }
+    return item;
+  }
+
+  private createFileTreeFileItem(node: RuleFileNode): vscode.TreeItem {
+    const { rule } = node;
+    const item = new vscode.TreeItem(rule.fileName, vscode.TreeItemCollapsibleState.None);
+    item.description = FORMAT_LABELS[rule.format];
+    item.iconPath = this.getFormatIconPath(rule.format);
+    item.command = {
+      command: 'agentRules.openRule',
+      title: 'Open Rule',
+      arguments: [rule.filePath],
+    };
+    item.contextValue = 'ruleFile';
+    const relativePath = vscode.workspace.asRelativePath(rule.filePath, false);
+    const fileTokens = estimateTokens(rule.bodyLength);
+    item.tooltip = new vscode.MarkdownString(
+      [
+        `**${rule.fileName}**`,
+        `Format: ${FORMAT_LABELS[rule.format]}`,
+        `Path: ${relativePath}`,
+        `Size: ${rule.fileSize} bytes | ${formatTokenCount(fileTokens)}`,
+        `Modified: ${rule.lastModified}`,
+      ].join('\n\n'),
+    );
     return item;
   }
 

@@ -110,6 +110,16 @@
         "command": "agentRules.clearFilter",
         "title": "Agent Rules: Clear Filter",
         "icon": "$(close)"
+      },
+      {
+        "command": "agentRules.showLogicalView",
+        "title": "Agent Rules: Switch to Logical View",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "agentRules.showFileTreeView",
+        "title": "Agent Rules: Switch to File Tree View",
+        "icon": "$(list-tree)"
       }
     ],
     "viewsContainers": {
@@ -157,9 +167,19 @@
           "group": "navigation@2"
         },
         {
+          "command": "agentRules.showFileTreeView",
+          "when": "view == agentRules.rulesView && agentRules.viewMode == logical",
+          "group": "navigation@5"
+        },
+        {
+          "command": "agentRules.showLogicalView",
+          "when": "view == agentRules.rulesView && agentRules.viewMode == fileTree",
+          "group": "navigation@5"
+        },
+        {
           "command": "agentRules.rescan",
           "when": "view == agentRules.rulesView",
-          "group": "navigation@3"
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [

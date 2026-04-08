@@ -57,6 +57,12 @@ export function activate(context: vscode.ExtensionContext) {
     showCollapseAll: true,
   });
 
+  const VIEW_MODE_LABELS: Record<string, string> = { logical: 'Logical', fileTree: 'File Tree' };
+  const syncViewDescription = () => {
+    treeView.description = VIEW_MODE_LABELS[treeProvider.getViewMode()];
+  };
+  syncViewDescription();
+
   const actionsProvider = new ActionsWebviewProvider(ruleIndex);
   const actionsViewRegistration = vscode.window.registerWebviewViewProvider(
     ActionsWebviewProvider.viewType,
@@ -78,6 +84,19 @@ export function activate(context: vscode.ExtensionContext) {
   const clearFilterCmd = vscode.commands.registerCommand('agentRules.clearFilter', () => {
     treeProvider.clearFilter();
   });
+
+  const showLogicalViewCmd = vscode.commands.registerCommand('agentRules.showLogicalView', () => {
+    treeProvider.setViewMode('logical');
+    syncViewDescription();
+  });
+
+  const showFileTreeViewCmd = vscode.commands.registerCommand(
+    'agentRules.showFileTreeView',
+    () => {
+      treeProvider.setViewMode('fileTree');
+      syncViewDescription();
+    },
+  );
 
   // Register commands
   const rescanCmd = vscode.commands.registerCommand('agentRules.rescan', async () => {
@@ -505,6 +524,8 @@ export function activate(context: vscode.ExtensionContext) {
     bodyProvider,
     filterCmd,
     clearFilterCmd,
+    showLogicalViewCmd,
+    showFileTreeViewCmd,
     rescanCmd,
     openRuleCmd,
     compareCmd,
