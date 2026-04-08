@@ -299,7 +299,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",
