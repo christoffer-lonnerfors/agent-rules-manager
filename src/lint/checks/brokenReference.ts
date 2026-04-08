@@ -25,6 +25,11 @@ export const brokenReference: FileLintCheck = {
     const fileDir = path.dirname(file.filePath);
 
     for (const link of file.links) {
+      // Backtick-quoted text is code formatting, not intentional file references
+      if (link.patternId === 'backtick-path') {
+        continue;
+      }
+
       const resolved = path.resolve(fileDir, link.target);
 
       // Skip references outside the workspace — handled by outsideWorkspace check
