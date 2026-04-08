@@ -21,19 +21,19 @@ Every AI coding agent has its own rule format, stored in different directories w
 
 ### Unified Rules View
 
-All rules from every format appear in one sidebar panel, grouped by logical rule. A rule that exists in both Cursor and Claude Code formats shows as a single entry with format badges.
+All rules regardles of format appear in one sidebar panel, grouped by logical rule. A rule that exists in both Cursor and Claude Code formats shows as a single entry with format badges.
 
-<!-- TODO: screenshot of sidebar rules tree -->
+![Sidebar rules tree](images/screen_sidebar_rules_tree.png)
 
 ### Divergence Detection
 
-When the same rule exists in multiple formats, the extension compares content using MinHash similarity. Diverged rules are flagged with a warning badge. You can compare them side-by-side in a diff view and align content with one click.
+When the same rule exists in multiple formats, the extension compares content using MinHash similarity. Diverged rules are flagged with a warning badge. You can compare them side-by-side in a diff view and align content by selecting the source of truth.
 
-<!-- TODO: screenshot of divergence indicator + diff view -->
+![Divergence diff view](images/screen_rule_divergence_diff.png)
 
 ### Sync & Align
 
-Translate rules between formats automatically. The extension normalizes trigger types across the different schemas (Cursor's `alwaysApply`, Windsurf's `trigger`, Kiro's `inclusion`, etc.) and writes the correct frontmatter for each target format.
+Translate rules between formats with one click. The extension normalizes trigger types across the different schemas (Cursor's `alwaysApply`, Windsurf's `trigger`, Kiro's `inclusion`, etc.) and writes the correct frontmatter for each target format.
 
 - **Compare Formats** — Opens a diff view between two versions of the same rule
 - **Align Formats** — Updates the target format to match the source
@@ -41,13 +41,11 @@ Translate rules between formats automatically. The extension normalizes trigger 
 - **Add Missing Rule** — Creates a rule in a format where it doesn't exist yet
 - **Add All Missing** — Batch-creates all missing format variants
 
-<!-- TODO: screenshot of align/sync action -->
-
 ### Rule Creation
 
 Create new rules from the sidebar. Select your agent and preferred format, and the extension scaffolds the file with the correct frontmatter, directory, and file extension.
 
-<!-- TODO: screenshot of create rule form -->
+![New rule form](images/screen_new_rule.png)
 
 ### Coverage Analysis
 
@@ -58,7 +56,7 @@ Visualize the token cost of your rules across your codebase. The coverage panel 
 - **Hotspot detection** — Directories and files where many rules overlap, consuming context window budget
 - **Severity thresholds** — Color-coded by percentage of context window used (configurable, default 128k)
 
-<!-- TODO: screenshot of coverage analysis panel -->
+![Coverage report](images/screen_coverage_report.png)
 
 ### Linting
 
@@ -72,10 +70,6 @@ Basic rule quality checks, reported as diagnostics:
 - Extension mismatches (e.g., `.mdc` file in a non-Cursor directory)
 - Rules outside the workspace
 - Missing primary format
-
-### Agent Auto-Detection
-
-The extension detects which agent(s) you're using based on existing rule files and directories in your workspace.
 
 ## Getting Started
 
@@ -100,7 +94,7 @@ Rules are discovered automatically. No configuration required to get started.
 ## Known Limitations
 
 - **Augment has no glob-based scoping** — Augment rules are either always-on, agent-requested, or manual. Coverage analysis for Augment users reflects this simpler model.
-- **Coverage is a point-in-time snapshot** — The analysis does not live-update when rules change. Close and reopen the coverage panel to refresh.
+- **Coverage is a point-in-time snapshot** — The analysis does not live-update when rules change. Create a new Coverage Analysis for viewing effects of updates.
 - **Token estimates are approximate** — Token counts use a character-based heuristic (chars ÷ 3.5), not a model-specific tokenizer.
 
 ## License
