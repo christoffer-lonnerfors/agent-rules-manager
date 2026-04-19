@@ -6,6 +6,15 @@ import { RuleFormat, RuleTrigger } from '../formats/formatRegistry';
 import { parseFrontmatter } from '../scanner/frontmatterParser';
 import { FORMAT_DEFINITIONS } from '../formats/formatRegistry';
 import { extractCommonDirectory } from '../utils/scopeTranslator';
+import {
+  allocateUniqueSlugStem,
+  chooseRuleFileSlug,
+  type SlugSelectionMode,
+} from '../utils/ruleSlug';
+import { pickPrimaryClassifiedFile } from '../logical/logicalRuleBuilder';
+
+/** Slug mode for wildcard-named formats: A = source file stem, B = primary rule stem, C = match target dir. */
+const RULE_FILE_SLUG_MODE: SlugSelectionMode = 'A';
 
 /**
  * Write a rule file in the target format, copying body from the best available source rule.
@@ -72,15 +81,18 @@ export function writeRuleFile(
   const targetDir = path.join(root, config.validPaths[0]);
   const targetExt = config.validExtensions[0];
 
-  // Generate filename from the logical rule description
-  const slug = logicalRule.description
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  const targetPath = path.join(targetDir, slug + targetExt);
-
-  // Ensure directory exists
   fs.mkdirSync(targetDir, { recursive: true });
+
+  const baseSlug = chooseRuleFileSlug({
+    mode: RULE_FILE_SLUG_MODE,
+    logicalRule,
+    source,
+    targetDir,
+    targetExt,
+    primaryForSlug: pickPrimaryClassifiedFile(logicalRule.rules),
+  });
+  const uniqueStem = allocateUniqueSlugStem(targetDir, baseSlug, targetExt, (p) => fs.existsSync(p));
+  const targetPath = path.join(targetDir, uniqueStem + targetExt);
 
   // Build frontmatter based on target format
   const frontmatter = buildFrontmatter(targetFormat, logicalRule);

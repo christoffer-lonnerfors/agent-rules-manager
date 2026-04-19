@@ -2,13 +2,16 @@ import { ClassifiedFile } from '../scanner/classifiedFile';
 import { LogicalRule } from './logicalRule';
 import { RuleFormat } from '../formats/formatRegistry';
 import { computeSimilarity } from '../hashing/minHasher';
-
-/** Threshold for flagging as "near duplicate" */
-const DUPLICATE_THRESHOLD = 0.9;
+import {
+  DUPLICATE_THRESHOLD,
+  shouldSecondaryMergePair,
+} from './mergeSignals';
 
 /**
  * Groups ClassifiedFiles into LogicalRules by merging near-duplicates
- * across different formats using MinHash similarity.
+ * across different formats using MinHash similarity on rule bodies, plus a
+ * secondary merge when body similarity is slightly lower but filename (and
+ * optional description) signals strongly agree.
  *
  * Rules within the same format are never merged — only cross-format
  * duplicates are combined into a single LogicalRule.
@@ -55,6 +58,8 @@ export function buildLogicalRules(rules: ClassifiedFile[]): LogicalRule[] {
 
       if (similarity >= DUPLICATE_THRESHOLD) {
         union(rules[i].id, rules[j].id);
+      } else if (shouldSecondaryMergePair(rules[i], rules[j], similarity)) {
+        union(rules[i].id, rules[j].id);
       }
     }
   }
@@ -77,7 +82,7 @@ export function buildLogicalRules(rules: ClassifiedFile[]): LogicalRule[] {
  * Picks the best description and merges format lists.
  */
 function createLogicalRule(rules: ClassifiedFile[]): LogicalRule {
-  const primary = pickPrimaryRule(rules);
+  const primary = pickPrimaryClassifiedFile(rules);
 
   // Stable ID: sorted join of constituent IDs, independent of which file is primary.
   // Remains stable even if descriptions are added/changed across constituent files.
@@ -127,7 +132,7 @@ function createLogicalRule(rules: ClassifiedFile[]): LogicalRule {
 }
 
 /** Pick the most informative rule as the primary representative */
-function pickPrimaryRule(rules: ClassifiedFile[]): ClassifiedFile {
+export function pickPrimaryClassifiedFile(rules: ClassifiedFile[]): ClassifiedFile {
   // Prefer rules with a description
   const withDescription = rules.filter((r) => r.description);
   if (withDescription.length > 0) {
