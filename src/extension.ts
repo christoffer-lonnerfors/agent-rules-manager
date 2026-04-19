@@ -19,9 +19,33 @@ import { toCaseInsensitiveGlob } from './scanner/treeWalker';
 import { detectDominantAgent } from './agents/agentAutoDetector';
 import { writeRuleFile } from './actions/ruleWriter';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
+import { ClassifiedFile } from './scanner/classifiedFile';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
 const RULE_BODY_SCHEME = 'ai-rules-body';
+
+/** Tree element shapes passed from RuleTreeProvider (structural typing). */
+type RuleTreeSelection =
+  | { type: 'file'; rule: ClassifiedFile }
+  | { type: 'logical'; logicalRule: LogicalRule };
+
+function resolveRuleTreeSelection(
+  arg: unknown,
+  treeView: { selection: readonly unknown[] },
+): RuleTreeSelection | undefined {
+  const node = arg !== undefined && arg !== null ? arg : treeView.selection[0];
+  if (!node || typeof node !== 'object') {
+    return undefined;
+  }
+  const o = node as { type?: string; rule?: ClassifiedFile; logicalRule?: LogicalRule };
+  if (o.type === 'file' && o.rule) {
+    return { type: 'file', rule: o.rule };
+  }
+  if (o.type === 'logical' && o.logicalRule) {
+    return { type: 'logical', logicalRule: o.logicalRule };
+  }
+  return undefined;
+}
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize core services
@@ -488,6 +512,15 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      const confirm = await vscode.window.showWarningMessage(
+        `Create a new rule file in ${FORMAT_LABELS[writeFormat]} for "${logicalRule.description}"?`,
+        { modal: true },
+        'Create',
+      );
+      if (confirm !== 'Create') {
+        return;
+      }
+
       const filePath = writeRuleFile(logicalRule, writeFormat);
       if (filePath) {
         const uri = vscode.Uri.file(filePath);
@@ -495,6 +528,87 @@ export function activate(context: vscode.ExtensionContext) {
         await scannerService.scan();
       }
     },
+  );
+
+  const deleteFromTreeImpl = async (arg?: unknown) => {
+    const resolved = resolveRuleTreeSelection(arg, treeView);
+    if (!resolved) {
+      vscode.window.showInformationMessage('Select a rule file or logical rule in the tree first.');
+      return;
+    }
+
+    if (resolved.type === 'file') {
+      const rel = vscode.workspace.asRelativePath(resolved.rule.filePath, false);
+      const fmt = FORMAT_LABELS[resolved.rule.format];
+      const confirm = await vscode.window.showWarningMessage(
+        `This will move the rule file to Trash (recoverable):\n\n${rel} (${fmt})\n\nContinue?`,
+        { modal: true },
+        'Move to Trash',
+      );
+      if (confirm !== 'Move to Trash') {
+        return;
+      }
+      try {
+        await vscode.workspace.fs.delete(vscode.Uri.file(resolved.rule.filePath), {
+          useTrash: true,
+          recursive: false,
+        });
+        await scannerService.scan();
+        vscode.window.showInformationMessage(`Moved to Trash: ${rel}`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Could not delete file: ${msg}`);
+      }
+    } else {
+      const rules = resolved.logicalRule.rules;
+      const lines = rules.map(
+        (r) =>
+          `• ${vscode.workspace.asRelativePath(r.filePath, false)} (${FORMAT_LABELS[r.format]})`,
+      );
+      const confirm = await vscode.window.showWarningMessage(
+        `This will move ${rules.length} rule file${rules.length > 1 ? 's' : ''} to Trash (recoverable):\n\n${lines.join('\n')}\n\nDelete all?`,
+        { modal: true },
+        'Move all to Trash',
+      );
+      if (confirm !== 'Move all to Trash') {
+        return;
+      }
+      const failed: string[] = [];
+      let ok = 0;
+      for (const r of rules) {
+        try {
+          await vscode.workspace.fs.delete(vscode.Uri.file(r.filePath), {
+            useTrash: true,
+            recursive: false,
+          });
+          ok++;
+        } catch (err: unknown) {
+          const rel = vscode.workspace.asRelativePath(r.filePath, false);
+          const msg = err instanceof Error ? err.message : String(err);
+          failed.push(`${rel}: ${msg}`);
+        }
+      }
+      if (ok > 0) {
+        await scannerService.scan();
+      }
+      if (failed.length === 0) {
+        vscode.window.showInformationMessage(
+          `Moved ${ok} file${ok > 1 ? 's' : ''} to Trash.`,
+        );
+      } else if (ok > 0) {
+        vscode.window.showWarningMessage(
+          `Moved ${ok} file(s) to Trash; failed: ${failed.join('; ')}`,
+        );
+      } else {
+        vscode.window.showErrorMessage(`Could not delete files: ${failed.join('; ')}`);
+      }
+    }
+  };
+
+  const deleteRuleFileCmd = vscode.commands.registerCommand('agentRules.deleteRuleFile', deleteFromTreeImpl);
+  const deleteAllRuleFormatFilesCmd = vscode.commands.registerCommand(
+    'agentRules.deleteAllRuleFormatFiles',
+    deleteFromTreeImpl,
   );
 
   // Register add-rule command (opens the create-rule form in the Actions webview)
@@ -534,6 +648,8 @@ export function activate(context: vscode.ExtensionContext) {
     syncAllCmd,
     addAllMissingCmd,
     addMissingRuleCmd,
+    deleteRuleFileCmd,
+    deleteAllRuleFormatFilesCmd,
     addRuleCmd,
     showCoverageCmd,
     ruleIndex,

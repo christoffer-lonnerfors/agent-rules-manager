@@ -120,6 +120,16 @@
         "command": "agentRules.showFileTreeView",
         "title": "Agent Rules: Switch to File Tree View",
         "icon": "$(list-tree)"
+      },
+      {
+        "command": "agentRules.deleteRuleFile",
+        "title": "Delete File…",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "agentRules.deleteAllRuleFormatFiles",
+        "title": "Delete All Format Files…",
+        "icon": "$(trash)"
       }
     ],
     "viewsContainers": {
@@ -212,9 +222,31 @@
           "command": "agentRules.addMissingRule",
           "when": "view == agentRules.rulesView && viewItem =~ /logicalRule.*missing/",
           "group": "1_add"
+        },
+        {
+          "command": "agentRules.deleteRuleFile",
+          "when": "view == agentRules.rulesView && viewItem =~ /ruleFile/",
+          "group": "9_delete"
+        },
+        {
+          "command": "agentRules.deleteAllRuleFormatFiles",
+          "when": "view == agentRules.rulesView && viewItem =~ /logicalRule/",
+          "group": "9_delete"
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "agentRules.deleteRuleFile",
+        "key": "delete",
+        "when": "view == agentRules.rulesView && viewItem =~ /ruleFile/"
+      },
+      {
+        "command": "agentRules.deleteAllRuleFormatFiles",
+        "key": "delete",
+        "when": "view == agentRules.rulesView && viewItem =~ /logicalRule/"
+      }
+    ],
     "configuration": {
       "title": "Agent Rules",
       "properties": {
