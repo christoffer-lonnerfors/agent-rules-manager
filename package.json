@@ -130,6 +130,11 @@
         "command": "agentRules.deleteAllRuleFormatFiles",
         "title": "Delete All Format Files…",
         "icon": "$(trash)"
+      },
+      {
+        "command": "agentRules.installMetaRule",
+        "title": "Agent Rules: Install Rule-Writing Guidelines",
+        "icon": "$(cloud-download)"
       }
     ],
     "viewsContainers": {

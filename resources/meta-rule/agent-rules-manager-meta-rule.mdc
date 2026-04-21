@@ -1,0 +1,235 @@
+---
+description: How to create, update, review, and optimize AI agent rule files
+globs:
+  - '.cursor/rules/**/*'
+  - '.claude/rules/**/*'
+  - '.augment/rules/**/*'
+  - '.windsurf/rules/**/*'
+  - '.agents/rules/**/*'
+  - '.agent/rules/**/*'
+  - '.kiro/steering/**/*'
+  - '.kiro/specs/**/*'
+alwaysApply: false
+---
+
+# How to create, review, and optimize AI agent rule files
+
+## Negative Constraints
+
+- **Never** place rule files outside your agent's dedicated rules folder
+- **Never** use `alwaysApply: true` or equivalent frontmatter except for meta-rules
+- **Never** create rules over 500 lines — split into composable rules
+- **Never** write vague guidance — provide concrete examples
+- **Never** mix two distinct concerns in one rule — split instead (SRP)
+- **Never** create or update a rule without first scanning the rules directory for overlap and contradictions
+- **Never** leave contradictions between rules — if two rules give conflicting guidance on the same situation, resolve the conflict before proceeding; contradictions cause unpredictable agent behaviour
+- **Never** write a rule that a linter or formatter already enforces
+- **Never** use passive voice — use imperative ("Do X" not "X should be done")
+- **Never** let a rule index (`AGENTS.md` or equivalent) go stale — update it whenever rules are added, changed, or removed
+- **Never** write a `# Rule Title` heading that differs from the frontmatter `description` — they must be identical
+- **Never** use cross-references (`see other-rule.mdc`, "as defined in X", bare filenames) as a substitute for defining a requirement — agents load rules via `globs` and `description` matching and do not follow cross-file links; write every rule as if it is the only file the agent will receive. If two rules share a requirement, repeat the minimum actionable text in both.
+- **Never** write an over-broad glob — always target the specific folder path AND file extension where the rule applies (e.g. `src/services/**/*.ts`, not `src/**/*` or `**/*.ts`); use multiple globs for disjoint areas rather than widening a single pattern
+
+---
+
+## File Location and Naming
+
+Always place rule files in your agent's rules folder:
+
+```
+<agent-rules-folder>/
+├── backend-*           # Backend-specific rules
+├── frontend-*          # Frontend-specific rules
+├── frontend-vue3-*     # Framework-specific rules
+├── general-*           # Project-wide rules
+```
+
+- Use kebab-case filenames — `.mdc` for Cursor, `.md` for all other agents
+- Prefix with domain, e.g. `backend-`, `frontend-`, `general-`
+- Make names descriptive of the rule's purpose
+
+### Agent format reference
+
+| Agent       | Rules folder       | Extension |
+| ----------- | ------------------ | --------- |
+| Cursor      | `.cursor/rules/`   | `.mdc`    |
+| Windsurf    | `.windsurf/rules/` | `.md`     |
+| Kiro        | `.kiro/steering/`  | `.md`     |
+| Antigravity | `.agents/rules/`   | `.md`     |
+| Augment     | `.augment/rules/`  | `.md`     |
+| Claude Code | `.claude/rules/`   | `.md`     |
+
+## Frontmatter
+
+```yaml
+---
+description: Short description of the rule's purpose
+globs: optional/path/pattern/**/*
+alwaysApply: false
+---
+```
+
+- **`description`** — write it to match the _situations where the rule should fire_, not just what it contains. Agents use this to decide whether to load the rule. **Must be identical to the `# Rule Title` heading** in the body — the title is the first thing an agent reads once the rule is loaded, so divergence is confusing. **Always quote the value** — an unquoted description containing `:` causes a YAML parse error that silently degrades the entire rule to **Manual**:
+  ```yaml
+  # ✅ Good — quoted, written to match the situation where the rule should fire
+  description: "API error handling: response shape and HTTP status codes"
+  # ❌ Bad — colon breaks YAML parsing
+  description: API error handling: response shape and HTTP status codes
+  ```
+- **`globs`** — target specific folder paths AND file extensions; always use the quoted YAML array form — unquoted glob patterns containing `*` fail to parse and silently degrade the rule to **Manual**
+  ```yaml
+  # ✅ Good — folder + extension, quoted array
+  globs:
+    - "backend/src/services/**/*.ts"
+    - "backend/src/repositories/**/*.ts"
+  # ❌ Bad — too broad, and unquoted
+  globs: src/**/*
+  ```
+- **`alwaysApply`** — `true` for meta-rules only; `false` otherwise (auto-attached via globs or agent-requested)
+
+> Field names above are Cursor syntax. The concepts are universal but the syntax varies per agent.
+
+## Rule Types — Cross-Format Reference
+
+| Concept           | Cursor                            | Windsurf / Antigravity                    | Kiro                                        | Augment                                 | Claude Code          |
+| ----------------- | --------------------------------- | ----------------------------------------- | ------------------------------------------- | --------------------------------------- | -------------------- |
+| **Always active** | `alwaysApply: true`               | `trigger: always_on`                      | `inclusion: always`                         | `type: always_apply`                    | _(no `paths` field)_ |
+| **File-scoped**   | `globs: [...]`                    | `trigger: glob` + `globs`                 | `inclusion: fileMatch` + `fileMatchPattern` | _(not supported)_                       | `paths: [...]`       |
+| **Model decides** | `description: "..."` (no `globs`) | `trigger: model_decision` + `description` | `inclusion: auto` + `description`           | `type: agent_requested` + `description` | _(not supported)_    |
+| **Manual only**   | _(no flags)_                      | `trigger: manual`                         | `inclusion: manual`                         | `type: manual`                          | _(not supported)_    |
+
+---
+
+## Rule Loading Timing
+
+Understanding *when* rules load is essential for writing rules that work as intended. This applies to all agents.
+
+**Glob-triggered rules load when a matching file enters context — not when the agent plans its approach.** If an agent decides how to handle a task before opening any matching files, the rule arrives too late to influence that decision. This makes glob triggers the right choice for constraints on file content, but the wrong choice for rules that need to shape the agent's approach before it starts work.
+
+**Description-matched rules load at planning time**, before any files are opened, when the agent judges the task matches the description. Use this trigger for workflow rules, review procedures, or any rule that must be in context before the agent decides its approach.
+
+**Practical consequence — workflow rules need description-matching, not globs:**
+
+| Intent | Correct trigger | Why |
+| --- | --- | --- |
+| Constrain how the agent edits a specific file type | Glob | Loads exactly when those files are touched |
+| Guide how the agent approaches a task | Description-match | Loads at planning time, before files are opened |
+| Apply on every request unconditionally | Always-on | Loads regardless of files or intent |
+
+**Per-agent notes:**
+
+- **Cursor, Windsurf, Kiro, Augment** — a single rule can carry both a description and globs; the description handles intent-matching at planning time, the globs handle file-editing coverage
+- **Claude Code** — description-matching is not supported; the only triggers are `paths` (glob) and always-on. If a glob rule also needs to load at planning time, create a separate companion rule with no `paths` field and a description written to match the intent
+
+---
+
+## Rule Template
+
+```markdown
+---
+description: [Rule title — written to match situations where this rule should fire]
+globs:
+  - 'domain/path/**/*.ext'
+alwaysApply: false
+---
+
+# [Rule title — written to match situations where this rule should fire]
+
+## Negative Constraints
+
+- **Never** [constraint]
+
+---
+
+[Main content with concrete examples]
+
+## Permissions (optional — include when the rule defines agent behaviour scope)
+
+- ✅ **Always Do** — [automatic actions that need no approval]
+- ⚠️ **Ask First** — [actions requiring human approval before proceeding]
+- 🚫 **Never Do** — [hard stops regardless of context]
+```
+
+---
+
+## Writing Effective Rules
+
+### Language
+
+- Use **NEVER, ALWAYS, MUST** — avoid "prefer", "try to", "maybe"
+- Be measurable: "Functions must be under 30 lines" not "write clean code"
+- Use standard terminology agents recognise: "Repository Pattern", "Composables", "Fail-Fast"
+
+### Content
+
+- **Derive rules from real code** — open 2–3 existing files in the area, identify repeated patterns, then extract those patterns as rules; this produces more accurate rules than writing from abstract principles
+- **Bullet points** for requirements — agents check them off as they generate code
+- **Code examples** over prose — one real snippet beats three paragraphs
+- **IF/THEN logic** for conditional rules: "IF the component is a Form, THEN use `useForm`"
+
+### Anti-Patterns
+
+- **God files** — break rules by domain and concern, not by philosophy
+- **Relying on context** — rules must be self-contained and stateless; **cross-rule pointer chains** (`see X.mdc` without in-file norms) fail when only one rule is in context
+
+### Maintenance
+
+- Treat rules as **living documents** — update when the agent misunderstands something or conventions evolve; don't wait for a rule to become completely wrong before fixing it
+- **Remove stale rules** — if a convention has been replaced by a linter rule, a refactor, or a superseding rule, delete the file; don't leave zombie rules that will confuse future agents
+
+---
+
+## Pre-Flight Audit — Before Creating or Updating Any Rule
+
+1. **List the rules directory** — scan all files in the target agent's rules folder
+2. **Read the frontmatter `description`** or main rule title of all rules in the relevant domain (backend, frontend, general)
+3. **Read the full content** of the 2–3 most closely related rules to identify overlap and contradictions
+4. **Decide: update or create?**
+   - Update an existing rule if the concern is already covered and you are refining or extending it
+   - Create a new rule only if the concern is genuinely distinct and cannot be addressed by narrowing an existing rule's scope
+
+## Adding a New Rule — Checklist
+
+1. Run the **Pre-Flight Audit**
+2. Create a rule file in the agent's rules folder (see agent format reference above for path and extension)
+3. Add frontmatter: `description` (written for loadability), optional `globs` (narrow — folder + extension), and the agent's always-on flag set to `false`
+4. Structure following the Rule Template
+5. If a rule index (`AGENTS.md` or equivalent) exists in the project, add an entry with the file name and description
+
+## Updating an Existing Rule — Checklist
+
+1. Run the **Pre-Flight Audit**
+2. Read the full current content of the rule being changed
+3. Make the change — preserve the rule's scope; if the change introduces a second concern, split into a new rule instead
+4. Verify the updated rule does not contradict the related rules identified in the audit
+5. If a rule index (`AGENTS.md` or equivalent) exists, update the entry if the description changed
+
+## Removing a Rule — Checklist
+
+1. Delete the rule file from the agent's rules folder
+2. If a rule index (`AGENTS.md` or equivalent) exists, remove the entry
+3. Search the rules directory for any rule that references the deleted file (Related Rules sections, `see \`foo.mdc\``, or bare cross-links) and update or inline those requirements
+
+---
+
+## Complete Example
+
+```markdown
+---
+description: E2E Testing Guidelines (Mocha/Chai/TypeScript)
+globs:
+  - 'backend/src/tests/**/*.ts'
+alwaysApply: false
+---
+
+# E2E Testing Guidelines
+
+## Negative Constraints
+
+- **Never** mock internal services in E2E tests
+- **Never** share state between tests
+
+---
+
+[Detailed rule content...]
+```

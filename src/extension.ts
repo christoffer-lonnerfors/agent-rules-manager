@@ -20,6 +20,7 @@ import { detectDominantAgent } from './agents/agentAutoDetector';
 import { writeRuleFile } from './actions/ruleWriter';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
 import { ClassifiedFile } from './scanner/classifiedFile';
+import { installMetaRule } from './actions/metaRuleInstaller';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
 const RULE_BODY_SCHEME = 'ai-rules-body';
@@ -628,6 +629,18 @@ export function activate(context: vscode.ExtensionContext) {
     CoverageWebviewPanel.show(ruleIndex, context.extensionUri);
   });
 
+  // Register meta-rule install command
+  const installMetaRuleCmd = vscode.commands.registerCommand(
+    'agentRules.installMetaRule',
+    async () => {
+      const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '') as AgentId | '';
+      const written = await installMetaRule(context.extensionPath, agentId || undefined);
+      if (written.length > 0) {
+        await scannerService.scan({ silent: true });
+      }
+    },
+  );
+
   // Set up file system watchers derived from FORMAT_CONFIGS
   const watchers = createFileWatchers(scannerService);
 
@@ -652,6 +665,7 @@ export function activate(context: vscode.ExtensionContext) {
     deleteAllRuleFormatFilesCmd,
     addRuleCmd,
     showCoverageCmd,
+    installMetaRuleCmd,
     ruleIndex,
     scannerService,
     treeProvider,
@@ -665,6 +679,7 @@ export function activate(context: vscode.ExtensionContext) {
   // After the first scan, auto-detect agent if none is configured.
   scannerService.scan({ silent: true }).then(() => {
     autoSelectAgentIfNeeded(ruleIndex);
+    promptMetaRuleInstallIfNeeded(ruleIndex, context);
   });
 }
 
@@ -750,6 +765,33 @@ async function autoSelectAgentIfNeeded(ruleIndex: RuleStore): Promise<void> {
   }
 
   await cfg.update('agent', dominant, vscode.ConfigurationTarget.Workspace);
+}
+
+async function promptMetaRuleInstallIfNeeded(
+  ruleIndex: RuleStore,
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  const dismissed = context.globalState.get<boolean>('metaRulePromptDismissed', false);
+  if (dismissed) return;
+
+  const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '');
+  if (!agentId) return;
+
+  const isInstalled = ruleIndex
+    .getLogicalRules()
+    .some((lr) => lr.rules.some((rf) => rf.filePath.includes('agent-rules-manager-meta-rule')));
+  if (isInstalled) return;
+
+  const choice = await vscode.window.showInformationMessage(
+    'Install rule-writing guidelines to help agents create and optimize rules?',
+    'Install',
+    'Not now',
+  );
+  if (choice === 'Install') {
+    await installMetaRule(context.extensionPath);
+  } else if (choice === 'Not now') {
+    await context.globalState.update('metaRulePromptDismissed', true);
+  }
 }
 
 export function deactivate() {
