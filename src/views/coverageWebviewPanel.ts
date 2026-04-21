@@ -3,9 +3,10 @@ import * as path from 'path';
 import { CoverageState, CoverageModel, CoverageTreeNode } from '../coverage/coverageModel';
 import { RuleStore } from '../logical/ruleStore';
 import { AgentId, getAgentDefinition } from '../agents/agentRegistry';
+import { exportCoverageToFile } from '../coverage/coverageExporter';
 
 /** Messages sent from webview → extension */
-type CoverageWebviewMessage = { type: 'openRule'; filePath: string };
+type CoverageWebviewMessage = { type: 'openRule'; filePath: string } | { type: 'exportCoverage' };
 
 /**
  * Manages a Coverage Analysis webview panel.
@@ -33,6 +34,9 @@ export class CoverageWebviewPanel {
         switch (msg.type) {
           case 'openRule':
             vscode.commands.executeCommand('vscode.open', vscode.Uri.file(msg.filePath));
+            break;
+          case 'exportCoverage':
+            exportCoverageToFile(this.ruleIndex);
             break;
         }
       },
@@ -229,12 +233,23 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri): strin
     border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
     font-size: 12px; color: var(--vscode-descriptionForeground);
   }
+
+  .btn-export {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; font-size: 12px; cursor: pointer;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--vscode-button-border, transparent);
+    border-radius: 2px; white-space: nowrap;
+  }
+  .btn-export:hover { background: var(--vscode-button-secondaryHoverBackground); }
 </style>
 </head>
 <body>
   <div class="header">
     <h1>
       Agent Rules Coverage Report
+      <button class="btn-export" id="btnExport"><span class="codicon codicon-export"></span> Export</button>
     </h1>
     <div class="header-meta">
       <span>Agent: ${escHtml(state.agentLabel)}</span>
@@ -255,6 +270,11 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri): strin
 <script>
   const vscode = acquireVsCodeApi();
   const coverageData = ${JSON.stringify(buildCoverageMap(state.tree))};
+
+  // Export button
+  document.getElementById('btnExport').addEventListener('click', () => {
+    vscode.postMessage({ type: 'exportCoverage' });
+  });
 
   // Toggle expand/collapse
   document.getElementById('tree').addEventListener('click', (e) => {

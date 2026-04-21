@@ -50,6 +50,12 @@
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "agent-rules-manager",
+        "label": "Agent Rules Manager"
+      }
+    ],
     "commands": [
       {
         "command": "agentRules.rescan",
@@ -135,6 +141,43 @@
         "command": "agentRules.installMetaRule",
         "title": "Agent Rules: Install Rule-Writing Guidelines",
         "icon": "$(cloud-download)"
+      },
+      {
+        "command": "agentRules.exportCoverage",
+        "title": "Agent Rules: Export Coverage Report",
+        "icon": "$(export)"
+      },
+      {
+        "command": "agentRules.exportCoverageDefault",
+        "title": "Agent Rules: Export Coverage Report (Default Path)"
+      },
+      {
+        "command": "agentRules.configureMcpForClaude",
+        "title": "Agent Rules: Configure MCP for Claude Code (stdio)",
+        "icon": "$(plug)"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "agentRulesManager_analyzeCoverage",
+        "toolReferenceName": "analyzeRulesCoverage",
+        "displayName": "Analyze Agent Rules Coverage",
+        "modelDescription": "Returns a JSON report of which AI agent rules apply to each workspace file, with token cost estimates. Use this to identify over-tokenized files and plan rule optimizations. Accepts optional agentId to filter by agent.",
+        "description": "Returns a JSON report of which AI agent rules apply to each workspace file, with token cost estimates. Use this to identify over-tokenized files and plan rule optimizations. Accepts optional agentId to filter by agent.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "agentId": {
+              "type": "string",
+              "description": "Optional: filter coverage by agent. Valid values: 'cursor', 'windsurf', 'kiro', 'antigravity', 'augment', 'claude-code'. Omit to analyze all agents."
+            }
+          }
+        },
+        "tags": [
+          "agent-rules",
+          "coverage",
+          "tokens"
+        ]
       }
     ],
     "viewsContainers": {

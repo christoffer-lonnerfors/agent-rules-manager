@@ -91,7 +91,9 @@ export function writeRuleFile(
     targetExt,
     primaryForSlug: pickPrimaryClassifiedFile(logicalRule.rules),
   });
-  const uniqueStem = allocateUniqueSlugStem(targetDir, baseSlug, targetExt, (p) => fs.existsSync(p));
+  const uniqueStem = allocateUniqueSlugStem(targetDir, baseSlug, targetExt, (p) =>
+    fs.existsSync(p),
+  );
   const targetPath = path.join(targetDir, uniqueStem + targetExt);
 
   // Build frontmatter based on target format

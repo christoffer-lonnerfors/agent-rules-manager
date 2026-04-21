@@ -233,3 +233,68 @@ alwaysApply: false
 
 [Detailed rule content...]
 ```
+
+---
+
+## Rule Review and Optimization Workflow
+
+The **Agent Rules Manager** VS Code extension analyses which rules apply to which workspace files and estimates their token cost. Use this to identify rules that are too large, too broadly scoped, or redundant — before they silently inflate context on every request.
+
+### When to run a review
+
+- Before adding a new glob-scoped rule — verify the scope is tight
+- After a set of rules has grown (periodic hygiene)
+- When you suspect context costs are high on certain files
+
+### Getting coverage data
+
+**Option 1 — MCP tool (Claude Code and other MCP-capable terminal agents)**
+Call the `analyzeRulesCoverage` MCP tool directly. It returns the JSON report inline — no file I/O, no polling. Requires the extension's MCP server to be configured in your agent settings (default port 7891). For Claude Code, add to `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "agent-rules": { "type": "http", "url": "http://localhost:7891" }
+  }
+}
+```
+
+**Option 2 — LM Tool (Copilot / VS Code LM API agents)**
+Call the `analyzeRulesCoverage` tool. It returns a JSON report with summary stats and a per-file profile breakdown. Accepts an optional `agentId` parameter to filter by agent.
+
+**Option 3 — Shell command (fallback for terminal agents without MCP configured)**
+
+```bash
+code --reuse-window --command agentRules.exportCoverageDefault
+```
+
+This writes the report to `.agent-rules/coverage.json` in the workspace root (no dialog). Poll until the `meta.generated` timestamp in that file is recent, then read it. If the file does not appear within 10 seconds, the VS Code CLI is not intercepting the `--command` flag on this system — use Option 4 instead.
+
+**Option 4 — User command**
+Run `Agent Rules: Export Coverage Report` from the VS Code command palette to save the report to a chosen location.
+
+### Reading the report
+
+The report contains four top-level keys:
+
+- **`summary`** — plain-language diagnosis; read this first. It names the highest-impact rules and hottest file profiles.
+- **`meta`** — context window size, baseline token cost, and the hottest file path.
+- **`rules`** — one entry per rule, sorted by impact (tokens × matchCount) descending. Key fields:
+  - `tokens` — size of the rule body; high values = candidate for splitting
+  - `matchCount` — number of workspace files this rule is injected into; high values = candidate for narrower globs
+  - `trigger` — `always`, `glob`, or `agent_requested`
+  - `globs` — the glob patterns in effect (glob rules only)
+- **`fileProfiles`** — files grouped by their unique rule combination, sorted by total tokens descending. Each profile shows the exact rule set applied and how many files share it. High-token profiles reveal where rules stack up and merit review for optimization.
+
+### Acting on the data
+
+| Signal                                       | Action                                                                                                                                          |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rule has high `tokens`                       | Split it by concern; apply tighter `globs` to each sub-rule                                                                                     |
+| Rule has high `matchCount` (glob-triggered)  | Narrow the glob to a specific subfolder and extension; if the rule applies across many unrelated areas, consider switching to `agent_requested` |
+| File profile has many stacked rules          | Check whether any of the contributing rules could have tighter globs that exclude these files                                                   |
+| `agent_requested` rule with `matchCount > 0` | Normal — this rule was explicitly requested; no glob action needed                                                                              |
+
+### Verifying improvements
+
+Re-run coverage after making changes and compare the `summary` field. The baseline token count and hottest profile token count should decrease. If a rule was split, verify the new sub-rules have narrower globs and their combined `matchCount` is lower than the original.

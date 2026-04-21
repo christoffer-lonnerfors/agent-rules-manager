@@ -67,9 +67,7 @@ export function getReadableFormats(agentId: AgentId): AgentDefinition['supported
 
 /** Get all formats an agent can write to (readable formats that are not marked writable: false) */
 export function getWritableFormats(agentId: AgentId): AgentDefinition['supportedFormats'] {
-  return getReadableFormats(agentId).filter(
-    (f) => getFormatDefinition(f).writable !== false,
-  );
+  return getReadableFormats(agentId).filter((f) => getFormatDefinition(f).writable !== false);
 }
 
 /** Get the default write format for an agent */
@@ -95,10 +93,7 @@ export function getEffectiveWriteFormat(
 }
 
 /** Check whether a logical rule is covered by any of the agent's readable formats */
-export function isRuleCoveredByAgent(
-  ruleFormats: string[],
-  agentId: AgentId,
-): boolean {
+export function isRuleCoveredByAgent(ruleFormats: string[], agentId: AgentId): boolean {
   const readable = getReadableFormats(agentId) as string[];
   return ruleFormats.some((f) => readable.includes(f));
 }

@@ -11,7 +11,9 @@ import {
 import type { LogicalRule } from '../logical/logicalRule';
 import type { ClassifiedFile } from '../scanner/classifiedFile';
 
-function minimalClassified(overrides: Partial<ClassifiedFile> & Pick<ClassifiedFile, 'fileName'>): ClassifiedFile {
+function minimalClassified(
+  overrides: Partial<ClassifiedFile> & Pick<ClassifiedFile, 'fileName'>,
+): ClassifiedFile {
   return {
     id: 'x',
     filePath: '/w/' + overrides.fileName,
@@ -42,7 +44,10 @@ function minimalLogicalRule(
   overrides: Partial<LogicalRule> = {},
 ): LogicalRule {
   return {
-    id: rules.map((r) => r.id).sort().join(':'),
+    id: rules
+      .map((r) => r.id)
+      .sort()
+      .join(':'),
     description: 'Default desc',
     trigger: 'always',
     globs: undefined,

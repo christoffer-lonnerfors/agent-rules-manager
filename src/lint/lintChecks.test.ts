@@ -161,7 +161,6 @@ describe('missingPrimary', () => {
   });
 });
 
-
 describe('ruleTooLarge', () => {
   it('warns when estimated tokens exceed threshold', async () => {
     // 10000 chars / 3.5 ≈ 2857 tokens > 2000 threshold
@@ -201,5 +200,4 @@ describe('computeFileDiagnostics (file-level lintEngine)', () => {
     const diags = await computeFileDiagnostics(file, defaultConfig);
     expect(diags.some((d) => d.id === 'empty-body')).toBe(true);
   });
-
 });

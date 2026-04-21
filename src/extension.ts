@@ -21,6 +21,9 @@ import { writeRuleFile } from './actions/ruleWriter';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
 import { ClassifiedFile } from './scanner/classifiedFile';
 import { installMetaRule } from './actions/metaRuleInstaller';
+import { exportCoverageToFile, exportCoverageToDefault } from './coverage/coverageExporter';
+import { registerCoverageLmTool } from './coverage/coverageLmTool';
+import { registerVsCodeMcpProvider, configureMcpForClaude } from './coverage/mcpServer';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
 const RULE_BODY_SCHEME = 'ai-rules-body';
@@ -115,13 +118,10 @@ export function activate(context: vscode.ExtensionContext) {
     syncViewDescription();
   });
 
-  const showFileTreeViewCmd = vscode.commands.registerCommand(
-    'agentRules.showFileTreeView',
-    () => {
-      treeProvider.setViewMode('fileTree');
-      syncViewDescription();
-    },
-  );
+  const showFileTreeViewCmd = vscode.commands.registerCommand('agentRules.showFileTreeView', () => {
+    treeProvider.setViewMode('fileTree');
+    syncViewDescription();
+  });
 
   // Register commands
   const rescanCmd = vscode.commands.registerCommand('agentRules.rescan', async () => {
@@ -593,9 +593,7 @@ export function activate(context: vscode.ExtensionContext) {
         await scannerService.scan();
       }
       if (failed.length === 0) {
-        vscode.window.showInformationMessage(
-          `Moved ${ok} file${ok > 1 ? 's' : ''} to Trash.`,
-        );
+        vscode.window.showInformationMessage(`Moved ${ok} file${ok > 1 ? 's' : ''} to Trash.`);
       } else if (ok > 0) {
         vscode.window.showWarningMessage(
           `Moved ${ok} file(s) to Trash; failed: ${failed.join('; ')}`,
@@ -606,7 +604,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
   };
 
-  const deleteRuleFileCmd = vscode.commands.registerCommand('agentRules.deleteRuleFile', deleteFromTreeImpl);
+  const deleteRuleFileCmd = vscode.commands.registerCommand(
+    'agentRules.deleteRuleFile',
+    deleteFromTreeImpl,
+  );
   const deleteAllRuleFormatFilesCmd = vscode.commands.registerCommand(
     'agentRules.deleteAllRuleFormatFiles',
     deleteFromTreeImpl,
@@ -641,6 +642,40 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  // Register coverage export commands
+  const exportCoverageCmd = vscode.commands.registerCommand(
+    'agentRules.exportCoverage',
+    async () => {
+      await exportCoverageToFile(ruleIndex);
+    },
+  );
+
+  const exportCoverageDefaultCmd = vscode.commands.registerCommand(
+    'agentRules.exportCoverageDefault',
+    async () => {
+      await exportCoverageToDefault(ruleIndex);
+    },
+  );
+
+  // Register LM tool (no-op on VS Code < 1.90)
+  registerCoverageLmTool(ruleIndex, context);
+
+  // Register VS Code native MCP provider (stdio) for Copilot/Copilot Chat
+  registerVsCodeMcpProvider(context);
+
+  // Auto-export coverage.json whenever rules change (consumed by the stdio MCP server)
+  const autoExportDisposable = ruleIndex.onDidChange(() => {
+    exportCoverageToDefault(ruleIndex).catch(() => {});
+  });
+  context.subscriptions.push(autoExportDisposable);
+
+  const configureMcpCmd = vscode.commands.registerCommand(
+    'agentRules.configureMcpForClaude',
+    async () => {
+      await configureMcpForClaude(context.extensionPath);
+    },
+  );
+
   // Set up file system watchers derived from FORMAT_CONFIGS
   const watchers = createFileWatchers(scannerService);
 
@@ -666,6 +701,9 @@ export function activate(context: vscode.ExtensionContext) {
     addRuleCmd,
     showCoverageCmd,
     installMetaRuleCmd,
+    exportCoverageCmd,
+    exportCoverageDefaultCmd,
+    configureMcpCmd,
     ruleIndex,
     scannerService,
     treeProvider,

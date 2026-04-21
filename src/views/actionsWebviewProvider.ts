@@ -30,6 +30,7 @@ interface ActionsViewState {
   missingCount: number;
   issueCounts: { errors: number; warnings: number; infos: number };
   issueMessages: { errors: string[]; warnings: string[]; infos: string[] };
+  metaRuleInstalled: boolean;
 }
 
 /** State for the create-rule form */
@@ -54,6 +55,7 @@ type WebviewMessage =
   | { type: 'showCoverage' }
   | { type: 'runSyncAll' }
   | { type: 'runAddAllMissing' }
+  | { type: 'installMetaRule' }
   | { type: 'cancelCreate' }
   | { type: 'createRule'; name: string; trigger: string; location: string }
   | { type: 'browseFolderForRule' };
@@ -127,6 +129,9 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
           break;
         case 'runAddAllMissing':
           vscode.commands.executeCommand('agentRules.addAllMissing');
+          break;
+        case 'installMetaRule':
+          vscode.commands.executeCommand('agentRules.installMetaRule');
           break;
       }
     });
@@ -239,6 +244,9 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
         warnings: [...new Set(warnings.map((i) => i.message))],
         infos: [...new Set(infos.map((i) => i.message))],
       },
+      metaRuleInstalled: this.logicalRules.some((lr) =>
+        lr.rules.some((rf) => rf.filePath.includes('agent-rules-manager-meta-rule')),
+      ),
     };
   }
 
@@ -246,8 +254,12 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     if (!this.view) {
       return;
     }
-    const state = await this.computeState();
-    this.view.webview.postMessage({ type: 'updateState', state });
+    try {
+      const state = await this.computeState();
+      this.view.webview.postMessage({ type: 'updateState', state });
+    } catch (err) {
+      console.error('[AgentRules] ActionsWebviewProvider.computeState failed:', err);
+    }
   }
 
   /**
@@ -612,6 +624,10 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     <button class="btn-secondary" id="showCoverageBtn" title="Analyse token cost of rules across workspace files">Generate Coverage Report</button>
   </div>
 
+  <div class="section">
+    <button class="btn-secondary" id="installMetaRuleBtn" title="Install rule-writing guidelines into your agent's rules folder">Install Rule-Writing Guidelines</button>
+  </div>
+
   <div id="bannersSection"></div>
 
   <hr class="divider">
@@ -698,8 +714,11 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   addRuleBtn.addEventListener('click', () => {
     vscode.postMessage({ type: 'addRule' });
   });
-  document.getElementById('showCoverageBtn').addEventListener('click', () => {
+  document.getElementById('showCoverageBtn')?.addEventListener('click', () => {
     vscode.postMessage({ type: 'showCoverage' });
+  });
+  document.getElementById('installMetaRuleBtn')?.addEventListener('click', () => {
+    vscode.postMessage({ type: 'installMetaRule' });
   });
 
   // ── Create form event listeners ──
@@ -853,10 +872,23 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
     // Coverage button — always visible, disabled until an agent is selected
     const showCoverageBtn = document.getElementById('showCoverageBtn');
-    showCoverageBtn.disabled = !hasAgent;
-    showCoverageBtn.title = hasAgent
-      ? 'Analyse token cost of rules across workspace files'
-      : 'Select an agent to generate a coverage report';
+    if (showCoverageBtn) {
+      showCoverageBtn.disabled = !hasAgent;
+      showCoverageBtn.title = hasAgent
+        ? 'Analyse token cost of rules across workspace files'
+        : 'Select an agent to generate a coverage report';
+    }
+
+    // Install meta-rule button — disabled when not applicable or already installed
+    const installMetaRuleBtn = document.getElementById('installMetaRuleBtn');
+    if (installMetaRuleBtn) {
+      installMetaRuleBtn.disabled = !hasAgent || s.metaRuleInstalled;
+      installMetaRuleBtn.title = !hasAgent
+        ? 'Select an agent to install rule-writing guidelines'
+        : s.metaRuleInstalled
+          ? 'Rule-writing guidelines are already installed'
+          : 'Install rule-writing guidelines for this agent';
+    }
 
     // Contextual banners (only shown when there's work to do)
     bannersSection.innerHTML = '';

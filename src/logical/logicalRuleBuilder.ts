@@ -2,10 +2,7 @@ import { ClassifiedFile } from '../scanner/classifiedFile';
 import { LogicalRule } from './logicalRule';
 import { RuleFormat } from '../formats/formatRegistry';
 import { computeSimilarity } from '../hashing/minHasher';
-import {
-  DUPLICATE_THRESHOLD,
-  shouldSecondaryMergePair,
-} from './mergeSignals';
+import { DUPLICATE_THRESHOLD, shouldSecondaryMergePair } from './mergeSignals';
 
 /**
  * Groups ClassifiedFiles into LogicalRules by merging near-duplicates
