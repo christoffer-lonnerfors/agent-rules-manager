@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
   treeProvider.setExtensionPath(context.extensionPath);
 
   // Load persisted index from last session
-  ruleIndex.load();
+  void ruleIndex.load();
 
   // Register virtual document provider that serves rule body (no frontmatter)
   const bodyProvider = vscode.workspace.registerTextDocumentContentProvider(RULE_BODY_SCHEME, {

@@ -1,14 +1,15 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ClassifiedFile } from '../scanner/classifiedFile';
-import { generateRuleId } from '../scanner/formatClassifier';
 import { LogicalRule } from './logicalRule';
 import { buildLogicalRules } from './logicalRuleBuilder';
 
-const STORAGE_KEY = 'agentRules.ruleIndex.v2';
+const STORAGE_FILE = 'ruleIndex.v2.json';
+/** Legacy memento key — cleared on first load to reclaim space */
+const LEGACY_STORAGE_KEY = 'agentRules.ruleIndex.v2';
 
 /**
- * In-memory store of ClassifiedFiles with persistence to workspaceState.
+ * In-memory store of ClassifiedFiles with persistence to disk (storageUri).
  * Produces a derived logical-rule view by grouping near-duplicate files across formats.
  */
 export class RuleStore {
@@ -21,21 +22,60 @@ export class RuleStore {
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
-  /** Load persisted store from workspaceState */
-  load(): void {
-    const stored = this.context.workspaceState.get<ClassifiedFile[]>(STORAGE_KEY);
+  /** Load persisted store from disk, falling back to legacy workspaceState */
+  async load(): Promise<void> {
     this.rules.clear();
+    const stored = await this.readFromDisk();
     if (stored) {
       for (const rule of stored) {
         this.rules.set(rule.id, rule);
       }
+      // Clear the legacy memento entry so VS Code stops warning about its size
+      await this.context.workspaceState.update(LEGACY_STORAGE_KEY, undefined);
+    } else {
+      const legacy = this.context.workspaceState.get<ClassifiedFile[]>(LEGACY_STORAGE_KEY);
+      if (legacy) {
+        for (const rule of legacy) {
+          this.rules.set(rule.id, rule);
+        }
+        await this.save();
+        await this.context.workspaceState.update(LEGACY_STORAGE_KEY, undefined);
+      }
     }
   }
 
-  /** Persist current store to workspaceState */
+  /** Persist current store to disk */
   async save(): Promise<void> {
     const allRules = Array.from(this.rules.values());
-    await this.context.workspaceState.update(STORAGE_KEY, allRules);
+    await this.writeToDisk(allRules);
+  }
+
+  private storageUri(): vscode.Uri | undefined {
+    return this.context.storageUri
+      ? vscode.Uri.joinPath(this.context.storageUri, STORAGE_FILE)
+      : undefined;
+  }
+
+  private async readFromDisk(): Promise<ClassifiedFile[] | undefined> {
+    const uri = this.storageUri();
+    if (!uri) {
+      return undefined;
+    }
+    try {
+      const bytes = await vscode.workspace.fs.readFile(uri);
+      return JSON.parse(Buffer.from(bytes).toString('utf8')) as ClassifiedFile[];
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async writeToDisk(rules: ClassifiedFile[]): Promise<void> {
+    const uri = this.storageUri();
+    if (!uri) {
+      return;
+    }
+    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(uri, '..'));
+    await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(rules), 'utf8'));
   }
 
   /** Replace the entire store with new rules (used on full scan) */
