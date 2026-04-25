@@ -112,7 +112,7 @@ export class CoverageWebviewPanel {
     const codiconCssUri = this.panel.webview.asWebviewUri(codiconCssPath);
 
     // Send to webview
-    this.panel.webview.html = getAnalysisHtml(state, codiconCssUri);
+    this.panel.webview.html = getAnalysisHtml(state, codiconCssUri, this.panel.webview.cspSource);
   }
 }
 
@@ -123,6 +123,7 @@ function getLoadingHtml(): string {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
 <style>
   body {
     font-family: var(--vscode-font-family);
@@ -145,7 +146,7 @@ function getLoadingHtml(): string {
 </html>`;
 }
 
-function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri): string {
+function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri, cspSource: string): string {
   const s = state.summary;
   const pct = (tokens: number) => ((tokens / s.contextWindowTokens) * 100).toFixed(1);
   const fmt = (tokens: number) => (tokens < 1000 ? `${tokens}` : `${(tokens / 1000).toFixed(1)}k`);
@@ -154,6 +155,7 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri): strin
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'unsafe-inline';">
 <link rel="stylesheet" type="text/css" href="${codiconCssUri}">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
