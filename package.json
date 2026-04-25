@@ -157,6 +157,16 @@
         "icon": "$(plug)"
       },
       {
+        "command": "agentRules.configureMcpForCursor",
+        "title": "Agent Rules: Configure MCP for Cursor",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "agentRules.configureMcpForWindsurf",
+        "title": "Agent Rules: Configure MCP for Windsurf",
+        "icon": "$(plug)"
+      },
+      {
         "command": "agentRules.getStarted",
         "title": "Agent Rules: Get Started"
       }

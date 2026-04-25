@@ -15,12 +15,14 @@ const _definitions = [
     label: 'Cursor',
     primaryFormat: 'cursor-rules' as const,
     supportedFormats: ['cursorrules', 'agents-md'] as const,
+    supportsMcp: true,
   },
   {
     id: 'windsurf' as const,
     label: 'Windsurf',
     primaryFormat: 'windsurf-rules' as const,
     supportedFormats: ['windsurfrules', 'agents-md'] as const,
+    supportsMcp: true,
   },
   {
     id: 'kiro' as const,

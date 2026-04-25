@@ -24,7 +24,13 @@ import { ClassifiedFile } from './scanner/classifiedFile';
 import { installMetaRule } from './actions/metaRuleInstaller';
 import { exportCoverageToFile, exportCoverageToDefault } from './coverage/coverageExporter';
 import { registerCoverageLmTool } from './coverage/coverageLmTool';
-import { registerVsCodeMcpProvider, configureMcpForClaude } from './coverage/mcpServer';
+import {
+  registerVsCodeMcpProvider,
+  configureMcpForClaude,
+  configureMcpForCursor,
+  configureMcpForWindsurf,
+  configureMcpForAgent,
+} from './coverage/mcpServer';
 
 /** Custom URI scheme for body-only virtual documents used in diff view */
 const RULE_BODY_SCHEME = 'ai-rules-body';
@@ -677,6 +683,20 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  const configureMcpForCursorCmd = vscode.commands.registerCommand(
+    'agentRules.configureMcpForCursor',
+    async () => {
+      await configureMcpForCursor(context.extensionPath);
+    },
+  );
+
+  const configureMcpForWindsurfCmd = vscode.commands.registerCommand(
+    'agentRules.configureMcpForWindsurf',
+    async () => {
+      await configureMcpForWindsurf(context.extensionPath);
+    },
+  );
+
   const getStartedCmd = vscode.commands.registerCommand('agentRules.getStarted', () => {
     const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '');
     WelcomeWebviewPanel.createOrShow(context, agentId);
@@ -692,7 +712,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (!newAgentId) return;
     const agentDef = AGENT_DEFINITIONS.find((a) => a.id === newAgentId);
     if (agentDef?.supportsMcp) {
-      await configureMcpForClaude(context.extensionPath, { silent: true });
+      await configureMcpForAgent(newAgentId, context.extensionPath, { silent: true });
     }
   });
 
@@ -724,6 +744,8 @@ export function activate(context: vscode.ExtensionContext) {
     exportCoverageCmd,
     exportCoverageDefaultCmd,
     configureMcpCmd,
+    configureMcpForCursorCmd,
+    configureMcpForWindsurfCmd,
     getStartedCmd,
     agentSwitchDisposable,
     ruleIndex,

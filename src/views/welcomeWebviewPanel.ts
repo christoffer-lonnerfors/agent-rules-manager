@@ -7,7 +7,7 @@ import {
 } from '../agents/agentRegistry';
 import { FORMAT_LABELS } from '../formats/formatRegistry';
 import { installMetaRule } from '../actions/metaRuleInstaller';
-import { configureMcpForClaude } from '../coverage/mcpServer';
+import { configureMcpForAgent } from '../coverage/mcpServer';
 
 type WelcomeMessage =
   | {
@@ -104,7 +104,7 @@ export class WelcomeWebviewPanel {
     if (msg.autoConfigureMcp && msg.agentId) {
       const agentDef = AGENT_DEFINITIONS.find((a) => a.id === msg.agentId);
       if (agentDef?.supportsMcp) {
-        await configureMcpForClaude(this.context.extensionPath, { silent: true });
+        await configureMcpForAgent(msg.agentId, this.context.extensionPath, { silent: true });
       }
     }
   }
@@ -138,9 +138,17 @@ export class WelcomeWebviewPanel {
 
     const metaCheckedAttr = ' checked';
     const mcpCheckedAttr = ' checked';
+    const initialMcpSupported = AGENT_DEFINITIONS.find((a) => a.id === initialAgentId)?.supportsMcp ?? false;
+    const mcpHiddenAttr = initialMcpSupported ? '' : ' style="display:none"';
+
+    const mcpSupportMap: Record<string, boolean> = {};
+    for (const agent of AGENT_DEFINITIONS) {
+      mcpSupportMap[agent.id] = agent.supportsMcp ?? false;
+    }
 
     const formatsMapJson = JSON.stringify(formatsMap);
     const defaultFormatsMapJson = JSON.stringify(defaultFormatsMap);
+    const mcpSupportMapJson = JSON.stringify(mcpSupportMap);
 
     return /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -276,7 +284,7 @@ export class WelcomeWebviewPanel {
       <input type="checkbox" id="meta-rule-cb"${metaCheckedAttr} />
       <span>Add rule-writing guidelines to project rules</span>
     </label>
-    <label class="checkbox-row">
+    <label class="checkbox-row" id="mcp-row"${mcpHiddenAttr}>
       <input type="checkbox" id="mcp-cb"${mcpCheckedAttr} />
       <span>Auto-register MCP tool for supported agents</span>
     </label>
@@ -291,9 +299,11 @@ export class WelcomeWebviewPanel {
   const vscode = acquireVsCodeApi();
   const formatsMap = ${formatsMapJson};
   const defaultFormatsMap = ${defaultFormatsMapJson};
+  const mcpSupportMap = ${mcpSupportMapJson};
 
   const agentSelect = document.getElementById('agent-select');
   const formatSelect = document.getElementById('format-select');
+  const mcpRow = document.getElementById('mcp-row');
 
   function updateFormatDropdown(agentId) {
     const formats = formatsMap[agentId] || [];
@@ -306,8 +316,13 @@ export class WelcomeWebviewPanel {
       .join('');
   }
 
+  function updateMcpRow(agentId) {
+    mcpRow.style.display = mcpSupportMap[agentId] ? '' : 'none';
+  }
+
   agentSelect.addEventListener('change', function() {
     updateFormatDropdown(agentSelect.value);
+    updateMcpRow(agentSelect.value);
   });
 
   document.getElementById('get-started-btn').addEventListener('click', function() {
