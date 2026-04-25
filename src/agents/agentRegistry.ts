@@ -45,6 +45,7 @@ const _definitions = [
     label: 'Claude Code',
     primaryFormat: 'claude-rules' as const,
     supportedFormats: ['claude-local', 'claude-md', 'agents-md'] as const,
+    supportsMcp: true,
   },
 ] satisfies AgentDefinition[];
 

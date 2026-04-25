@@ -155,6 +155,10 @@
         "command": "agentRules.configureMcpForClaude",
         "title": "Agent Rules: Configure MCP for Claude Code (stdio)",
         "icon": "$(plug)"
+      },
+      {
+        "command": "agentRules.getStarted",
+        "title": "Agent Rules: Get Started"
       }
     ],
     "languageModelTools": [
@@ -209,7 +213,7 @@
     "viewsWelcome": [
       {
         "view": "agentRules.rulesView",
-        "contents": "No rules found in this workspace.\nSelect your favorite agent and [create a rule](command:agentRules.addRule)."
+        "contents": "No rules yet.\n[Add a rule](command:agentRules.addRule)"
       }
     ],
     "menus": {
@@ -367,6 +371,11 @@
           "type": "number",
           "default": 128000,
           "description": "Context window size (in tokens) used for coverage analysis severity thresholds."
+        },
+        "agentRules.autoConfigureMcp": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically register the MCP tool when switching to an agent that supports it."
         }
       }
     }

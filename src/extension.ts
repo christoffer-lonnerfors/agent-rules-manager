@@ -19,6 +19,7 @@ import { toCaseInsensitiveGlob } from './scanner/treeWalker';
 import { detectDominantAgent } from './agents/agentAutoDetector';
 import { writeRuleFile } from './actions/ruleWriter';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
+import { WelcomeWebviewPanel } from './views/welcomeWebviewPanel';
 import { ClassifiedFile } from './scanner/classifiedFile';
 import { installMetaRule } from './actions/metaRuleInstaller';
 import { exportCoverageToFile, exportCoverageToDefault } from './coverage/coverageExporter';
@@ -676,6 +677,25 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  const getStartedCmd = vscode.commands.registerCommand('agentRules.getStarted', () => {
+    const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '');
+    WelcomeWebviewPanel.createOrShow(context, agentId);
+  });
+
+  // Auto-register MCP when the user switches to an agent that supports it,
+  // provided they have given standing permission via autoConfigureMcp.
+  const agentSwitchDisposable = vscode.workspace.onDidChangeConfiguration(async (e) => {
+    if (!e.affectsConfiguration('agentRules.agent')) return;
+    const cfg = vscode.workspace.getConfiguration('agentRules');
+    if (!cfg.get<boolean>('autoConfigureMcp', false)) return;
+    const newAgentId = cfg.get<string>('agent', '');
+    if (!newAgentId) return;
+    const agentDef = AGENT_DEFINITIONS.find((a) => a.id === newAgentId);
+    if (agentDef?.supportsMcp) {
+      await configureMcpForClaude(context.extensionPath, { silent: true });
+    }
+  });
+
   // Set up file system watchers derived from FORMAT_CONFIGS
   const watchers = createFileWatchers(scannerService);
 
@@ -704,6 +724,8 @@ export function activate(context: vscode.ExtensionContext) {
     exportCoverageCmd,
     exportCoverageDefaultCmd,
     configureMcpCmd,
+    getStartedCmd,
+    agentSwitchDisposable,
     ruleIndex,
     scannerService,
     treeProvider,
@@ -714,10 +736,12 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Auto-scan on activation (silent — no notification).
-  // After the first scan, auto-detect agent if none is configured.
+  // After the first scan, auto-detect agent if none is configured, then show
+  // the welcome panel if the user hasn't completed setup yet.
   scannerService.scan({ silent: true }).then(() => {
-    autoSelectAgentIfNeeded(ruleIndex);
-    promptMetaRuleInstallIfNeeded(ruleIndex, context);
+    autoSelectAgentIfNeeded(ruleIndex).then(() => {
+      maybeShowWelcome(context);
+    });
   });
 }
 
@@ -805,31 +829,12 @@ async function autoSelectAgentIfNeeded(ruleIndex: RuleStore): Promise<void> {
   await cfg.update('agent', dominant, vscode.ConfigurationTarget.Workspace);
 }
 
-async function promptMetaRuleInstallIfNeeded(
-  ruleIndex: RuleStore,
-  context: vscode.ExtensionContext,
-): Promise<void> {
-  const dismissed = context.globalState.get<boolean>('metaRulePromptDismissed', false);
-  if (dismissed) return;
+async function maybeShowWelcome(context: vscode.ExtensionContext): Promise<void> {
+  const hasSeenWelcome = context.globalState.get<boolean>('hasSeenWelcome', false);
+  if (hasSeenWelcome) return;
 
   const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '');
-  if (!agentId) return;
-
-  const isInstalled = ruleIndex
-    .getLogicalRules()
-    .some((lr) => lr.rules.some((rf) => rf.filePath.includes('agent-rules-manager-meta-rule')));
-  if (isInstalled) return;
-
-  const choice = await vscode.window.showInformationMessage(
-    'Install rule-writing guidelines to help agents create and optimize rules?',
-    'Install',
-    'Not now',
-  );
-  if (choice === 'Install') {
-    await installMetaRule(context.extensionPath);
-  } else if (choice === 'Not now') {
-    await context.globalState.update('metaRulePromptDismissed', true);
-  }
+  WelcomeWebviewPanel.createOrShow(context, agentId);
 }
 
 export function deactivate() {

@@ -56,10 +56,15 @@ export function registerVsCodeMcpProvider(context: vscode.ExtensionContext): voi
  * Write (or update) the agent-rules MCP server entry in .claude/settings.json
  * with user confirmation.
  */
-export async function configureMcpForClaude(extensionPath: string): Promise<void> {
+export async function configureMcpForClaude(
+  extensionPath: string,
+  options?: { silent?: boolean },
+): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
-    vscode.window.showWarningMessage('Agent Rules: Open a workspace folder first.');
+    if (!options?.silent) {
+      vscode.window.showWarningMessage('Agent Rules: Open a workspace folder first.');
+    }
     return;
   }
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
@@ -82,24 +87,31 @@ export async function configureMcpForClaude(extensionPath: string): Promise<void
     JSON.stringify(mcpServers['agent-rules']) === JSON.stringify(serverConfig);
 
   if (alreadyConfigured) {
-    vscode.window.showInformationMessage(
-      'Agent Rules: MCP server is already configured in .claude/settings.json.',
-    );
+    if (!options?.silent) {
+      vscode.window.showInformationMessage(
+        'Agent Rules: MCP server is already configured in .claude/settings.json.',
+      );
+    }
     return;
   }
 
-  const action = mcpServers['agent-rules'] ? 'Update' : 'Add';
-  const answer = await vscode.window.showInformationMessage(
-    `${action} "agent-rules" MCP server in .claude/settings.json?\n\n${JSON.stringify(serverConfig, null, 2)}`,
-    { modal: true },
-    action,
-  );
-  if (answer !== action) return;
+  if (!options?.silent) {
+    const action = mcpServers['agent-rules'] ? 'Update' : 'Add';
+    const answer = await vscode.window.showInformationMessage(
+      `${action} "agent-rules" MCP server in .claude/settings.json?\n\n${JSON.stringify(serverConfig, null, 2)}`,
+      { modal: true },
+      action,
+    );
+    if (answer !== action) return;
+  }
 
   settings.mcpServers = { ...mcpServers, 'agent-rules': serverConfig };
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
-  vscode.window.showInformationMessage(
-    'Agent Rules: MCP server configured. Restart Claude Code to apply.',
-  );
+
+  if (!options?.silent) {
+    vscode.window.showInformationMessage(
+      'Agent Rules: MCP server configured. Restart Claude Code to apply.',
+    );
+  }
 }

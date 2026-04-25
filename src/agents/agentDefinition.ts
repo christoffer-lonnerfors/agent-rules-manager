@@ -12,4 +12,6 @@ export interface AgentDefinition {
   primaryFormat: RuleFormat;
   /** Additional formats this agent reads: legacy backward-compat and cross-agent */
   supportedFormats: RuleFormat[];
+  /** Whether this agent supports MCP tool registration */
+  supportsMcp?: boolean;
 }
