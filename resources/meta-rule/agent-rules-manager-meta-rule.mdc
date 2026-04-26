@@ -1,22 +1,22 @@
 ---
-description: How to create, update, review, and optimize AI agent rule files
+description: "Creating, updating, or removing AI agent rule files"
 globs:
-  - '.cursor/rules/**/*'
-  - '.claude/rules/**/*'
-  - '.augment/rules/**/*'
-  - '.windsurf/rules/**/*'
-  - '.agents/rules/**/*'
-  - '.agent/rules/**/*'
-  - '.kiro/steering/**/*'
-  - '.kiro/specs/**/*'
+  - '.cursor/rules/**/*.mdc'
+  - '.claude/rules/**/*.md'
+  - '.augment/rules/**/*.md'
+  - '.windsurf/rules/**/*.md'
+  - '.agents/rules/**/*.md'
+  - '.kiro/steering/**/*.md'
+  - '**/CLAUDE.md'
+  - '**/AGENTS.md'
 alwaysApply: false
 ---
 
-# How to create, review, and optimize AI agent rule files
+# Creating, updating, or removing AI agent rule files
 
 ## Negative Constraints
 
-- **Never** place rule files outside your agent's dedicated rules folder
+- **Never** place agent-specific rule files outside their dedicated rules folder — the exception is hierarchical formats (`CLAUDE.md`, `AGENTS.md`) which are intentionally placed in the directory whose scope they should cover
 - **Never** use `alwaysApply: true` or equivalent frontmatter except for meta-rules
 - **Never** create rules over 500 lines — split into composable rules
 - **Never** write vague guidance — provide concrete examples
@@ -47,17 +47,20 @@ Always place rule files in your agent's rules folder:
 - Use kebab-case filenames — `.mdc` for Cursor, `.md` for all other agents
 - Prefix with domain, e.g. `backend-`, `frontend-`, `general-`
 - Make names descriptive of the rule's purpose
+- **Exception — hierarchical formats use fixed filenames:** `AGENTS.md` must be named exactly `AGENTS.md` and `CLAUDE.md` must be named exactly `CLAUDE.md` — any other name is silently ignored by the agent
 
 ### Agent format reference
 
-| Agent       | Rules folder       | Extension |
-| ----------- | ------------------ | --------- |
-| Cursor      | `.cursor/rules/`   | `.mdc`    |
-| Windsurf    | `.windsurf/rules/` | `.md`     |
-| Kiro        | `.kiro/steering/`  | `.md`     |
-| Antigravity | `.agents/rules/`   | `.md`     |
-| Augment     | `.augment/rules/`  | `.md`     |
-| Claude Code | `.claude/rules/`   | `.md`     |
+| Agent       | Rules folder / placement                                                                              | Extension              |
+| ----------- | ----------------------------------------------------------------------------------------------------- | ---------------------- |
+| Cursor      | `.cursor/rules/`                                                                                      | `.mdc`                 |
+| Windsurf    | `.windsurf/rules/`                                                                                    | `.md`                  |
+| Kiro        | `.kiro/steering/`                                                                                     | `.md`                  |
+| Antigravity | `.agents/rules/`                                                                                      | `.md`                  |
+| Augment     | `.augment/rules/`                                                                                     | `.md`                  |
+| Claude Code | `.claude/rules/`                                                                                      | `.md`                  |
+| AGENTS.md (all agents) | Place directly in the directory whose scope it should cover — `src/api/AGENTS.md` scopes to `src/api/` and below. Filename must be exactly `AGENTS.md` — any other name is ignored | `.md` — no frontmatter |
+| CLAUDE.md (Claude Code) | Place directly in the directory whose scope it should cover — `src/api/CLAUDE.md` scopes to `src/api/` and below. Filename must be exactly `CLAUDE.md` — any other name is ignored | `.md` — no frontmatter |
 
 ## Frontmatter
 
@@ -69,11 +72,30 @@ alwaysApply: false
 ---
 ```
 
-- **`description`** — write it to match the _situations where the rule should fire_, not just what it contains. Agents use this to decide whether to load the rule. **Must be identical to the `# Rule Title` heading** in the body — the title is the first thing an agent reads once the rule is loaded, so divergence is confusing. **Always quote the value** — an unquoted description containing `:` causes a YAML parse error that silently degrades the entire rule to **Manual**:
+- **`description`** — controls when the rule is loaded. Write it to describe the *situation* where the rule applies, not what it *contains*:
   ```yaml
-  # ✅ Good — quoted, written to match the situation where the rule should fire
+  # ✅ Situation-framing
+  description: "Creating or modifying REST API endpoints: status codes, response shapes, error handling"
+  # ✅ Situation-framing with condition
+  description: "When writing TypeScript in src/services/ — naming, structure, and dependency injection"
+  # ❌ Content-describing — fires on every TypeScript task
+  description: "TypeScript coding standards"
+  # ❌ Describes the rule, not the situation
+  description: "Contains API design patterns"
+  ```
+
+  **Evaluate with three questions** — if any fails, rewrite:
+  1. Would a user doing the target task phrase their request in words that match this description?
+  2. Does this description exclude tasks where the rule should *not* fire? (if no → too broad)
+  3. Is this description distinct from every other rule's description in this repo? (if no → both need rewriting)
+
+  **Must be identical to the `# Rule Title` heading.**
+
+  **Always quote the value** — an unquoted description containing `:` causes a YAML parse error that silently degrades the rule to **Manual**:
+  ```yaml
+  # ✅ Quoted
   description: "API error handling: response shape and HTTP status codes"
-  # ❌ Bad — colon breaks YAML parsing
+  # ❌ Colon breaks YAML parsing
   description: API error handling: response shape and HTTP status codes
   ```
 - **`globs`** — target specific folder paths AND file extensions; always use the quoted YAML array form — unquoted glob patterns containing `*` fail to parse and silently degrade the rule to **Manual**
@@ -87,16 +109,18 @@ alwaysApply: false
   ```
 - **`alwaysApply`** — `true` for meta-rules only; `false` otherwise (auto-attached via globs or agent-requested)
 
-> Field names above are Cursor syntax. The concepts are universal but the syntax varies per agent.
+**Hierarchical formats (`CLAUDE.md`, `AGENTS.md`) carry no frontmatter at all.** Their scope is derived entirely from directory placement — a `CLAUDE.md` or `AGENTS.md` in `src/api/` applies to all files under `src/api/`. Do not add a `globs` field to these files; the directory position is the scope. When the extension writes to these formats it places the file in the closest common parent directory of the relevant globs; when reading, it derives the implicit glob from the file's location.
+
+> Field names above are Cursor syntax. The concepts are universal but the syntax varies per agent. `CLAUDE.md` and `AGENTS.md` use no frontmatter — scope is defined by directory placement as described above.
 
 ## Rule Types — Cross-Format Reference
 
-| Concept           | Cursor                            | Windsurf / Antigravity                    | Kiro                                        | Augment                                 | Claude Code          |
-| ----------------- | --------------------------------- | ----------------------------------------- | ------------------------------------------- | --------------------------------------- | -------------------- |
-| **Always active** | `alwaysApply: true`               | `trigger: always_on`                      | `inclusion: always`                         | `type: always_apply`                    | _(no `paths` field)_ |
-| **File-scoped**   | `globs: [...]`                    | `trigger: glob` + `globs`                 | `inclusion: fileMatch` + `fileMatchPattern` | _(not supported)_                       | `paths: [...]`       |
-| **Model decides** | `description: "..."` (no `globs`) | `trigger: model_decision` + `description` | `inclusion: auto` + `description`           | `type: agent_requested` + `description` | _(not supported)_    |
-| **Manual only**   | _(no flags)_                      | `trigger: manual`                         | `inclusion: manual`                         | `type: manual`                          | _(not supported)_    |
+| Concept           | Cursor                            | Windsurf / Antigravity                    | Kiro                                        | Augment                                 | Claude Code          | AGENTS.md / CLAUDE.md                              |
+| ----------------- | --------------------------------- | ----------------------------------------- | ------------------------------------------- | --------------------------------------- | -------------------- | -------------------------------------------------- |
+| **Always active** | `alwaysApply: true`               | `trigger: always_on`                      | `inclusion: always`                         | `type: always_apply`                    | _(no `paths` field)_ | _(default — scoped to the file's directory tree)_  |
+| **File-scoped**   | `globs: [...]`                    | `trigger: glob` + `globs`                 | `inclusion: fileMatch` + `fileMatchPattern` | _(not supported)_                       | `paths: [...]`       | _(use directory placement instead of globs)_       |
+| **Model decides** | `description: "..."` (no `globs`) | `trigger: model_decision` + `description` | `inclusion: auto` + `description`           | `type: agent_requested` + `description` | _(not supported)_    | _(not supported)_                                  |
+| **Manual only**   | _(no flags)_                      | `trigger: manual`                         | `inclusion: manual`                         | `type: manual`                          | _(not supported)_    | _(not supported)_                                  |
 
 ---
 
@@ -216,13 +240,13 @@ alwaysApply: false
 
 ```markdown
 ---
-description: E2E Testing Guidelines (Mocha/Chai/TypeScript)
+description: "Writing or modifying E2E tests in backend/src/tests — test isolation, Mocha suite structure, and Chai assertions"
 globs:
   - 'backend/src/tests/**/*.ts'
 alwaysApply: false
 ---
 
-# E2E Testing Guidelines
+# Writing or modifying E2E tests in backend/src/tests — test isolation, Mocha suite structure, and Chai assertions
 
 ## Negative Constraints
 
@@ -236,65 +260,6 @@ alwaysApply: false
 
 ---
 
-## Rule Review and Optimization Workflow
+## Coverage Analysis
 
-The **Agent Rules Manager** VS Code extension analyses which rules apply to which workspace files and estimates their token cost. Use this to identify rules that are too large, too broadly scoped, or redundant — before they silently inflate context on every request.
-
-### When to run a review
-
-- Before adding a new glob-scoped rule — verify the scope is tight
-- After a set of rules has grown (periodic hygiene)
-- When you suspect context costs are high on certain files
-
-### Getting coverage data
-
-**Option 1 — MCP tool (Claude Code and other MCP-capable terminal agents)**
-Call the `analyzeRulesCoverage` MCP tool directly. It returns the JSON report inline — no file I/O, no polling. Requires the extension's MCP server to be configured in your agent settings (default port 7891). For Claude Code, add to `.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "agent-rules": { "type": "http", "url": "http://localhost:7891" }
-  }
-}
-```
-
-**Option 2 — LM Tool (Copilot / VS Code LM API agents)**
-Call the `analyzeRulesCoverage` tool. It returns a JSON report with summary stats and a per-file profile breakdown. Accepts an optional `agentId` parameter to filter by agent.
-
-**Option 3 — Shell command (fallback for terminal agents without MCP configured)**
-
-```bash
-code --reuse-window --command agentRules.exportCoverageDefault
-```
-
-This writes the report to `.agent-rules/coverage.json` in the workspace root (no dialog). Poll until the `meta.generated` timestamp in that file is recent, then read it. If the file does not appear within 10 seconds, the VS Code CLI is not intercepting the `--command` flag on this system — use Option 4 instead.
-
-**Option 4 — User command**
-Run `Agent Rules: Export Coverage Report` from the VS Code command palette to save the report to a chosen location.
-
-### Reading the report
-
-The report contains four top-level keys:
-
-- **`summary`** — plain-language diagnosis; read this first. It names the highest-impact rules and hottest file profiles.
-- **`meta`** — context window size, baseline token cost, and the hottest file path.
-- **`rules`** — one entry per rule, sorted by impact (tokens × matchCount) descending. Key fields:
-  - `tokens` — size of the rule body; high values = candidate for splitting
-  - `matchCount` — number of workspace files this rule is injected into; high values = candidate for narrower globs
-  - `trigger` — `always`, `glob`, or `agent_requested`
-  - `globs` — the glob patterns in effect (glob rules only)
-- **`fileProfiles`** — files grouped by their unique rule combination, sorted by total tokens descending. Each profile shows the exact rule set applied and how many files share it. High-token profiles reveal where rules stack up and merit review for optimization.
-
-### Acting on the data
-
-| Signal                                       | Action                                                                                                                                          |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rule has high `tokens`                       | Split it by concern; apply tighter `globs` to each sub-rule                                                                                     |
-| Rule has high `matchCount` (glob-triggered)  | Narrow the glob to a specific subfolder and extension; if the rule applies across many unrelated areas, consider switching to `agent_requested` |
-| File profile has many stacked rules          | Check whether any of the contributing rules could have tighter globs that exclude these files                                                   |
-| `agent_requested` rule with `matchCount > 0` | Normal — this rule was explicitly requested; no glob action needed                                                                              |
-
-### Verifying improvements
-
-Re-run coverage after making changes and compare the `summary` field. The baseline token count and hottest profile token count should decrease. If a rule was split, verify the new sub-rules have narrower globs and their combined `matchCount` is lower than the original.
+Use the **Agent Rules Manager** coverage tool to identify rules that are too large, too broadly scoped, or redundant. Call the `analyzeRulesCoverage` MCP tool if your agent has MCP configured, or run `Agent Rules: Export Coverage Report` from the VS Code command palette. The MCP server is auto-registered for Cursor, Windsurf, and Claude Code via the extension's welcome panel.
