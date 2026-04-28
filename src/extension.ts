@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
   };
   syncViewDescription();
 
-  const actionsProvider = new ActionsWebviewProvider(ruleIndex);
+  const actionsProvider = new ActionsWebviewProvider(ruleIndex, context.extensionUri);
   const actionsViewRegistration = vscode.window.registerWebviewViewProvider(
     ActionsWebviewProvider.viewType,
     actionsProvider,
@@ -698,8 +698,13 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   const getStartedCmd = vscode.commands.registerCommand('agentRules.getStarted', () => {
-    const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '');
-    WelcomeWebviewPanel.createOrShow(context, agentId);
+    const cfg = vscode.workspace.getConfiguration('agentRules');
+    WelcomeWebviewPanel.createOrShow(context, {
+      initialAgentId: cfg.get<string>('agent', ''),
+      initialWriteFormat: cfg.get<string>('writeFormat', ''),
+      metaRuleConsent: context.globalState.get<boolean | undefined>('metaRuleConsent'),
+      mcpConsent: context.globalState.get<boolean | undefined>('mcpConsent'),
+    });
   });
 
   // Auto-register MCP when the user switches to an agent that supports it,
@@ -855,8 +860,13 @@ async function maybeShowWelcome(context: vscode.ExtensionContext): Promise<void>
   const hasSeenWelcome = context.globalState.get<boolean>('hasSeenWelcome', false);
   if (hasSeenWelcome) return;
 
-  const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '');
-  WelcomeWebviewPanel.createOrShow(context, agentId);
+  const cfg = vscode.workspace.getConfiguration('agentRules');
+  WelcomeWebviewPanel.createOrShow(context, {
+    initialAgentId: cfg.get<string>('agent', ''),
+    initialWriteFormat: cfg.get<string>('writeFormat', ''),
+    metaRuleConsent: context.globalState.get<boolean | undefined>('metaRuleConsent'),
+    mcpConsent: context.globalState.get<boolean | undefined>('mcpConsent'),
+  });
 }
 
 export function deactivate() {

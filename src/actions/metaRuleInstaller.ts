@@ -18,6 +18,7 @@ const META_RULE_DESCRIPTION = 'How to create, review, and optimize AI agent rule
 export async function installMetaRule(
   extensionPath: string,
   preselectedAgentId?: AgentId,
+  options?: { skipExisting?: boolean },
 ): Promise<string[]> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -110,6 +111,7 @@ export async function installMetaRule(
     const targetPath = path.join(targetDir, `agent-rules-manager-meta-rule${ext}`);
 
     if (fs.existsSync(targetPath)) {
+      if (options?.skipExisting) continue;
       const answer = await vscode.window.showWarningMessage(
         `agent-rules-manager-meta-rule${ext} already exists for ${item.label}. Overwrite?`,
         { modal: true },

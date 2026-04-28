@@ -16,6 +16,7 @@ const _definitions = [
     primaryFormat: 'cursor-rules' as const,
     supportedFormats: ['cursorrules', 'agents-md'] as const,
     supportsMcp: true,
+    iconInitials: 'CU',
   },
   {
     id: 'windsurf' as const,
@@ -23,24 +24,28 @@ const _definitions = [
     primaryFormat: 'windsurf-rules' as const,
     supportedFormats: ['windsurfrules', 'agents-md'] as const,
     supportsMcp: true,
+    iconInitials: 'WS',
   },
   {
     id: 'kiro' as const,
     label: 'Kiro',
     primaryFormat: 'kiro' as const,
     supportedFormats: [] as const,
+    iconInitials: 'KI',
   },
   {
     id: 'antigravity' as const,
     label: 'Antigravity',
     primaryFormat: 'antigravity' as const,
     supportedFormats: [] as const,
+    iconInitials: 'AG',
   },
   {
     id: 'augment' as const,
     label: 'Augment Code',
     primaryFormat: 'augment-rules' as const,
     supportedFormats: ['augment-guidelines', 'agents-md', 'claude-md'] as const,
+    iconInitials: 'AU',
   },
   {
     id: 'claude-code' as const,
@@ -48,6 +53,7 @@ const _definitions = [
     primaryFormat: 'claude-rules' as const,
     supportedFormats: ['claude-local', 'claude-md', 'agents-md'] as const,
     supportsMcp: true,
+    iconInitials: 'CC',
   },
 ] satisfies AgentDefinition[];
 

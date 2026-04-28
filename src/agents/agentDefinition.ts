@@ -14,4 +14,6 @@ export interface AgentDefinition {
   supportedFormats: RuleFormat[];
   /** Whether this agent supports MCP tool registration */
   supportsMcp?: boolean;
+  /** Two-character initials for the avatar badge in the UI (e.g. 'CU' for Cursor) */
+  iconInitials: string;
 }

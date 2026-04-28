@@ -11,13 +11,20 @@ import { configureMcpForAgent } from '../coverage/mcpServer';
 
 type WelcomeMessage =
   | {
-    type: 'getStarted';
+    type: 'save';
     agentId: string;
     writeFormat: string;
-    installMetaRule: boolean;
-    autoConfigureMcp: boolean;
+    metaRuleConsent: boolean;
+    mcpConsent: boolean;
   }
-  | { type: 'skip' };
+  | { type: 'cancel' };
+
+interface ConfigOpts {
+  initialAgentId: string;
+  initialWriteFormat: string;
+  metaRuleConsent: boolean | undefined;
+  mcpConsent: boolean | undefined;
+}
 
 export class WelcomeWebviewPanel {
   static readonly viewType = 'agentRules.welcome';
@@ -26,38 +33,38 @@ export class WelcomeWebviewPanel {
 
   static createOrShow(
     context: vscode.ExtensionContext,
-    initialAgentId: string,
+    opts: ConfigOpts,
   ): void {
+    // Always dispose and recreate so the panel shows fresh config values
     if (WelcomeWebviewPanel.instance) {
-      WelcomeWebviewPanel.instance.panel.reveal(vscode.ViewColumn.One);
-      return;
+      WelcomeWebviewPanel.instance.panel.dispose();
     }
     const panel = vscode.window.createWebviewPanel(
       WelcomeWebviewPanel.viewType,
-      'Agent Rules — Get Started',
+      'Agent Configuration',
       vscode.ViewColumn.One,
       { enableScripts: true, retainContextWhenHidden: false },
     );
-    WelcomeWebviewPanel.instance = new WelcomeWebviewPanel(panel, context, initialAgentId);
+    WelcomeWebviewPanel.instance = new WelcomeWebviewPanel(panel, context, opts);
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     private readonly context: vscode.ExtensionContext,
-    initialAgentId: string,
+    opts: ConfigOpts,
   ) {
     this.panel = panel;
 
-    panel.webview.html = this.buildHtml(initialAgentId);
+    panel.webview.html = this.buildHtml(opts);
 
     panel.webview.onDidReceiveMessage(
       async (msg: WelcomeMessage) => {
         switch (msg.type) {
-          case 'getStarted':
-            await this.handleGetStarted(msg);
+          case 'save':
+            await this.handleSave(msg);
             panel.dispose();
             break;
-          case 'skip':
+          case 'cancel':
             await context.globalState.update('hasSeenWelcome', true);
             panel.dispose();
             break;
@@ -72,8 +79,8 @@ export class WelcomeWebviewPanel {
     });
   }
 
-  private async handleGetStarted(
-    msg: Extract<WelcomeMessage, { type: 'getStarted' }>,
+  private async handleSave(
+    msg: Extract<WelcomeMessage, { type: 'save' }>,
   ): Promise<void> {
     const cfg = vscode.workspace.getConfiguration('agentRules');
 
@@ -88,20 +95,23 @@ export class WelcomeWebviewPanel {
       await cfg.update('writeFormat', override, vscode.ConfigurationTarget.Workspace);
     }
 
-    if (msg.autoConfigureMcp) {
-      await cfg.update('autoConfigureMcp', true, vscode.ConfigurationTarget.Global);
-    }
+    // Persist consent values to globalState (true/false — never undefined after Save)
+    await this.context.globalState.update('metaRuleConsent', msg.metaRuleConsent);
+    await this.context.globalState.update('mcpConsent', msg.mcpConsent);
+
+    // Keep autoConfigureMcp VS Code setting in sync for the agent-switch listener
+    await cfg.update('autoConfigureMcp', msg.mcpConsent, vscode.ConfigurationTarget.Global);
 
     await this.context.globalState.update('hasSeenWelcome', true);
 
-    if (msg.installMetaRule && msg.agentId) {
-      const written = await installMetaRule(this.context.extensionPath, msg.agentId as AgentId);
+    if (msg.metaRuleConsent && msg.agentId) {
+      const written = await installMetaRule(this.context.extensionPath, msg.agentId as AgentId, { skipExisting: true });
       if (written.length > 0) {
         await vscode.commands.executeCommand('agentRules.rescan');
       }
     }
 
-    if (msg.autoConfigureMcp && msg.agentId) {
+    if (msg.mcpConsent && msg.agentId) {
       const agentDef = AGENT_DEFINITIONS.find((a) => a.id === msg.agentId);
       if (agentDef?.supportsMcp) {
         await configureMcpForAgent(msg.agentId, this.context.extensionPath, { silent: true });
@@ -109,7 +119,9 @@ export class WelcomeWebviewPanel {
     }
   }
 
-  private buildHtml(initialAgentId: string): string {
+  private buildHtml(opts: ConfigOpts): string {
+    const { initialAgentId, initialWriteFormat, metaRuleConsent, mcpConsent } = opts;
+
     // Build maps for client-side format switching
     const formatsMap: Record<string, Array<{ id: string; label: string }>> = {};
     const defaultFormatsMap: Record<string, string> = {};
@@ -128,16 +140,18 @@ export class WelcomeWebviewPanel {
 
     const initialFormats = initialAgentId ? (formatsMap[initialAgentId] ?? []) : [];
     const initialDefault = defaultFormatsMap[initialAgentId] ?? '';
+    const activeFormat = initialWriteFormat || initialDefault;
     const formatOptions = initialFormats
       .map((f) => {
-        const selected = f.id === initialDefault ? ' selected' : '';
+        const selected = f.id === activeFormat ? ' selected' : '';
         const label = escapeHtml(f.label) + (f.id === initialDefault ? ' (default)' : '');
         return `<option value="${f.id}"${selected}>${label}</option>`;
       })
       .join('\n      ');
 
-    const metaCheckedAttr = ' checked';
-    const mcpCheckedAttr = ' checked';
+    // Tri-state: undefined → pre-checked; true → checked; false → unchecked
+    const metaCheckedAttr = metaRuleConsent !== false ? ' checked' : '';
+    const mcpCheckedAttr = mcpConsent !== false ? ' checked' : '';
     const initialMcpSupported = AGENT_DEFINITIONS.find((a) => a.id === initialAgentId)?.supportsMcp ?? false;
     const mcpHiddenAttr = initialMcpSupported ? '' : ' style="display:none"';
 
@@ -259,13 +273,13 @@ export class WelcomeWebviewPanel {
 </head>
 <body>
 <div class="container">
-  <h1>Agent Rules Manager</h1>
-  <p class="subtitle">Configure your workspace to get started</p>
+  <h1>Agent Configuration</h1>
+  <p class="subtitle">Choose your target agent and rule format</p>
 
   <div class="field">
     <label class="field-label" for="agent-select">Agent</label>
     <select id="agent-select">
-      <option value="">— select an agent —</option>
+      <option value="" disabled hidden>— select an agent —</option>
       ${agentOptions}
     </select>
   </div>
@@ -291,8 +305,8 @@ export class WelcomeWebviewPanel {
   </div>
 
   <div class="actions">
-    <button class="btn-primary" id="get-started-btn">Get Started</button>
-    <button class="btn-link" id="skip-btn">Skip</button>
+    <button class="btn-primary" id="get-started-btn">Save</button>
+    <button class="btn-link" id="skip-btn">Cancel</button>
   </div>
 </div>
 <script>
@@ -327,16 +341,16 @@ export class WelcomeWebviewPanel {
 
   document.getElementById('get-started-btn').addEventListener('click', function() {
     vscode.postMessage({
-      type: 'getStarted',
+      type: 'save',
       agentId: agentSelect.value,
       writeFormat: formatSelect.value,
-      installMetaRule: document.getElementById('meta-rule-cb').checked,
-      autoConfigureMcp: document.getElementById('mcp-cb').checked,
+      metaRuleConsent: document.getElementById('meta-rule-cb').checked,
+      mcpConsent: document.getElementById('mcp-cb').checked,
     });
   });
 
   document.getElementById('skip-btn').addEventListener('click', function() {
-    vscode.postMessage({ type: 'skip' });
+    vscode.postMessage({ type: 'cancel' });
   });
 </script>
 </body>

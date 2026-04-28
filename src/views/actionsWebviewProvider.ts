@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as path from 'path';
 import { LogicalRule } from '../logical/logicalRule';
 import { RuleFormat, RuleTrigger, FORMAT_LABELS } from '../formats/formatRegistry';
@@ -7,8 +6,6 @@ import {
   AgentId,
   AGENT_DEFINITIONS,
   getReadableFormats,
-  getWritableFormats,
-  getDefaultWriteFormat,
   getEffectiveWriteFormat,
 } from '../agents/agentRegistry';
 import { RuleStore } from '../logical/ruleStore';
@@ -21,9 +18,10 @@ import { createRuleFile } from '../actions/ruleWriter';
 /** State object sent to the webview for rendering */
 interface ActionsViewState {
   agent: string;
-  agents: Array<{ id: string; label: string }>;
+  agentLabel: string;
+  agentInitials: string;
   writeFormat: string;
-  availableFormats: Array<{ id: string; label: string; isDefault: boolean }>;
+  writeFormatLabel: string;
   totalRules: number;
   multiFormatCount: number;
   divergedCount: number;
@@ -49,8 +47,7 @@ interface CreateFormState {
 
 /** Messages sent from webview → extension */
 type WebviewMessage =
-  | { type: 'agentChanged'; value: string }
-  | { type: 'writeFormatChanged'; value: string }
+  | { type: 'openAgentConfig'; reason?: 'noAgent' }
   | { type: 'addRule' }
   | { type: 'showCoverage' }
   | { type: 'runSyncAll' }
@@ -67,7 +64,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   private logicalRules: LogicalRule[] = [];
   private disposables: vscode.Disposable[] = [];
 
-  constructor(private readonly ruleIndex: RuleStore) {
+  constructor(private readonly ruleIndex: RuleStore, private readonly extensionUri: vscode.Uri) {
     this.logicalRules = ruleIndex.getLogicalRules();
 
     this.disposables.push(
@@ -94,20 +91,23 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   ): void {
     this.view = webviewView;
 
-    webviewView.webview.options = { enableScripts: true };
-    webviewView.webview.html = this.getHtml();
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [
+        vscode.Uri.joinPath(this.extensionUri, 'resources'),
+      ],
+    };
+    webviewView.webview.html = this.getHtml(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(async (msg: WebviewMessage) => {
       switch (msg.type) {
-        case 'agentChanged':
-          vscode.workspace
-            .getConfiguration('agentRules')
-            .update('agent', msg.value, vscode.ConfigurationTarget.Workspace);
-          break;
-        case 'writeFormatChanged':
-          vscode.workspace
-            .getConfiguration('agentRules')
-            .update('writeFormat', msg.value, vscode.ConfigurationTarget.Workspace);
+        case 'openAgentConfig':
+          if (msg.reason === 'noAgent') {
+            vscode.window.showInformationMessage(
+              'Select an agent and format to use this action.',
+            );
+          }
+          vscode.commands.executeCommand('agentRules.getStarted');
           break;
         case 'addRule':
           this.showCreateForm();
@@ -193,22 +193,17 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     const detectDivergence = cfg.get<boolean>('detectDivergence', true);
     const maxRuleTokens = cfg.get<number>('lint.maxRuleTokens', 2000);
 
-    const agents = AGENT_DEFINITIONS.map((a) => ({ id: a.id, label: a.label }));
-
-    let availableFormats: ActionsViewState['availableFormats'] = [];
     let writeFormat = '';
 
-    if (agent) {
-      const writable = getWritableFormats(agent as AgentId);
-      const defaultFmt = getDefaultWriteFormat(agent as AgentId);
-      writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
+    const agentDef = agent ? AGENT_DEFINITIONS.find((a) => a.id === agent) : undefined;
+    const agentLabel = agentDef?.label ?? '';
+    const agentInitials = agentDef?.iconInitials ?? '';
 
-      availableFormats = writable.map((f) => ({
-        id: f,
-        label: FORMAT_LABELS[f],
-        isDefault: f === defaultFmt,
-      }));
+    if (agent) {
+      writeFormat = getEffectiveWriteFormat(agent as AgentId, writeFormatOverride);
     }
+
+    const writeFormatLabel = writeFormat ? (FORMAT_LABELS[writeFormat as RuleFormat] ?? '') : '';
 
     const divergedCount = this.getDivergedRules().length;
     const missingCount = agent
@@ -231,9 +226,10 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
     return {
       agent,
-      agents,
+      agentLabel,
+      agentInitials,
       writeFormat,
-      availableFormats,
+      writeFormatLabel,
       totalRules: this.logicalRules.length,
       multiFormatCount,
       divergedCount,
@@ -367,13 +363,31 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     this.postState();
   }
 
-  private getHtml(): string {
+  private getHtml(webview: vscode.Webview): string {
+    const codiconsUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'resources', 'codicons', 'codicon.css'),
+    );
+    const agentIconsDark: Record<string, string> = {};
+    const agentIconsLight: Record<string, string> = {};
+    for (const agent of AGENT_DEFINITIONS) {
+      agentIconsDark[agent.id] = webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'dark', `${agent.id}.svg`),
+      ).toString();
+      agentIconsLight[agent.id] = webview.asWebviewUri(
+        vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'light', `${agent.id}.svg`),
+      ).toString();
+    }
+    const agentIconsDarkJson = JSON.stringify(agentIconsDark);
+    const agentIconsLightJson = JSON.stringify(agentIconsLight);
+    const cspSource = webview.cspSource;
+
     return /* html */ `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${cspSource}; script-src 'unsafe-inline'; font-src ${cspSource}; img-src ${cspSource};">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="stylesheet" href="${codiconsUri}">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -395,19 +409,44 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     margin-bottom: 6px;
   }
 
-  select {
-    width: 100%;
-    padding: 4px 8px;
-    font-family: var(--vscode-font-family);
-    font-size: var(--vscode-font-size);
-    color: var(--vscode-dropdown-foreground);
-    background: var(--vscode-dropdown-background);
-    border: 1px solid var(--vscode-dropdown-border);
-    border-radius: 2px;
-    outline: none;
-    cursor: pointer;
+  .agent-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
   }
-  select:focus { border-color: var(--vscode-focusBorder); }
+  .agent-icon-wrap {
+    width: 20px; height: 20px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .agent-icon-wrap img {
+    width: 20px; height: 20px;
+  }
+  .agent-icon-wrap.no-agent {
+    border-radius: 50%;
+    background: var(--vscode-editorWarning-foreground, #cca700);
+    color: #fff;
+    font-size: 11px; font-weight: 700;
+  }
+  .agent-indicator-text {
+    flex: 1; font-size: 12px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .agent-indicator-text.no-agent {
+    color: var(--vscode-editorWarning-foreground, #cca700);
+  }
+  .agent-cog {
+    background: none; border: none; cursor: pointer;
+    color: var(--vscode-foreground); opacity: 0.6;
+    padding: 3px 4px; display: flex; align-items: center;
+    border-radius: 3px; flex-shrink: 0; line-height: 1;
+  }
+  .agent-cog:hover {
+    opacity: 1;
+    background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,0.15));
+  }
+  .agent-cog .codicon { font-size: 16px; }
 
   .divider {
     border: none;
@@ -561,11 +600,6 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   }
   .input-suffix:empty { display: none; }
 
-  select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   .form-hint {
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
@@ -606,15 +640,14 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 <body>
   <div id="mainView">
   <div class="section">
-    <div class="section-label" title="The AI coding agent you use.">Agent</div>
-    <select id="agentSelect" title="Select the AI coding agent you use">
-      <option value="">Select an agent…</option>
-    </select>
-  </div>
-
-  <div class="section">
-    <div class="section-label" title="The format used when creating or syncing rule files.">Target Format</div>
-    <select id="formatSelect" title="Choose the format to write rule files in"></select>
+    <div class="section-label">Target rule format</div>
+    <div class="agent-indicator">
+      <div class="agent-icon-wrap" id="agentIconWrap"></div>
+      <span class="agent-indicator-text" id="agentIndicatorText"></span>
+      <button class="agent-cog" id="agentCogBtn" title="Open Agent Configuration" aria-label="Open Agent Configuration">
+        <i class="codicon codicon-settings-gear"></i>
+      </button>
+    </div>
   </div>
 
   <div class="section">
@@ -678,14 +711,19 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
 <script>
   const vscode = acquireVsCodeApi();
+  const agentIconsDark = ${agentIconsDarkJson};
+  const agentIconsLight = ${agentIconsLightJson};
 
   // ── Main view elements ──
   const mainView = document.getElementById('mainView');
-  const agentSelect = document.getElementById('agentSelect');
-  const formatSelect = document.getElementById('formatSelect');
+  const agentIconWrap = document.getElementById('agentIconWrap');
+  const agentIndicatorText = document.getElementById('agentIndicatorText');
+  const agentCogBtn = document.getElementById('agentCogBtn');
   const addRuleBtn = document.getElementById('addRuleBtn');
   const bannersSection = document.getElementById('bannersSection');
   const footer = document.getElementById('footer');
+
+  let currentState = null;
 
   // ── Create form elements ──
   const createRuleForm = document.getElementById('createRuleForm');
@@ -706,19 +744,27 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   let currentFormState = null;
   let selectedLocation = '/';
 
-  agentSelect.addEventListener('change', () => {
-    vscode.postMessage({ type: 'agentChanged', value: agentSelect.value });
-  });
-  formatSelect.addEventListener('change', () => {
-    vscode.postMessage({ type: 'writeFormatChanged', value: formatSelect.value });
+  function requireAgent() {
+    if (!currentState || !currentState.agent) {
+      vscode.postMessage({ type: 'openAgentConfig', reason: 'noAgent' });
+      return false;
+    }
+    return true;
+  }
+
+  agentCogBtn.addEventListener('click', () => {
+    vscode.postMessage({ type: 'openAgentConfig' });
   });
   addRuleBtn.addEventListener('click', () => {
+    if (!requireAgent()) { return; }
     vscode.postMessage({ type: 'addRule' });
   });
   document.getElementById('showCoverageBtn')?.addEventListener('click', () => {
+    if (!requireAgent()) { return; }
     vscode.postMessage({ type: 'showCoverage' });
   });
   document.getElementById('installMetaRuleBtn')?.addEventListener('click', () => {
+    if (!requireAgent()) { return; }
     vscode.postMessage({ type: 'installMetaRule' });
   });
 
@@ -834,61 +880,40 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   function render(s) {
-    // Agent dropdown
-    agentSelect.innerHTML = '<option value=""' + (s.agent ? ' disabled' : '') + '>Select an agent\u2026</option>';
-    for (const a of s.agents) {
-      const opt = document.createElement('option');
-      opt.value = a.id;
-      opt.textContent = a.label;
-      if (a.id === s.agent) { opt.selected = true; }
-      agentSelect.appendChild(opt);
-    }
-
+    currentState = s;
     const hasAgent = !!s.agent;
 
-    // Format dropdown — always visible, placeholder + disabled when no agent
-    formatSelect.innerHTML = '';
+    // Agent indicator
     if (hasAgent) {
-      formatSelect.disabled = false;
-      for (const f of s.availableFormats) {
-        const opt = document.createElement('option');
-        opt.value = f.id;
-        opt.textContent = f.label + (f.isDefault ? ' (default)' : '');
-        if (f.id === s.writeFormat) { opt.selected = true; }
-        formatSelect.appendChild(opt);
-      }
+      const isDark = document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast');
+      const iconUri = (isDark ? agentIconsDark : agentIconsLight)[s.agent] || '';
+      agentIconWrap.className = 'agent-icon-wrap';
+      agentIconWrap.innerHTML = iconUri ? '<img src="' + iconUri + '" width="20" height="20" alt="" />' : '';
+      agentIndicatorText.textContent = s.agentLabel + ' · ' + s.writeFormatLabel;
+      agentIndicatorText.className = 'agent-indicator-text';
     } else {
-      formatSelect.disabled = true;
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = 'Select an agent first…';
-      formatSelect.appendChild(placeholder);
+      agentIconWrap.className = 'agent-icon-wrap no-agent';
+      agentIconWrap.textContent = '!';
+      agentIndicatorText.textContent = 'No agent selected';
+      agentIndicatorText.className = 'agent-indicator-text no-agent';
     }
 
-    // Add Rule button — always visible, disabled until an agent is selected
-    addRuleBtn.disabled = !hasAgent;
-    addRuleBtn.title = hasAgent
-      ? 'Create a new rule file in the target format'
-      : 'Select an agent to add a rule';
+    // Add Rule button
+    addRuleBtn.title = 'Create a new rule file in the target format';
 
-    // Coverage button — always visible, disabled until an agent is selected
+    // Coverage button
     const showCoverageBtn = document.getElementById('showCoverageBtn');
     if (showCoverageBtn) {
-      showCoverageBtn.disabled = !hasAgent;
-      showCoverageBtn.title = hasAgent
-        ? 'Analyse token cost of rules across workspace files'
-        : 'Select an agent to generate a coverage report';
+      showCoverageBtn.title = 'Analyse token cost of rules across workspace files';
     }
 
-    // Install meta-rule button — disabled when not applicable or already installed
+    // Install meta-rule button — disabled only when already installed
     const installMetaRuleBtn = document.getElementById('installMetaRuleBtn');
     if (installMetaRuleBtn) {
-      installMetaRuleBtn.disabled = !hasAgent || s.metaRuleInstalled;
-      installMetaRuleBtn.title = !hasAgent
-        ? 'Select an agent to install rule-writing guidelines'
-        : s.metaRuleInstalled
-          ? 'Rule-writing guidelines are already installed'
-          : 'Install rule-writing guidelines for this agent';
+      installMetaRuleBtn.disabled = s.metaRuleInstalled;
+      installMetaRuleBtn.title = s.metaRuleInstalled
+        ? 'Rule-writing guidelines are already installed'
+        : 'Install rule-writing guidelines for this agent';
     }
 
     // Contextual banners (only shown when there's work to do)
@@ -903,7 +928,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
         );
       }
       if (s.missingCount > 0) {
-        const agentLabel = s.agents.find(a => a.id === s.agent)?.label || s.agent;
+        const agentLabel = s.agentLabel || s.agent;
         bannersSection.innerHTML += makeBanner(
           'warning',
           s.missingCount + ' rule' + (s.missingCount > 1 ? 's' : '') + ' not readable by ' + escHtml(agentLabel),
