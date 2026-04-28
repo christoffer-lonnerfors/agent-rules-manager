@@ -454,6 +454,16 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     margin: 12px 0;
   }
 
+  /* Button width constraint wrapper */
+  .btn-wrap {
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+  }
+  @media (min-width: 650px) {
+    .btn-wrap { margin-left: 0; margin-right: 0; }
+  }
+
   /* Primary button (Add Rule) */
   .btn-primary {
     display: block;
@@ -498,65 +508,37 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   }
   .btn-secondary:disabled:hover { background: transparent; }
 
-  /* Contextual banners */
-  .banner {
+  /* Rules section */
+  .rules-count {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+  }
+
+  .issue-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 8px;
-    border-radius: 3px;
-    margin-bottom: 6px;
+    align-items: baseline;
+    gap: 5px;
     font-size: 12px;
+    padding-top: 4px;
   }
-  .banner-warning {
-    background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 12%, transparent);
-    color: var(--vscode-foreground);
-  }
-  .banner-info {
-    background: color-mix(in srgb, var(--vscode-editorInfo-foreground, #3794ff) 12%, transparent);
-    color: var(--vscode-foreground);
-  }
-  .banner-icon {
+  .issue-row-icon {
     flex-shrink: 0;
-    margin-right: 6px;
+    color: var(--vscode-editorWarning-foreground, #cca700);
   }
-  .banner-icon-warning { color: var(--vscode-editorWarning-foreground, #cca700); }
-  .banner-icon-info { color: var(--vscode-editorInfo-foreground, #3794ff); }
-  .banner-text {
-    flex: 1;
-    min-width: 0;
-  }
-  .banner-action {
-    font-family: var(--vscode-font-family);
-    font-size: 11px;
-    padding: 2px 8px;
+  .issue-row-text { flex: 1; min-width: 0; }
+  .issue-row-action {
+    background: none;
     border: none;
-    border-radius: 2px;
+    padding: 0;
     cursor: pointer;
-    color: var(--vscode-button-foreground);
-    background: var(--vscode-button-background);
-    white-space: nowrap;
-    flex-shrink: 0;
-    margin-left: 8px;
-  }
-  .banner-action:hover { background: var(--vscode-button-hoverBackground); }
-
-  .empty-state {
-    color: var(--vscode-descriptionForeground);
+    font-family: var(--vscode-font-family);
     font-size: 12px;
-    line-height: 1.5;
-    margin-top: 4px;
+    color: var(--vscode-textLink-foreground, var(--vscode-button-background));
+    text-decoration: underline;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
-
-  .footer {
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-  }
-
-  .issue-count { cursor: default; white-space: nowrap; }
-  .issue-error { color: var(--vscode-editorError-foreground, #f14c4c); }
-  .issue-warning { color: var(--vscode-editorWarning-foreground, #cca700); }
-  .issue-info { color: var(--vscode-editorInfo-foreground, #3794ff); }
+  .issue-row-action:hover { color: var(--vscode-textLink-activeForeground); }
 
   .section { margin-bottom: 12px; }
 
@@ -651,21 +633,29 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   </div>
 
   <div class="section">
-    <button class="btn-primary" id="addRuleBtn" title="Create a new rule file in the target format">+ Add Rule</button>
+    <div class="btn-wrap">
+      <button class="btn-primary" id="addRuleBtn" title="Create a new rule file in the target format">+ Add Rule</button>
+    </div>
   </div>
 
   <div class="section">
-    <button class="btn-secondary" id="showCoverageBtn" title="Analyse token cost of rules across workspace files">Generate Coverage Report</button>
+    <div class="btn-wrap">
+      <button class="btn-secondary" id="showCoverageBtn" title="Analyse token cost of rules across workspace files">Generate Coverage Report</button>
+    </div>
   </div>
 
   <div class="section">
-    <button class="btn-secondary" id="installMetaRuleBtn" title="Install rule-writing guidelines into your agent's rules folder">Install Rule-Writing Guidelines</button>
+    <div class="btn-wrap">
+      <button class="btn-secondary" id="installMetaRuleBtn" title="Install rule-writing guidelines into your agent's rules folder">Install Rule-Writing Guidelines</button>
+    </div>
   </div>
-
-  <div id="bannersSection"></div>
 
   <hr class="divider">
-  <div id="footer" class="footer"></div>
+  <div class="section">
+    <div class="section-label">Rules</div>
+    <div id="rulesCount" class="rules-count"></div>
+    <div id="rulesIssues"></div>
+  </div>
   </div>
 
   <!-- ── Create Rule Form (hidden by default) ──────────────── -->
@@ -720,8 +710,8 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   const agentIndicatorText = document.getElementById('agentIndicatorText');
   const agentCogBtn = document.getElementById('agentCogBtn');
   const addRuleBtn = document.getElementById('addRuleBtn');
-  const bannersSection = document.getElementById('bannersSection');
-  const footer = document.getElementById('footer');
+  const rulesCount = document.getElementById('rulesCount');
+  const rulesIssues = document.getElementById('rulesIssues');
 
   let currentState = null;
 
@@ -916,12 +906,18 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
         : 'Install rule-writing guidelines for this agent';
     }
 
-    // Contextual banners (only shown when there's work to do)
-    bannersSection.innerHTML = '';
+    // Rules section — count
+    if (s.totalRules > 0) {
+      rulesCount.textContent = s.totalRules + ' rule' + (s.totalRules > 1 ? 's' : '');
+    } else {
+      rulesCount.textContent = 'No rules found';
+    }
+
+    // Rules section — issue rows
+    rulesIssues.innerHTML = '';
     if (hasAgent) {
       if (s.divergedCount > 0) {
-        bannersSection.innerHTML += makeBanner(
-          'warning',
+        rulesIssues.innerHTML += makeIssueRow(
           s.divergedCount + ' rule' + (s.divergedCount > 1 ? 's' : '') + ' diverged across formats',
           'Sync',
           'runSyncAll'
@@ -929,48 +925,20 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
       }
       if (s.missingCount > 0) {
         const agentLabel = s.agentLabel || s.agent;
-        bannersSection.innerHTML += makeBanner(
-          'warning',
+        rulesIssues.innerHTML += makeIssueRow(
           s.missingCount + ' rule' + (s.missingCount > 1 ? 's' : '') + ' not readable by ' + escHtml(agentLabel),
-          'Add Missing',
+          'Fix',
           'runAddAllMissing'
         );
       }
     }
-
-    // Footer
-    if (s.totalRules > 0) {
-      const parts = [s.totalRules + ' rule' + (s.totalRules > 1 ? 's' : '')];
-
-      const ic = s.issueCounts;
-      const im = s.issueMessages;
-      footer.innerHTML = escHtml(parts.join(' · '));
-
-      const issueSpans = [];
-      if (ic.errors > 0) {
-        issueSpans.push('<span class="issue-count issue-error" title="' + escAttr(im.errors.join('\\n')) + '">⊘ ' + ic.errors + '</span>');
-      }
-      if (ic.warnings > 0) {
-        issueSpans.push('<span class="issue-count issue-warning" title="' + escAttr(im.warnings.join('\\n')) + '">⚠ ' + ic.warnings + '</span>');
-      }
-      if (ic.infos > 0) {
-        issueSpans.push('<span class="issue-count issue-info" title="' + escAttr(im.infos.join('\\n')) + '">ⓘ ' + ic.infos + '</span>');
-      }
-      if (issueSpans.length > 0) {
-        footer.innerHTML += ' · ' + issueSpans.join(' ');
-      }
-    } else {
-      footer.textContent = 'No rules found';
-    }
   }
 
-  function makeBanner(type, text, actionLabel, actionType) {
-    const iconClass = type === 'warning' ? 'banner-icon-warning' : 'banner-icon-info';
-    const icon = type === 'warning' ? '⚠' : 'ⓘ';
-    return '<div class="banner banner-' + type + '">' +
-      '<span class="banner-icon ' + iconClass + '">' + icon + '</span>' +
-      '<span class="banner-text">' + text + '</span>' +
-      '<button class="banner-action" onclick="vscode.postMessage({type:\\''+actionType+'\\'})">'+actionLabel+'</button>' +
+  function makeIssueRow(text, actionLabel, actionType) {
+    return '<div class="issue-row">' +
+      '<span class="issue-row-icon">⚠</span>' +
+      '<span class="issue-row-text">' + text + '</span>' +
+      '<button class="issue-row-action" onclick="vscode.postMessage({type:\\''+actionType+'\\'})">'+actionLabel+'</button>' +
       '</div>';
   }
 
