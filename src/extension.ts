@@ -702,22 +702,29 @@ export function activate(context: vscode.ExtensionContext) {
     WelcomeWebviewPanel.createOrShow(context, {
       initialAgentId: cfg.get<string>('agent', ''),
       initialWriteFormat: cfg.get<string>('writeFormat', ''),
-      metaRuleConsent: context.globalState.get<boolean | undefined>('metaRuleConsent'),
-      mcpConsent: context.globalState.get<boolean | undefined>('mcpConsent'),
     });
   });
 
-  // Auto-register MCP when the user switches to an agent that supports it,
-  // provided they have given standing permission via autoConfigureMcp.
-  const agentSwitchDisposable = vscode.workspace.onDidChangeConfiguration(async (e) => {
-    if (!e.affectsConfiguration('agentRules.agent')) return;
+  // React to agent or format changes: auto-install meta-rule and/or auto-register MCP
+  // based on the user's standing consent stored in VS Code settings.
+  const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(async (e) => {
+    const agentChanged = e.affectsConfiguration('agentRules.agent');
+    const formatChanged = e.affectsConfiguration('agentRules.writeFormat');
+    if (!agentChanged && !formatChanged) return;
+
     const cfg = vscode.workspace.getConfiguration('agentRules');
-    if (!cfg.get<boolean>('autoConfigureMcp', false)) return;
-    const newAgentId = cfg.get<string>('agent', '');
-    if (!newAgentId) return;
-    const agentDef = AGENT_DEFINITIONS.find((a) => a.id === newAgentId);
-    if (agentDef?.supportsMcp) {
-      await configureMcpForAgent(newAgentId, context.extensionPath, { silent: true });
+    const agentId = cfg.get<string>('agent', '') as AgentId | '';
+    if (!agentId) return;
+
+    if (cfg.get<boolean>('autoInstallMetaRule', true)) {
+      const written = await installMetaRule(context.extensionPath, agentId as AgentId, { skipExisting: true });
+      if (written.length > 0) {
+        await scannerService.scan({ silent: true });
+      }
+    }
+
+    if (agentChanged && cfg.get<boolean>('autoConfigureMcp', true)) {
+      await configureMcpForAgent(agentId, context.extensionPath, { silent: true });
     }
   });
 
@@ -752,7 +759,7 @@ export function activate(context: vscode.ExtensionContext) {
     configureMcpForCursorCmd,
     configureMcpForWindsurfCmd,
     getStartedCmd,
-    agentSwitchDisposable,
+    configChangeDisposable,
     ruleIndex,
     scannerService,
     treeProvider,
@@ -864,8 +871,6 @@ async function maybeShowWelcome(context: vscode.ExtensionContext): Promise<void>
   WelcomeWebviewPanel.createOrShow(context, {
     initialAgentId: cfg.get<string>('agent', ''),
     initialWriteFormat: cfg.get<string>('writeFormat', ''),
-    metaRuleConsent: context.globalState.get<boolean | undefined>('metaRuleConsent'),
-    mcpConsent: context.globalState.get<boolean | undefined>('mcpConsent'),
   });
 }
 

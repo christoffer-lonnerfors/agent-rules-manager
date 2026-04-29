@@ -22,8 +22,6 @@ type WelcomeMessage =
 interface ConfigOpts {
   initialAgentId: string;
   initialWriteFormat: string;
-  metaRuleConsent: boolean | undefined;
-  mcpConsent: boolean | undefined;
 }
 
 export class WelcomeWebviewPanel {
@@ -95,11 +93,7 @@ export class WelcomeWebviewPanel {
       await cfg.update('writeFormat', override, vscode.ConfigurationTarget.Workspace);
     }
 
-    // Persist consent values to globalState (true/false — never undefined after Save)
-    await this.context.globalState.update('metaRuleConsent', msg.metaRuleConsent);
-    await this.context.globalState.update('mcpConsent', msg.mcpConsent);
-
-    // Keep autoConfigureMcp VS Code setting in sync for the agent-switch listener
+    await cfg.update('autoInstallMetaRule', msg.metaRuleConsent, vscode.ConfigurationTarget.Global);
     await cfg.update('autoConfigureMcp', msg.mcpConsent, vscode.ConfigurationTarget.Global);
 
     await this.context.globalState.update('hasSeenWelcome', true);
@@ -120,7 +114,10 @@ export class WelcomeWebviewPanel {
   }
 
   private buildHtml(opts: ConfigOpts): string {
-    const { initialAgentId, initialWriteFormat, metaRuleConsent, mcpConsent } = opts;
+    const { initialAgentId, initialWriteFormat } = opts;
+    const cfg = vscode.workspace.getConfiguration('agentRules');
+    const metaRuleConsent = cfg.get<boolean>('autoInstallMetaRule', true);
+    const mcpConsent = cfg.get<boolean>('autoConfigureMcp', true);
 
     // Build maps for client-side format switching
     const formatsMap: Record<string, Array<{ id: string; label: string }>> = {};
@@ -149,9 +146,8 @@ export class WelcomeWebviewPanel {
       })
       .join('\n      ');
 
-    // Tri-state: undefined → pre-checked; true → checked; false → unchecked
-    const metaCheckedAttr = metaRuleConsent !== false ? ' checked' : '';
-    const mcpCheckedAttr = mcpConsent !== false ? ' checked' : '';
+    const metaCheckedAttr = metaRuleConsent ? ' checked' : '';
+    const mcpCheckedAttr = mcpConsent ? ' checked' : '';
     const initialMcpSupported = AGENT_DEFINITIONS.find((a) => a.id === initialAgentId)?.supportsMcp ?? false;
     const mcpHiddenAttr = initialMcpSupported ? '' : ' style="display:none"';
 

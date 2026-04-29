@@ -382,9 +382,14 @@
           "default": 128000,
           "description": "Context window size (in tokens) used for coverage analysis severity thresholds."
         },
+        "agentRules.autoInstallMetaRule": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically install rule-writing guidelines when switching to a new agent or format."
+        },
         "agentRules.autoConfigureMcp": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Automatically register the MCP tool when switching to an agent that supports it."
         }
       }
