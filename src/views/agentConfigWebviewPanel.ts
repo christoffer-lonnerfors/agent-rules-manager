@@ -9,7 +9,7 @@ import { FORMAT_LABELS } from '../formats/formatRegistry';
 import { installMetaRule } from '../actions/metaRuleInstaller';
 import { configureMcpForAgent } from '../coverage/mcpServer';
 
-type WelcomeMessage =
+type AgentConfigMessage =
   | {
     type: 'save';
     agentId: string;
@@ -24,9 +24,9 @@ interface ConfigOpts {
   initialWriteFormat: string;
 }
 
-export class WelcomeWebviewPanel {
-  static readonly viewType = 'agentRules.welcome';
-  private static instance: WelcomeWebviewPanel | undefined;
+export class AgentConfigWebviewPanel {
+  static readonly viewType = 'agentRules.agentConfig';
+  private static instance: AgentConfigWebviewPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
 
   static createOrShow(
@@ -34,16 +34,16 @@ export class WelcomeWebviewPanel {
     opts: ConfigOpts,
   ): void {
     // Always dispose and recreate so the panel shows fresh config values
-    if (WelcomeWebviewPanel.instance) {
-      WelcomeWebviewPanel.instance.panel.dispose();
+    if (AgentConfigWebviewPanel.instance) {
+      AgentConfigWebviewPanel.instance.panel.dispose();
     }
     const panel = vscode.window.createWebviewPanel(
-      WelcomeWebviewPanel.viewType,
+      AgentConfigWebviewPanel.viewType,
       'Agent Configuration',
       vscode.ViewColumn.One,
       { enableScripts: true, retainContextWhenHidden: false },
     );
-    WelcomeWebviewPanel.instance = new WelcomeWebviewPanel(panel, context, opts);
+    AgentConfigWebviewPanel.instance = new AgentConfigWebviewPanel(panel, context, opts);
   }
 
   private constructor(
@@ -56,7 +56,7 @@ export class WelcomeWebviewPanel {
     panel.webview.html = this.buildHtml(opts);
 
     panel.webview.onDidReceiveMessage(
-      async (msg: WelcomeMessage) => {
+      async (msg: AgentConfigMessage) => {
         switch (msg.type) {
           case 'save':
             await this.handleSave(msg);
@@ -73,12 +73,12 @@ export class WelcomeWebviewPanel {
     );
 
     panel.onDidDispose(() => {
-      WelcomeWebviewPanel.instance = undefined;
+      AgentConfigWebviewPanel.instance = undefined;
     });
   }
 
   private async handleSave(
-    msg: Extract<WelcomeMessage, { type: 'save' }>,
+    msg: Extract<AgentConfigMessage, { type: 'save' }>,
   ): Promise<void> {
     const cfg = vscode.workspace.getConfiguration('agentRules');
 

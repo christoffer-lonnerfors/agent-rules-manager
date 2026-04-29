@@ -19,7 +19,7 @@ import { toCaseInsensitiveGlob } from './scanner/treeWalker';
 import { detectDominantAgent } from './agents/agentAutoDetector';
 import { writeRuleFile } from './actions/ruleWriter';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
-import { WelcomeWebviewPanel } from './views/welcomeWebviewPanel';
+import { AgentConfigWebviewPanel } from './views/agentConfigWebviewPanel';
 import { ClassifiedFile } from './scanner/classifiedFile';
 import { installMetaRule } from './actions/metaRuleInstaller';
 import { exportCoverageToFile, exportCoverageToDefault } from './coverage/coverageExporter';
@@ -699,7 +699,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   const getStartedCmd = vscode.commands.registerCommand('agentRules.getStarted', () => {
     const cfg = vscode.workspace.getConfiguration('agentRules');
-    WelcomeWebviewPanel.createOrShow(context, {
+    AgentConfigWebviewPanel.createOrShow(context, {
       initialAgentId: cfg.get<string>('agent', ''),
       initialWriteFormat: cfg.get<string>('writeFormat', ''),
     });
@@ -868,7 +868,7 @@ async function maybeShowWelcome(context: vscode.ExtensionContext): Promise<void>
   if (hasSeenWelcome) return;
 
   const cfg = vscode.workspace.getConfiguration('agentRules');
-  WelcomeWebviewPanel.createOrShow(context, {
+  AgentConfigWebviewPanel.createOrShow(context, {
     initialAgentId: cfg.get<string>('agent', ''),
     initialWriteFormat: cfg.get<string>('writeFormat', ''),
   });
