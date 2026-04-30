@@ -169,10 +169,7 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri, cspSou
   }
 
   .header { margin-bottom: 16px; }
-  .header h1 {
-    font-size: 16px; font-weight: 600; margin-bottom: 8px;
-    display: flex; align-items: center; gap: 12px;
-  }
+  .header h1 { font-size: 16px; font-weight: 600; }
   .header-meta { font-size: 12px; color: var(--vscode-descriptionForeground); }
   .header-meta span { margin-right: 16px; }
 
@@ -236,29 +233,40 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri, cspSou
     font-size: 12px; color: var(--vscode-descriptionForeground);
   }
 
-  .btn-export {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 10px; font-size: 12px; cursor: pointer;
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    border: 1px solid var(--vscode-button-border, transparent);
-    border-radius: 2px; white-space: nowrap;
+  .header-title {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
   }
-  .btn-export:hover { background: var(--vscode-button-secondaryHoverBackground); }
+  .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn-action {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px;
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    border: 1px solid var(--vscode-button-background);
+    border-radius: 2px; cursor: pointer;
+    color: var(--vscode-button-background);
+    background: transparent; white-space: nowrap;
+  }
+  .btn-action:hover { background: color-mix(in srgb, var(--vscode-button-background) 12%, transparent); }
+  .coverage-disclaimer { font-size: 11px; opacity: 0.55; font-style: italic; margin: 4px 0 0; }
 </style>
 </head>
 <body>
   <div class="header">
-    <h1>
-      Agent Rules Coverage Report
-      <button class="btn-export" id="btnExport"><span class="codicon codicon-export"></span> Export</button>
-    </h1>
+    <div class="header-title">
+      <h1>Agent Rules Coverage Report</h1>
+      <div class="header-actions">
+        <button class="btn-action" id="btnExport"><span class="codicon codicon-export"></span> Export</button>
+        ${s.potentialRuleCount > 0 ? `<button class="btn-action" id="btnWorstCase">Show worst case</button>` : ''}
+      </div>
+    </div>
     <div class="header-meta">
       <span>Agent: ${escHtml(state.agentLabel)}</span>
       <span>Context: ${fmt(s.contextWindowTokens)} tokens</span>
       <span>Baseline: ~${fmt(s.baselineTokens)} tokens (${s.baselineRuleCount} rule${s.baselineRuleCount !== 1 ? 's' : ''})</span>
       ${s.potentialRuleCount > 0 ? `<span>Potential: ~${fmt(s.potentialTokens)} tokens (${s.potentialRuleCount} rule${s.potentialRuleCount !== 1 ? 's' : ''})</span>` : ''}
     </div>
+    <p class="coverage-disclaimer">Token counts are estimates (&#x2248;1 char per 3.5 tokens). This report shows the potential weight and distribution of rule files &mdash; it does not predict actual context usage during tasks. Agent-requested rule inclusion depends on the AI&rsquo;s evaluation at runtime.</p>
   </div>
 
   <div class="tree" id="tree">
@@ -272,11 +280,46 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri, cspSou
 <script>
   const vscode = acquireVsCodeApi();
   const coverageData = ${JSON.stringify(buildCoverageMap(state.tree))};
+  const POTENTIAL_TOKENS = ${s.potentialTokens};
+  const CONTEXT_TOKENS = ${s.contextWindowTokens};
 
   // Export button
   document.getElementById('btnExport').addEventListener('click', () => {
     vscode.postMessage({ type: 'exportCoverage' });
   });
+
+  // Worst-case toggle
+  let worstCase = false;
+  function fmtT(n) {
+    if (n < 1000) return '~' + n;
+    const k = n / 1000;
+    return '~' + (k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)) + 'k';
+  }
+  const btnWC = document.getElementById('btnWorstCase');
+  if (btnWC) {
+    btnWC.addEventListener('click', () => {
+      worstCase = !worstCase;
+      btnWC.textContent = worstCase ? 'Show baseline' : 'Show worst case';
+      document.querySelectorAll('.tree-cost').forEach(el => {
+        const base = parseInt(el.dataset.base || '0', 10);
+        const display = worstCase ? base + POTENTIAL_TOKENS : base;
+        el.textContent = fmtT(display);
+        const row = el.closest('.tree-row');
+        if (row) {
+          row.classList.remove('severity-error', 'severity-warning');
+          const ratio = display / CONTEXT_TOKENS;
+          if (ratio >= 0.15) row.classList.add('severity-error');
+          else if (ratio >= 0.05) row.classList.add('severity-warning');
+        }
+      });
+      // Re-render open detail panel with updated worst-case total
+      const panel = document.getElementById('detailPanel');
+      if (panel.classList.contains('visible')) {
+        const h3 = panel.querySelector('h3');
+        if (h3 && h3.dataset.filepath !== undefined) showDetail(h3.dataset.filepath);
+      }
+    });
+  }
 
   // Toggle expand/collapse
   document.getElementById('tree').addEventListener('click', (e) => {
@@ -313,7 +356,7 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri, cspSou
     const cov = coverageData[filePath];
     if (!cov) { panel.classList.remove('visible'); return; }
 
-    let html = '<h3>' + escH(filePath || '(root)') + '</h3>';
+    let html = '<h3 data-filepath="' + escA(filePath || '') + '">' + escH(filePath || '(root)') + '</h3>';
 
     if (cov.alwaysRules && cov.alwaysRules.length > 0) {
       html += renderDetailSection('Always-on', cov.alwaysRules);
@@ -322,10 +365,13 @@ function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri, cspSou
       html += renderDetailSection('Glob-matched', cov.globRules);
     }
     if (cov.agentRequestedRules && cov.agentRequestedRules.length > 0) {
-      html += renderDetailSection('Potential (agent-requested)', cov.agentRequestedRules);
+      const label = worstCase ? 'Conditional rules (worst case — included)' : 'Potential (agent-requested)';
+      html += renderDetailSection(label, cov.agentRequestedRules);
     }
 
-    html += '<div class="detail-total"><span>TOTAL</span><span>~' + cov.tokens + '</span></div>';
+    const displayTotal = worstCase ? cov.tokens + POTENTIAL_TOKENS : cov.tokens;
+    const totalLabel = worstCase ? 'TOTAL (worst case)' : 'TOTAL';
+    html += '<div class="detail-total"><span>' + totalLabel + '</span><span>~' + displayTotal + '</span></div>';
 
     panel.innerHTML = html;
     panel.classList.add('visible');
@@ -402,7 +448,7 @@ function renderTreeChildren(
     }
 
     html += `<span class="tree-name">${escHtml(node.name)}${isDir ? '/' : ''}</span>`;
-    html += `<span class="tree-cost">~${fmt(node.tokens)}</span>`;
+    html += `<span class="tree-cost" data-base="${node.tokens}">~${fmt(node.tokens)}</span>`;
     html += `</div>`;
 
     if (isDir && node.children.length > 0) {

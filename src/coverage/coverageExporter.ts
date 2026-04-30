@@ -193,6 +193,10 @@ export function buildCoverageJson(result: AnalysisResult): string {
   const metaObj = {
     generated: new Date().toISOString(),
     agent: agentLabel,
+    disclaimer:
+      'Token counts are estimates (≈1 char per 3.5 tokens). This report shows rule weight and ' +
+      'coverage distribution, not actual LLM context usage during tasks. ' +
+      'Agent-requested rule inclusion is determined at runtime by the AI.',
     contextWindow: summary.contextWindowTokens,
     baseline: { tokens: summary.baselineTokens, ruleCount: summary.baselineRuleCount },
     potential: { tokens: summary.potentialTokens, ruleCount: summary.potentialRuleCount },

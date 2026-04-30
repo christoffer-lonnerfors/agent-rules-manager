@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { minimatch } from 'minimatch';
 import { ClassifiedFile } from '../scanner/classifiedFile';
 import { RuleFormat } from '../formats/formatRegistry';
@@ -91,6 +92,18 @@ export class CoverageModel {
     this.alwaysTokens = 0;
     this.potentialTokens = 0;
 
+    // Build a path lookup used to resolve @import-linked documents
+    const allByPath = new Map<string, ClassifiedFile>(rules.map((r) => [r.filePath, r]));
+
+    // Pre-compute extra chars from transitively imported documents for each rule
+    const docExtraChars = new Map<string, number>();
+    for (const rule of rules) {
+      if (rule.format !== 'document') {
+        const extra = resolveDocumentChars(rule, allByPath, new Set());
+        if (extra > 0) docExtraChars.set(rule.id, extra);
+      }
+    }
+
     // Filter by agent if specified
     let filtered = rules;
     if (agentId) {
@@ -102,7 +115,7 @@ export class CoverageModel {
     filtered = filtered.filter((r) => r.format !== 'document' && r.trigger !== 'manual');
 
     for (const rule of filtered) {
-      const info = toRuleInfo(rule);
+      const info = toRuleInfo(rule, docExtraChars.get(rule.id) ?? 0);
 
       switch (rule.trigger) {
         case 'always':
@@ -244,13 +257,36 @@ export class CoverageModel {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function toRuleInfo(rule: ClassifiedFile): CoverageRuleInfo {
+function toRuleInfo(rule: ClassifiedFile, extraChars = 0): CoverageRuleInfo {
   return {
     name: rule.description || rule.fileName,
-    tokens: estimateTokens(rule.bodyLength),
+    tokens: estimateTokens(rule.bodyLength + extraChars),
     filePath: rule.filePath,
     globs: rule.globs,
   };
+}
+
+/**
+ * Recursively sum bodyLength of all document-format files linked from `rule`.
+ * This accounts for @import-style includes (e.g. CLAUDE.md @importing another file).
+ * Cycle-safe via `visited`, keyed on absolute filePath.
+ */
+function resolveDocumentChars(
+  rule: ClassifiedFile,
+  allByPath: Map<string, ClassifiedFile>,
+  visited: Set<string>,
+): number {
+  if (visited.has(rule.filePath)) return 0;
+  visited.add(rule.filePath);
+  let extra = 0;
+  for (const link of rule.links) {
+    const absPath = path.resolve(path.dirname(rule.filePath), link.target);
+    const doc = allByPath.get(absPath);
+    if (doc && doc.format === 'document') {
+      extra += doc.bodyLength + resolveDocumentChars(doc, allByPath, visited);
+    }
+  }
+  return extra;
 }
 
 /** Sort children and propagate max-child token cost upward */
