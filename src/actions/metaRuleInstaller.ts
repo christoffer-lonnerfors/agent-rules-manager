@@ -56,7 +56,11 @@ export async function installMetaRule(
     const formatDef = FORMAT_DEFINITIONS.find((d) => d.id === formatId);
     // Only include agents whose primary write format uses slug-based naming (validNames[0] === '*')
     if (!formatDef || formatDef.validNames[0] !== '*') continue;
-    candidates.push({ agentId: agent.id as AgentId, label: agent.label, description: formatDef.label });
+    candidates.push({
+      agentId: agent.id as AgentId,
+      label: agent.label,
+      description: formatDef.label,
+    });
   }
 
   if (candidates.length === 0) {
@@ -73,7 +77,11 @@ export async function installMetaRule(
   } else {
     const selection = await vscode.window.showQuickPick(
       candidates.map((c) => ({ ...c, label: c.label })),
-      { canPickMany: true, placeHolder: 'Install rule-writing guidelines for…', title: 'Install Meta-Rule' },
+      {
+        canPickMany: true,
+        placeHolder: 'Install rule-writing guidelines for…',
+        title: 'Install Meta-Rule',
+      },
     );
     if (!selection || selection.length === 0) return [];
     picked = selection;

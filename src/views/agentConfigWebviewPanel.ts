@@ -11,12 +11,12 @@ import { configureMcpForAgent } from '../coverage/mcpServer';
 
 type AgentConfigMessage =
   | {
-    type: 'save';
-    agentId: string;
-    writeFormat: string;
-    metaRuleConsent: boolean;
-    mcpConsent: boolean;
-  }
+      type: 'save';
+      agentId: string;
+      writeFormat: string;
+      metaRuleConsent: boolean;
+      mcpConsent: boolean;
+    }
   | { type: 'cancel' };
 
 interface ConfigOpts {
@@ -29,10 +29,7 @@ export class AgentConfigWebviewPanel {
   private static instance: AgentConfigWebviewPanel | undefined;
   private readonly panel: vscode.WebviewPanel;
 
-  static createOrShow(
-    context: vscode.ExtensionContext,
-    opts: ConfigOpts,
-  ): void {
+  static createOrShow(context: vscode.ExtensionContext, opts: ConfigOpts): void {
     // Always dispose and recreate so the panel shows fresh config values
     if (AgentConfigWebviewPanel.instance) {
       AgentConfigWebviewPanel.instance.panel.dispose();
@@ -77,9 +74,7 @@ export class AgentConfigWebviewPanel {
     });
   }
 
-  private async handleSave(
-    msg: Extract<AgentConfigMessage, { type: 'save' }>,
-  ): Promise<void> {
+  private async handleSave(msg: Extract<AgentConfigMessage, { type: 'save' }>): Promise<void> {
     const cfg = vscode.workspace.getConfiguration('agentRules');
 
     if (msg.agentId) {
@@ -99,7 +94,9 @@ export class AgentConfigWebviewPanel {
     await this.context.globalState.update('hasSeenWelcome', true);
 
     if (msg.metaRuleConsent && msg.agentId) {
-      const written = await installMetaRule(this.context.extensionPath, msg.agentId as AgentId, { skipExisting: true });
+      const written = await installMetaRule(this.context.extensionPath, msg.agentId as AgentId, {
+        skipExisting: true,
+      });
       if (written.length > 0) {
         await vscode.commands.executeCommand('agentRules.rescan');
       }
@@ -148,7 +145,8 @@ export class AgentConfigWebviewPanel {
 
     const metaCheckedAttr = metaRuleConsent ? ' checked' : '';
     const mcpCheckedAttr = mcpConsent ? ' checked' : '';
-    const initialMcpSupported = AGENT_DEFINITIONS.find((a) => a.id === initialAgentId)?.supportsMcp ?? false;
+    const initialMcpSupported =
+      AGENT_DEFINITIONS.find((a) => a.id === initialAgentId)?.supportsMcp ?? false;
     const mcpHiddenAttr = initialMcpSupported ? '' : ' style="display:none"';
 
     const mcpSupportMap: Record<string, boolean> = {};

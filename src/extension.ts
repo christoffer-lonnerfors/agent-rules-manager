@@ -641,7 +641,9 @@ export function activate(context: vscode.ExtensionContext) {
   const installMetaRuleCmd = vscode.commands.registerCommand(
     'agentRules.installMetaRule',
     async () => {
-      const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '') as AgentId | '';
+      const agentId = vscode.workspace.getConfiguration('agentRules').get<string>('agent', '') as
+        | AgentId
+        | '';
       const written = await installMetaRule(context.extensionPath, agentId || undefined);
       if (written.length > 0) {
         await scannerService.scan({ silent: true });
@@ -717,7 +719,9 @@ export function activate(context: vscode.ExtensionContext) {
     if (!agentId) return;
 
     if (cfg.get<boolean>('autoInstallMetaRule', true)) {
-      const written = await installMetaRule(context.extensionPath, agentId as AgentId, { skipExisting: true });
+      const written = await installMetaRule(context.extensionPath, agentId as AgentId, {
+        skipExisting: true,
+      });
       if (written.length > 0) {
         await scannerService.scan({ silent: true });
       }

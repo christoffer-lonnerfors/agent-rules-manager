@@ -146,7 +146,11 @@ function getLoadingHtml(): string {
 </html>`;
 }
 
-function getAnalysisHtml(state: CoverageState, codiconCssUri: vscode.Uri, cspSource: string): string {
+function getAnalysisHtml(
+  state: CoverageState,
+  codiconCssUri: vscode.Uri,
+  cspSource: string,
+): string {
   const s = state.summary;
   const pct = (tokens: number) => ((tokens / s.contextWindowTokens) * 100).toFixed(1);
   const fmt = (tokens: number) => (tokens < 1000 ? `${tokens}` : `${(tokens / 1000).toFixed(1)}k`);

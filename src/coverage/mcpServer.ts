@@ -38,11 +38,9 @@ export function registerVsCodeMcpProvider(context: vscode.ExtensionContext): voi
 
   const disposable = lm.registerMcpServerDefinitionProvider('agent-rules-manager', {
     provideMcpServerDefinitions: () => {
-      const def = new McpStdioServerDefinition(
-        'Agent Rules Manager',
-        process.execPath,
-        [serverPath],
-      );
+      const def = new McpStdioServerDefinition('Agent Rules Manager', process.execPath, [
+        serverPath,
+      ]);
       def.cwd = workspaceRoot;
       return [def];
     },
@@ -72,8 +70,7 @@ async function configureMcpInFile(
   }
 
   const mcpServers = (settings.mcpServers ?? {}) as Record<string, unknown>;
-  const alreadyConfigured =
-    JSON.stringify(mcpServers[serverKey]) === JSON.stringify(serverConfig);
+  const alreadyConfigured = JSON.stringify(mcpServers[serverKey]) === JSON.stringify(serverConfig);
 
   if (alreadyConfigured) {
     if (!options?.silent) {

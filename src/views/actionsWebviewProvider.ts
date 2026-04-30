@@ -64,7 +64,10 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   private logicalRules: LogicalRule[] = [];
   private disposables: vscode.Disposable[] = [];
 
-  constructor(private readonly ruleIndex: RuleStore, private readonly extensionUri: vscode.Uri) {
+  constructor(
+    private readonly ruleIndex: RuleStore,
+    private readonly extensionUri: vscode.Uri,
+  ) {
     this.logicalRules = ruleIndex.getLogicalRules();
 
     this.disposables.push(
@@ -93,9 +96,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(this.extensionUri, 'resources'),
-      ],
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'resources')],
     };
     webviewView.webview.html = this.getHtml(webviewView.webview);
 
@@ -103,9 +104,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
       switch (msg.type) {
         case 'openAgentConfig':
           if (msg.reason === 'noAgent') {
-            vscode.window.showInformationMessage(
-              'Select an agent and format to use this action.',
-            );
+            vscode.window.showInformationMessage('Select an agent and format to use this action.');
           }
           vscode.commands.executeCommand('agentRules.getStarted');
           break;
@@ -370,12 +369,16 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     const agentIconsDark: Record<string, string> = {};
     const agentIconsLight: Record<string, string> = {};
     for (const agent of AGENT_DEFINITIONS) {
-      agentIconsDark[agent.id] = webview.asWebviewUri(
-        vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'dark', `${agent.id}.svg`),
-      ).toString();
-      agentIconsLight[agent.id] = webview.asWebviewUri(
-        vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'light', `${agent.id}.svg`),
-      ).toString();
+      agentIconsDark[agent.id] = webview
+        .asWebviewUri(
+          vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'dark', `${agent.id}.svg`),
+        )
+        .toString();
+      agentIconsLight[agent.id] = webview
+        .asWebviewUri(
+          vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'light', `${agent.id}.svg`),
+        )
+        .toString();
     }
     const agentIconsDarkJson = JSON.stringify(agentIconsDark);
     const agentIconsLightJson = JSON.stringify(agentIconsLight);
