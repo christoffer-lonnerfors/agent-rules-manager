@@ -2,7 +2,7 @@
   "name": "agent-rules-manager",
   "displayName": "Agent Rules Manager",
   "description": "Manage, compare, and sync AI agent rule files across Cursor, Windsurf, Kiro, Antigravity, Augment, and Claude Code formats.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "publisher": "christoffer-lonnerfors",
   "icon": "images/icon.png",

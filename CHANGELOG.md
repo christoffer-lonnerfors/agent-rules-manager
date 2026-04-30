@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0
+
+### New features
+
+- Sidebar agent indicator and config panel for quick agent switching
+- Actions panel with bulk operations and rules section
+- Auto-register MCP server when switching to Cursor or Windsurf
+- Welcome/onboarding panel replaces modal setup prompts
+- Bundled rule-writing guidelines with one-click installer
+- Coverage: `@import` token cost display, worst-case toggle, and disclaimer
+
+### Fixes
+
+- Rule index now persisted to disk instead of workspaceState (survives reloads)
+- Content-Security-Policy meta tag added to all webviews
+- Improved logical-rule grouping across formats
+
 ## 0.1.0
 
 Initial release.
