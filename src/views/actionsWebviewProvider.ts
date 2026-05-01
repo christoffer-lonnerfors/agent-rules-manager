@@ -9,7 +9,7 @@ import {
   getEffectiveWriteFormat,
 } from '../agents/agentRegistry';
 import { RuleStore } from '../logical/ruleStore';
-import { computeIssues, LintConfig } from '../lint/lintEngine';
+import { computeAllIssues, LintConfig } from '../lint/lintEngine';
 import { filterIssuesForAgent } from '../lint/agentFilter';
 import { RuleIssue } from '../lint/ruleIssues';
 import { FORMAT_DEFINITIONS } from '../formats/formatRegistry';
@@ -214,7 +214,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
     const issueConfig: LintConfig = { agent, lintEnabled, detectDivergence, maxRuleTokens };
     const allIssues: RuleIssue[] = [];
     for (const lr of this.logicalRules) {
-      const raw = await computeIssues(lr, issueConfig);
+      const raw = await computeAllIssues(lr, issueConfig);
       const filtered = filterIssuesForAgent(raw, lr, agent as AgentId | '');
       allIssues.push(...filtered);
     }
@@ -527,6 +527,9 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
   .issue-row-icon {
     flex-shrink: 0;
     color: var(--vscode-editorWarning-foreground, #cca700);
+  }
+  .issue-row-icon--error {
+    color: var(--vscode-editorError-foreground, #f14c4c);
   }
   .issue-row-text { flex: 1; min-width: 0; }
   .issue-row-action {
@@ -935,6 +938,22 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
         );
       }
     }
+
+    const { errors: errCount, warnings: warnCount } = s.issueCounts;
+    if (errCount > 0 || warnCount > 0) {
+      let text, severity;
+      if (errCount > 0 && warnCount > 0) {
+        text = errCount + ' error' + (errCount > 1 ? 's' : '') + ' · ' + warnCount + ' warning' + (warnCount > 1 ? 's' : '') + ' in rules';
+        severity = 'error';
+      } else if (errCount > 0) {
+        text = errCount + ' lint error' + (errCount > 1 ? 's' : '') + ' in rules';
+        severity = 'error';
+      } else {
+        text = warnCount + ' lint warning' + (warnCount > 1 ? 's' : '') + ' in rules';
+        severity = 'warning';
+      }
+      rulesIssues.innerHTML += makeLintRow(text, severity);
+    }
   }
 
   function makeIssueRow(text, actionLabel, actionType) {
@@ -942,6 +961,14 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
       '<span class="issue-row-icon">⚠</span>' +
       '<span class="issue-row-text">' + text + '</span>' +
       '<button class="issue-row-action" onclick="vscode.postMessage({type:\\''+actionType+'\\'})">'+actionLabel+'</button>' +
+      '</div>';
+  }
+
+  function makeLintRow(text, severity) {
+    const iconClass = severity === 'error' ? 'issue-row-icon issue-row-icon--error' : 'issue-row-icon';
+    return '<div class="issue-row">' +
+      '<span class="' + iconClass + '">⚠</span>' +
+      '<span class="issue-row-text">' + escHtml(text) + '</span>' +
       '</div>';
   }
 
