@@ -60,16 +60,12 @@ Visualize the token cost of your rules across your codebase. The coverage panel 
 
 ### Linting
 
-Basic rule quality checks, reported as diagnostics:
+Rule quality checks reported inline on each rule in the tree view:
 
-- Empty rule body
-- Missing description (for agent-requested rules)
-- Oversized rules (configurable token threshold)
-- Broken file references
-- Diverged content across formats
-- Extension mismatches (e.g., `.mdc` file in a non-Cursor directory)
-- Rules outside the workspace
-- Missing primary format
+- **Content quality** — empty body, missing description on agent-requested rules, oversized rules (configurable token threshold)
+- **File references** — broken links and references that point outside the workspace
+- **Trigger/glob configuration** — glob trigger without patterns, overly broad patterns (e.g. `**`), always-on rules with redundant globs, glob patterns that match no files in the workspace
+- **Structural** — diverged content across format versions, missing format for the selected agent
 
 ## Getting Started
 

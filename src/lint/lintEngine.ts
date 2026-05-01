@@ -10,6 +10,10 @@ import { missingDescription } from './checks/missingDescription';
 import { ruleTooLarge } from './checks/ruleTooLarge';
 import { brokenReference } from './checks/brokenReference';
 import { outsideWorkspace } from './checks/outsideWorkspace';
+import { globMissingPatterns } from './checks/globMissingPatterns';
+import { globTooBroad } from './checks/globTooBroad';
+import { alwaysOnRedundantGlobs } from './checks/alwaysOnRedundantGlobs';
+import { globNoWorkspaceMatch } from './checks/globNoWorkspaceMatch';
 
 // ── Built-in cross-file checks ──────────────────────────────────────
 
@@ -24,6 +28,10 @@ const FILE_CHECKS: FileLintCheck[] = [
   ruleTooLarge,
   outsideWorkspace,
   brokenReference,
+  globMissingPatterns,
+  globTooBroad,
+  alwaysOnRedundantGlobs,
+  globNoWorkspaceMatch,
 ];
 
 /** All registered cross-file lint checks */

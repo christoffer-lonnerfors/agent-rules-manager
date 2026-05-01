@@ -12,7 +12,12 @@ export type IssueId =
   | 'missing-description'
   | 'rule-too-large'
   | 'broken-reference' // rule body references a file that doesn't exist
-  | 'outside-workspace'; // rule body references a file outside the workspace
+  | 'outside-workspace' // rule body references a file outside the workspace
+  // Trigger / glob misconfiguration
+  | 'glob-missing-patterns' // glob trigger set but no patterns defined
+  | 'glob-too-broad' // glob pattern matches all files (** or **/*)
+  | 'always-on-redundant-globs' // always-on trigger with glob patterns (patterns are ignored)
+  | 'glob-no-workspace-match'; // glob patterns match no files in the workspace
 
 export type IssueSeverity = 'error' | 'warning' | 'info';
 

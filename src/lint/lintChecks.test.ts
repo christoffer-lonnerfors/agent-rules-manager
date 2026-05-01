@@ -8,6 +8,10 @@ import { emptyBody } from './checks/emptyBody';
 import { missingDescription } from './checks/missingDescription';
 import { missingPrimary } from './checks/missingPrimary';
 import { ruleTooLarge } from './checks/ruleTooLarge';
+import { globMissingPatterns } from './checks/globMissingPatterns';
+import { globTooBroad } from './checks/globTooBroad';
+import { alwaysOnRedundantGlobs } from './checks/alwaysOnRedundantGlobs';
+import { globNoWorkspaceMatch } from './checks/globNoWorkspaceMatch';
 import { computeIssues, computeFileDiagnostics } from './lintEngine';
 
 function makeClassifiedFile(overrides: Partial<ClassifiedFile> = {}): ClassifiedFile {
@@ -173,6 +177,111 @@ describe('ruleTooLarge', () => {
   it('does not warn when under threshold', () => {
     const file = makeClassifiedFile({ bodyLength: 100 });
     expect(ruleTooLarge.run(file, defaultConfig)).toEqual([]);
+  });
+});
+
+describe('globMissingPatterns', () => {
+  it('does not fire for non-glob triggers', () => {
+    const file = makeClassifiedFile({ trigger: 'always', globs: undefined });
+    expect(globMissingPatterns.run(file, defaultConfig)).toEqual([]);
+  });
+
+  it('errors when trigger is glob but globs is undefined', async () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: undefined });
+    const issues = await globMissingPatterns.run(file, defaultConfig);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].id).toBe('glob-missing-patterns');
+    expect(issues[0].severity).toBe('error');
+  });
+
+  it('errors when trigger is glob but globs is empty array', async () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: [] });
+    const issues = await globMissingPatterns.run(file, defaultConfig);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].id).toBe('glob-missing-patterns');
+  });
+
+  it('does not fire when glob patterns are present', () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: ['**/*.ts'] });
+    expect(globMissingPatterns.run(file, defaultConfig)).toEqual([]);
+  });
+});
+
+describe('globTooBroad', () => {
+  it('does not fire for non-glob triggers', () => {
+    const file = makeClassifiedFile({ trigger: 'always', globs: undefined });
+    expect(globTooBroad.run(file, defaultConfig)).toEqual([]);
+  });
+
+  it('does not fire when globs is undefined', () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: undefined });
+    expect(globTooBroad.run(file, defaultConfig)).toEqual([]);
+  });
+
+  it('warns for pattern "**"', async () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: ['**'] });
+    const issues = await globTooBroad.run(file, defaultConfig);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].id).toBe('glob-too-broad');
+    expect(issues[0].severity).toBe('warning');
+  });
+
+  it('warns for pattern "**/*"', async () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: ['**/*'] });
+    const issues = await globTooBroad.run(file, defaultConfig);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].id).toBe('glob-too-broad');
+  });
+
+  it('warns for pattern "**/**"', async () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: ['**/**'] });
+    const issues = await globTooBroad.run(file, defaultConfig);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].id).toBe('glob-too-broad');
+  });
+
+  it('does not fire for specific patterns', () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: ['**/*.ts', 'src/**'] });
+    expect(globTooBroad.run(file, defaultConfig)).toEqual([]);
+  });
+});
+
+describe('alwaysOnRedundantGlobs', () => {
+  it('does not fire when trigger is always and globs is undefined', () => {
+    const file = makeClassifiedFile({ trigger: 'always', globs: undefined });
+    expect(alwaysOnRedundantGlobs.run(file, defaultConfig)).toEqual([]);
+  });
+
+  it('warns when trigger is always and globs are present', async () => {
+    const file = makeClassifiedFile({ trigger: 'always', globs: ['**/*.ts'] });
+    const issues = await alwaysOnRedundantGlobs.run(file, defaultConfig);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].id).toBe('always-on-redundant-globs');
+    expect(issues[0].severity).toBe('warning');
+  });
+
+  it('does not fire when trigger is glob', () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: ['**/*.ts'] });
+    expect(alwaysOnRedundantGlobs.run(file, defaultConfig)).toEqual([]);
+  });
+
+  it('does not fire when trigger is agent_requested', () => {
+    const file = makeClassifiedFile({ trigger: 'agent_requested', globs: ['**/*.ts'] });
+    expect(alwaysOnRedundantGlobs.run(file, defaultConfig)).toEqual([]);
+  });
+});
+
+describe('globNoWorkspaceMatch', () => {
+  it('does not fire for non-glob triggers', async () => {
+    const file = makeClassifiedFile({ trigger: 'always', globs: undefined });
+    const issues = await globNoWorkspaceMatch.run(file, defaultConfig);
+    expect(issues).toEqual([]);
+  });
+
+  it('does not fire when globs is undefined (defers to globMissingPatterns)', async () => {
+    const file = makeClassifiedFile({ trigger: 'glob', globs: undefined });
+    const issues = await globNoWorkspaceMatch.run(file, defaultConfig);
+    expect(issues).toEqual([]);
   });
 });
 
