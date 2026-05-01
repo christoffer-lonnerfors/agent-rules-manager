@@ -10,9 +10,9 @@ import {
 
 const warning: RuleIssue = { id: 'empty-body', severity: 'warning', message: 'empty' };
 const error: RuleIssue = {
-  id: 'extension-mismatch',
+  id: 'rule-too-large',
   severity: 'error',
-  message: 'mismatch',
+  message: 'too large',
   ruleId: 'r1',
 };
 const info: RuleIssue = { id: 'missing-description', severity: 'info', message: 'desc' };
@@ -23,7 +23,7 @@ describe('hasIssue', () => {
   });
 
   it('returns false when issue is absent', () => {
-    expect(hasIssue([warning], 'extension-mismatch')).toBe(false);
+    expect(hasIssue([warning], 'rule-too-large')).toBe(false);
   });
 
   it('returns false for empty array', () => {

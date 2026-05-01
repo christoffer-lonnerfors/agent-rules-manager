@@ -962,14 +962,7 @@ export class ActionsWebviewProvider implements vscode.WebviewViewProvider {
 
 // ── Module-level helpers ────────────────────────────────────────────────
 
-/**
- * Stricter coverage check: a rule is effectively covered by an agent only if
- * at least one file is in a readable format AND has no extension mismatch diagnostic.
- * (A file with wrong extension won't be read by the agent at runtime.)
- */
 function isEffectivelyCovered(lr: LogicalRule, agentId: AgentId): boolean {
   const readable = getReadableFormats(agentId);
-  return lr.rules.some(
-    (r) => readable.includes(r.format) && !r.diagnostics.some((d) => d.id === 'extension-mismatch'),
-  );
+  return lr.rules.some((r) => readable.includes(r.format));
 }

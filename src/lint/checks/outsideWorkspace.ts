@@ -28,6 +28,9 @@ export const outsideWorkspace: FileLintCheck = {
     const fileDir = path.dirname(file.filePath);
 
     for (const link of file.links) {
+      if (link.patternId === 'backtick-path') {
+        continue;
+      }
       const resolved = path.resolve(fileDir, link.target);
       if (!resolved.startsWith(workspaceRoot + path.sep)) {
         diagnostics.push({

@@ -1,5 +1,5 @@
 import { LogicalRule } from '../logical/logicalRule';
-import { RuleIssue } from './ruleIssues';
+import { RuleIssue, IssueId } from './ruleIssues';
 import { FileLintCheck, CrossFileLintCheck, LintConfig } from './lintCheck';
 import { ClassifiedFile, FileDiagnostic } from '../scanner/classifiedFile';
 
@@ -84,6 +84,34 @@ export async function computeIssues(
     }
     const result = await check.run(logicalRule, config);
     issues.push(...result);
+  }
+
+  return issues;
+}
+
+/**
+ * Run all lint checks — both cross-file and file-level — for a single logical rule.
+ * Returns a unified RuleIssue[] where file-level issues carry ruleId to identify their source.
+ *
+ * This is the primary entry point for the tree view and any other consumer
+ * that wants a complete picture of issues for a logical rule.
+ */
+export async function computeAllIssues(
+  logicalRule: LogicalRule,
+  config: LintConfig,
+): Promise<RuleIssue[]> {
+  const issues: RuleIssue[] = await computeIssues(logicalRule, config);
+
+  for (const file of logicalRule.rules) {
+    const fileDiags = await computeFileDiagnostics(file, config);
+    for (const diag of fileDiags) {
+      issues.push({
+        id: diag.id as IssueId,
+        severity: diag.severity,
+        message: diag.message,
+        ruleId: file.id,
+      });
+    }
   }
 
   return issues;

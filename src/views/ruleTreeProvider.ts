@@ -13,7 +13,7 @@ import {
   getFileIssues,
   dedupeFileIssues,
 } from '../lint/ruleIssues';
-import { computeIssues, LintConfig } from '../lint/lintEngine';
+import { computeAllIssues, LintConfig } from '../lint/lintEngine';
 import { filterIssuesForAgent } from '../lint/agentFilter';
 import {
   estimateTokens,
@@ -401,7 +401,7 @@ export class RuleTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
     return Promise.all(
       filtered.map(async (logicalRule) => {
-        const issues = await computeIssues(logicalRule, this.issueConfig);
+        const issues = await computeAllIssues(logicalRule, this.issueConfig);
         return {
           type: 'logical' as const,
           logicalRule,

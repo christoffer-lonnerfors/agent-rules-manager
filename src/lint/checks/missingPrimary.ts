@@ -16,10 +16,7 @@ export const missingPrimary: CrossFileLintCheck = {
     }
 
     const readable = getReadableFormats(config.agent as AgentId);
-    const effectivelyCovered = lr.rules.some(
-      (r) =>
-        readable.includes(r.format) && !r.diagnostics.some((d) => d.id === 'extension-mismatch'),
-    );
+    const effectivelyCovered = lr.rules.some((r) => readable.includes(r.format));
     if (effectivelyCovered) {
       return [];
     }

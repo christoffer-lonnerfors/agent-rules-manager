@@ -7,7 +7,6 @@ export type IssueId =
   // Structural / cross-format issues
   | 'diverged-content' // rule body differs across format versions
   | 'missing-primary' // no version in the user's primary format
-  | 'extension-mismatch' // file extension doesn't match the format's expected extensions
   // Content quality issues
   | 'empty-body'
   | 'missing-description'
