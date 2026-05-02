@@ -18,7 +18,8 @@ import { parseFrontmatter } from './scanner/frontmatterParser';
 import { FORMAT_DEFINITIONS } from './formats/formatRegistry';
 import { toCaseInsensitiveGlob } from './scanner/treeWalker';
 import { detectDominantAgent } from './agents/agentAutoDetector';
-import { writeRuleFile } from './actions/ruleWriter';
+import { writeRuleFile, buildFrontmatter } from './actions/ruleWriter';
+import { parseSections } from './actions/ruleSplitter';
 import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
 import { AgentConfigWebviewPanel } from './views/agentConfigWebviewPanel';
 import { ClassifiedFile } from './scanner/classifiedFile';
@@ -68,6 +69,86 @@ function resolveRuleTreeSelection(
   return undefined;
 }
 
+type BulkConflictStrategy = 'replace' | 'skip' | 'ask';
+
+async function writeRuleToFormat(
+  logicalRule: LogicalRule,
+  slug: string,
+  targetFormat: RuleFormat,
+  root: string,
+  bulkStrategy: BulkConflictStrategy,
+  bodyOverride?: string,
+): Promise<'written' | 'skipped' | 'cancel-all'> {
+  const body = bodyOverride ?? getSourceBody(logicalRule);
+  const ruleMeta = buildRuleMetaComment(
+    slug,
+    logicalRule.globs,
+    logicalRule.trigger,
+    logicalRule.description,
+  );
+
+  const targetPath = computeTargetPath(logicalRule, targetFormat, root);
+
+  if (!targetPath) {
+    // ── Multi-file format ──────────────────────────────────────────────
+    const config = FORMAT_DEFINITIONS.find((d) => d.id === targetFormat)!;
+    const targetDir = path.join(root, config.validPaths[0]);
+    const targetExt = config.validExtensions[0];
+    const slugPath = path.join(targetDir, slug + targetExt);
+
+    if (fs.existsSync(slugPath)) {
+      if (bulkStrategy === 'skip') return 'skipped';
+      if (bulkStrategy === 'ask') {
+        const pick = await vscode.window.showQuickPick(['Replace', 'Skip', 'Cancel all'], {
+          placeHolder: `${slug}${targetExt} already exists in target directory`,
+        });
+        if (!pick || pick === 'Cancel all') return 'cancel-all';
+        if (pick === 'Skip') return 'skipped';
+      }
+      // 'replace' or user chose Replace — fall through to write
+    }
+
+    const frontmatter = buildFrontmatter(targetFormat, logicalRule);
+    const content = frontmatter ? `---\n${frontmatter}---\n\n${body}\n` : body + '\n';
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.writeFileSync(slugPath, content, 'utf-8');
+    return 'written';
+  }
+
+  // ── Named-file format ────────────────────────────────────────────────
+  const existingContent = fs.existsSync(targetPath)
+    ? fs.readFileSync(targetPath, 'utf-8')
+    : undefined;
+  const conflict = detectConflict(existingContent, slug);
+
+  let writeStrategy: 'create' | 'append' | 'replace';
+
+  if (conflict === 'none') {
+    writeStrategy = 'create';
+  } else if (bulkStrategy === 'skip') {
+    return 'skipped';
+  } else if (bulkStrategy === 'replace') {
+    writeStrategy = conflict === 'same-slug' ? 'replace' : 'append';
+  } else {
+    // 'ask'
+    const isSameSlug = conflict === 'same-slug';
+    const primaryLabel = isSameSlug ? 'Replace existing section' : 'Append as new section';
+    const pick = await vscode.window.showQuickPick([primaryLabel, 'Skip', 'Cancel all'], {
+      placeHolder: isSameSlug
+        ? `${path.basename(targetPath)} already has a section for "${slug}"`
+        : `${path.basename(targetPath)} exists but has no "${slug}" section`,
+    });
+    if (!pick || pick === 'Cancel all') return 'cancel-all';
+    if (pick === 'Skip') return 'skipped';
+    writeStrategy = isSameSlug ? 'replace' : 'append';
+  }
+
+  const newContent = computeNamedFileContent(existingContent, slug, ruleMeta, body, writeStrategy);
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, newContent, 'utf-8');
+  return 'written';
+}
+
 export function activate(context: vscode.ExtensionContext) {
   // Initialize core services
   const ruleIndex = new RuleStore(context);
@@ -108,6 +189,7 @@ export function activate(context: vscode.ExtensionContext) {
   const treeView = vscode.window.createTreeView('agentRules.rulesView', {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
+    canSelectMany: true,
   });
 
   const VIEW_MODE_LABELS: Record<string, string> = { logical: 'Logical', fileTree: 'File Tree' };
@@ -308,6 +390,287 @@ export function activate(context: vscode.ExtensionContext) {
 
       // ── 7. Open + rescan ───────────────────────────────────────────
       await vscode.window.showTextDocument(vscode.Uri.file(targetPath));
+      await scannerService.scan({ silent: true });
+    },
+  );
+
+  const convertSelectedRulesCmd = vscode.commands.registerCommand(
+    'agentRules.convertSelectedRules',
+    async () => {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!root) {
+        vscode.window.showErrorMessage('No workspace folder open.');
+        return;
+      }
+
+      // ── 1. Collect selected nodes ────────────────────────────────────
+      const selected = treeView.selection
+        .map((node) => {
+          const o = node as { type?: string; rule?: ClassifiedFile; logicalRule?: LogicalRule };
+          if (o.type === 'file' && o.rule) return wrapClassifiedFileAsLogicalRule(o.rule);
+          if (o.type === 'logical' && o.logicalRule) {
+            const primary = [...o.logicalRule.rules].sort(
+              (a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime(),
+            )[0];
+            return {
+              logicalRule: o.logicalRule,
+              slug: path.basename(primary.filePath, primary.fileExtension),
+            };
+          }
+          return undefined;
+        })
+        .filter((x): x is { logicalRule: LogicalRule; slug: string } => x !== undefined);
+
+      if (selected.length === 0) {
+        vscode.window.showErrorMessage('No rules selected. Select rules in the tree view first.');
+        return;
+      }
+
+      // ── 2. Format picker ─────────────────────────────────────────────
+      const writableFormats = FORMAT_DEFINITIONS.filter(
+        (d) => d.writable !== false && d.discoverable !== false,
+      );
+      const formatPick = await vscode.window.showQuickPick(
+        writableFormats.map((d) => ({ label: FORMAT_LABELS[d.id as RuleFormat], id: d.id })),
+        { placeHolder: 'Select target format' },
+      );
+      if (!formatPick) return;
+      const targetFormat = formatPick.id as RuleFormat;
+
+      // ── 3. Conflict strategy ─────────────────────────────────────────
+      const strategyPick = await vscode.window.showQuickPick(
+        ['Replace existing', 'Skip existing', 'Ask per file'],
+        { placeHolder: 'How to handle existing files?' },
+      );
+      if (!strategyPick) return;
+      const bulkStrategy: BulkConflictStrategy =
+        strategyPick === 'Replace existing' ? 'replace'
+        : strategyPick === 'Skip existing' ? 'skip'
+        : 'ask';
+
+      // ── 4. Process with progress ─────────────────────────────────────
+      let written = 0;
+      let skipped = 0;
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: 'Converting rules…',
+          cancellable: false,
+        },
+        async (progress) => {
+          for (let i = 0; i < selected.length; i++) {
+            const { logicalRule, slug } = selected[i];
+            progress.report({
+              message: `${slug} (${i + 1}/${selected.length})`,
+              increment: 100 / selected.length,
+            });
+            const result = await writeRuleToFormat(logicalRule, slug, targetFormat, root, bulkStrategy);
+            if (result === 'written') written++;
+            else if (result === 'skipped') skipped++;
+            else break; // 'cancel-all'
+          }
+        },
+      );
+
+      vscode.window.showInformationMessage(`Converted ${written}, skipped ${skipped}.`);
+      await scannerService.scan({ silent: true });
+    },
+  );
+
+  const exportToFormatCmd = vscode.commands.registerCommand(
+    'agentRules.exportToFormat',
+    async () => {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!root) {
+        vscode.window.showErrorMessage('No workspace folder open.');
+        return;
+      }
+
+      const allRules = ruleIndex.getLogicalRules();
+      if (allRules.length === 0) {
+        vscode.window.showInformationMessage('No rules found in workspace.');
+        return;
+      }
+
+      // ── Format picker ────────────────────────────────────────────────
+      const writableFormats = FORMAT_DEFINITIONS.filter(
+        (d) => d.writable !== false && d.discoverable !== false,
+      );
+      const formatPick = await vscode.window.showQuickPick(
+        writableFormats.map((d) => ({ label: FORMAT_LABELS[d.id as RuleFormat], id: d.id })),
+        { placeHolder: 'Select target format' },
+      );
+      if (!formatPick) return;
+      const targetFormat = formatPick.id as RuleFormat;
+
+      // ── Conflict strategy ────────────────────────────────────────────
+      const strategyPick = await vscode.window.showQuickPick(
+        ['Replace existing', 'Skip existing', 'Ask per file'],
+        { placeHolder: 'How to handle existing files?' },
+      );
+      if (!strategyPick) return;
+      const bulkStrategy: BulkConflictStrategy =
+        strategyPick === 'Replace existing' ? 'replace'
+        : strategyPick === 'Skip existing' ? 'skip'
+        : 'ask';
+
+      // ── Process with progress ────────────────────────────────────────
+      let written = 0;
+      let skipped = 0;
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: 'Exporting rules…',
+          cancellable: false,
+        },
+        async (progress) => {
+          for (let i = 0; i < allRules.length; i++) {
+            const lr = allRules[i];
+            const primary = [...lr.rules].sort(
+              (a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime(),
+            )[0];
+            const slug = path.basename(primary.filePath, primary.fileExtension);
+            progress.report({
+              message: `${slug} (${i + 1}/${allRules.length})`,
+              increment: 100 / allRules.length,
+            });
+            const result = await writeRuleToFormat(lr, slug, targetFormat, root, bulkStrategy);
+            if (result === 'written') written++;
+            else if (result === 'skipped') skipped++;
+            else break; // 'cancel-all'
+          }
+        },
+      );
+
+      vscode.window.showInformationMessage(`Exported ${written}, skipped ${skipped}.`);
+      await scannerService.scan({ silent: true });
+    },
+  );
+
+  const splitToFormatCmd = vscode.commands.registerCommand(
+    'agentRules.splitToFormat',
+    async (arg?: unknown) => {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!root) {
+        vscode.window.showErrorMessage('No workspace folder open.');
+        return;
+      }
+
+      // ── 1. Resolve source file path ──────────────────────────────────
+      let sourceFilePath: string | undefined;
+
+      if (arg instanceof vscode.Uri) {
+        sourceFilePath = arg.fsPath;
+      } else {
+        const resolved = resolveRuleTreeSelection(arg, treeView);
+        if (resolved?.type === 'file') {
+          sourceFilePath = resolved.rule.filePath;
+        } else {
+          const uris = await vscode.window.showOpenDialog({
+            canSelectMany: false,
+            filters: { 'Rule files': ['md'] },
+            openLabel: 'Select rule file to split',
+          });
+          if (!uris?.[0]) return;
+          sourceFilePath = uris[0].fsPath;
+        }
+      }
+
+      if (!sourceFilePath) return;
+
+      // ── 2. Parse sections ────────────────────────────────────────────
+      let content: string;
+      try {
+        content = fs.readFileSync(sourceFilePath, 'utf-8');
+      } catch {
+        vscode.window.showErrorMessage(`Cannot read file: ${sourceFilePath}`);
+        return;
+      }
+
+      const sections = parseSections(content);
+      if (sections.length === 0) {
+        vscode.window.showErrorMessage(
+          'No rule-meta sections found. Only files containing <!-- rule-meta: ... --> markers can be split.',
+        );
+        return;
+      }
+
+      // ── 3. Section picker (multi-select, all pre-selected) ───────────
+      const sectionPicks = await vscode.window.showQuickPick(
+        sections.map((s) => ({
+          label: s.meta.slug,
+          description: s.meta.description,
+          picked: true,
+          section: s,
+        })),
+        { placeHolder: 'Select sections to extract', canPickMany: true },
+      );
+      if (!sectionPicks || sectionPicks.length === 0) return;
+      const selectedSections = sectionPicks.map((p) => p.section);
+
+      // ── 4. Format picker ─────────────────────────────────────────────
+      const writableFormats = FORMAT_DEFINITIONS.filter(
+        (d) => d.writable !== false && d.discoverable !== false,
+      );
+      const formatPick = await vscode.window.showQuickPick(
+        writableFormats.map((d) => ({ label: FORMAT_LABELS[d.id as RuleFormat], id: d.id })),
+        { placeHolder: 'Select output format' },
+      );
+      if (!formatPick) return;
+      const targetFormat = formatPick.id as RuleFormat;
+
+      // ── 5. Write each section ────────────────────────────────────────
+      const config = FORMAT_DEFINITIONS.find((d) => d.id === targetFormat)!;
+      let firstWrittenPath: string | undefined;
+      let written = 0;
+      let skipped = 0;
+
+      for (const section of selectedSections) {
+        const syntheticRule: LogicalRule = {
+          id: '',
+          description: section.meta.description ?? section.meta.slug,
+          trigger: section.meta.trigger ?? 'always',
+          globs: section.meta.globs,
+          formats: [],
+          rules: [],
+          isDiverged: false,
+          similarity: 1,
+        };
+
+        const result = await writeRuleToFormat(
+          syntheticRule,
+          section.meta.slug,
+          targetFormat,
+          root,
+          'ask',
+          section.body,
+        );
+
+        if (result === 'written') {
+          written++;
+          if (!firstWrittenPath) {
+            const tp = computeTargetPath(syntheticRule, targetFormat, root);
+            if (tp) {
+              firstWrittenPath = tp;
+            } else {
+              firstWrittenPath = path.join(
+                root,
+                config.validPaths[0],
+                section.meta.slug + config.validExtensions[0],
+              );
+            }
+          }
+        } else if (result === 'skipped') {
+          skipped++;
+        } else {
+          break; // 'cancel-all'
+        }
+      }
+
+      if (firstWrittenPath && fs.existsSync(firstWrittenPath)) {
+        await vscode.window.showTextDocument(vscode.Uri.file(firstWrittenPath));
+      }
+      vscode.window.showInformationMessage(`Split: ${written} written, ${skipped} skipped.`);
       await scannerService.scan({ silent: true });
     },
   );
@@ -909,6 +1272,9 @@ export function activate(context: vscode.ExtensionContext) {
     bodyProvider,
     previewProviderReg,
     convertRuleCmd,
+    convertSelectedRulesCmd,
+    exportToFormatCmd,
+    splitToFormatCmd,
     filterCmd,
     clearFilterCmd,
     showLogicalViewCmd,
