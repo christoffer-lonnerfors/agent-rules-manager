@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 import { RuleStore } from './logical/ruleStore';
 import { ScannerService } from './scanner/scannerService';
 import { RuleTreeProvider, RuleIssueDecorationProvider } from './views/ruleTreeProvider';
@@ -22,6 +23,15 @@ import { CoverageWebviewPanel } from './views/coverageWebviewPanel';
 import { AgentConfigWebviewPanel } from './views/agentConfigWebviewPanel';
 import { ClassifiedFile } from './scanner/classifiedFile';
 import { installMetaRule } from './actions/metaRuleInstaller';
+import {
+  buildRuleMetaComment,
+  detectConflict,
+  computeNamedFileContent,
+  computeTargetPath,
+  classifyFileAsLogicalRule,
+  wrapClassifiedFileAsLogicalRule,
+  getSourceBody,
+} from './actions/ruleConverter';
 import { exportCoverageToFile, exportCoverageToDefault } from './coverage/coverageExporter';
 import { registerCoverageLmTool } from './coverage/coverageLmTool';
 import {
@@ -80,6 +90,14 @@ export function activate(context: vscode.ExtensionContext) {
       return body;
     },
   });
+
+  // Register virtual document provider that serves computed post-write content for diff previews
+  const RULE_PREVIEW_SCHEME = 'rule-preview';
+  const previewContentStore = new Map<string, string>();
+  const previewProviderReg = vscode.workspace.registerTextDocumentContentProvider(
+    RULE_PREVIEW_SCHEME,
+    { provideTextDocumentContent(uri) { return previewContentStore.get(uri.path) ?? ''; } },
+  );
 
   // Register issue decoration provider (badges rules that have any issues)
   const issueDecoProvider = new RuleIssueDecorationProvider();
@@ -142,6 +160,155 @@ export function activate(context: vscode.ExtensionContext) {
         const uri = vscode.Uri.file(filePath);
         await vscode.window.showTextDocument(uri);
       }
+    },
+  );
+
+  const convertRuleCmd = vscode.commands.registerCommand(
+    'agentRules.convertRule',
+    async (arg?: unknown) => {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!root) {
+        vscode.window.showErrorMessage('No workspace folder open.');
+        return;
+      }
+
+      // ── 1. Resolve source ──────────────────────────────────────────
+      let logicalRule: LogicalRule | undefined;
+      let slug: string | undefined;
+      let sourceFormat: RuleFormat | undefined;
+
+      if (arg instanceof vscode.Uri) {
+        const result = classifyFileAsLogicalRule(arg.fsPath, root);
+        if (!result) {
+          vscode.window.showErrorMessage('File is not a recognised rule format.');
+          return;
+        }
+        ({ logicalRule, slug } = result);
+        sourceFormat = logicalRule.formats[0];
+      } else {
+        const resolved = resolveRuleTreeSelection(arg, treeView);
+        if (resolved) {
+          if (resolved.type === 'file') {
+            ({ logicalRule, slug } = wrapClassifiedFileAsLogicalRule(resolved.rule));
+            sourceFormat = resolved.rule.format;
+          } else {
+            logicalRule = resolved.logicalRule;
+            sourceFormat = logicalRule.formats[0];
+            const primary = [...logicalRule.rules].sort(
+              (a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime(),
+            )[0];
+            slug = path.basename(primary.filePath, primary.fileExtension);
+          }
+        } else {
+          const uris = await vscode.window.showOpenDialog({
+            canSelectMany: false,
+            filters: { 'Rule files': ['mdc', 'md'] },
+            openLabel: 'Select rule file',
+          });
+          if (!uris?.[0]) return;
+          const result = classifyFileAsLogicalRule(uris[0].fsPath, root);
+          if (!result) {
+            vscode.window.showErrorMessage('File is not a recognised rule format.');
+            return;
+          }
+          ({ logicalRule, slug } = result);
+          sourceFormat = logicalRule.formats[0];
+        }
+      }
+
+      if (!logicalRule || !slug || !sourceFormat) return;
+
+      // ── 2. Format picker ───────────────────────────────────────────
+      const writableFormats = FORMAT_DEFINITIONS.filter(
+        (d) => d.writable !== false && d.discoverable !== false && d.id !== sourceFormat,
+      );
+      const formatPick = await vscode.window.showQuickPick(
+        writableFormats.map((d) => ({ label: FORMAT_LABELS[d.id as RuleFormat], id: d.id })),
+        { placeHolder: 'Select target format' },
+      );
+      if (!formatPick) return;
+      const targetFormat = formatPick.id as RuleFormat;
+
+      // ── 3. Compute target path ─────────────────────────────────────
+      const targetPath = computeTargetPath(logicalRule, targetFormat, root);
+
+      // ── 4. Multi-file: delegate to writeRuleFile ───────────────────
+      if (!targetPath) {
+        const written = writeRuleFile(logicalRule, targetFormat);
+        if (written) await vscode.window.showTextDocument(vscode.Uri.file(written));
+        await scannerService.scan({ silent: true });
+        return;
+      }
+
+      // ── 5. Named-file: conflict detection + resolution ─────────────
+      const existingContent = fs.existsSync(targetPath)
+        ? fs.readFileSync(targetPath, 'utf-8')
+        : undefined;
+      const conflict = detectConflict(existingContent, slug);
+
+      const sourceBody = getSourceBody(logicalRule);
+      const ruleMeta = buildRuleMetaComment(
+        slug,
+        logicalRule.globs,
+        logicalRule.trigger,
+        logicalRule.description,
+      );
+
+      let strategy: 'create' | 'append' | 'replace';
+
+      if (conflict === 'none') {
+        strategy = 'create';
+      } else {
+        const isReplace = conflict === 'same-slug';
+        const primaryLabel = isReplace ? 'Replace existing section' : 'Append as new section';
+        const items = [primaryLabel, 'Preview diff', 'Cancel'];
+
+        let pick = await vscode.window.showQuickPick(items, {
+          placeHolder: isReplace
+            ? `Target already has a section for "${slug}"`
+            : `${path.basename(targetPath)} exists but has no "${slug}" section`,
+        });
+        if (!pick || pick === 'Cancel') return;
+
+        if (pick === 'Preview diff') {
+          const previewStr = computeNamedFileContent(
+            existingContent,
+            slug,
+            ruleMeta,
+            sourceBody,
+            isReplace ? 'replace' : 'append',
+          );
+          const previewKey = `/preview-${Date.now()}`;
+          previewContentStore.set(previewKey, previewStr);
+          const leftUri = existingContent
+            ? vscode.Uri.file(targetPath)
+            : vscode.Uri.parse(`${RULE_PREVIEW_SCHEME}:/empty`);
+          const rightUri = vscode.Uri.parse(`${RULE_PREVIEW_SCHEME}:${previewKey}`);
+          await vscode.commands.executeCommand(
+            'vscode.diff',
+            leftUri,
+            rightUri,
+            `Preview: ${path.basename(targetPath)} (${slug})`,
+          );
+          previewContentStore.delete(previewKey);
+
+          pick = await vscode.window.showQuickPick([primaryLabel, 'Cancel'], {
+            placeHolder: 'Confirm action',
+          });
+          if (!pick || pick === 'Cancel') return;
+        }
+
+        strategy = isReplace ? 'replace' : 'append';
+      }
+
+      // ── 6. Write ───────────────────────────────────────────────────
+      const newContent = computeNamedFileContent(existingContent, slug, ruleMeta, sourceBody, strategy);
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      fs.writeFileSync(targetPath, newContent, 'utf-8');
+
+      // ── 7. Open + rescan ───────────────────────────────────────────
+      await vscode.window.showTextDocument(vscode.Uri.file(targetPath));
+      await scannerService.scan({ silent: true });
     },
   );
 
@@ -740,6 +907,8 @@ export function activate(context: vscode.ExtensionContext) {
     treeView,
     actionsViewRegistration,
     bodyProvider,
+    previewProviderReg,
+    convertRuleCmd,
     filterCmd,
     clearFilterCmd,
     showLogicalViewCmd,

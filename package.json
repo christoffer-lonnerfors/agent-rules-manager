@@ -169,6 +169,11 @@
       {
         "command": "agentRules.getStarted",
         "title": "Agent Rules: Get Started"
+      },
+      {
+        "command": "agentRules.convertRule",
+        "title": "Convert to format…",
+        "category": "Agent Rules"
       }
     ],
     "languageModelTools": [
@@ -294,6 +299,18 @@
           "command": "agentRules.deleteAllRuleFormatFiles",
           "when": "view == agentRules.rulesView && viewItem =~ /logicalRule/",
           "group": "9_delete"
+        },
+        {
+          "command": "agentRules.convertRule",
+          "when": "view == agentRules.rulesView && viewItem =~ /ruleFile|logicalRule/",
+          "group": "3_convert@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "agentRules.convertRule",
+          "when": "resourceExtname == .mdc || resourceExtname == .md",
+          "group": "agentRules@1"
         }
       ]
     },
